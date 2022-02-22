@@ -1,16 +1,32 @@
-from sqlalchemy import Column, String
-from sqlalchemy.ext.hybrid import hybrid_property
+from typing import Optional
+from abc import abstractmethod
+from dataclasses import dataclass, field
 from datetime import datetime
-from controlsegment.db import FilesTemplate
 
 
-class File(FilesTemplate):
-    __tablename__ = "files"
-    file_type = Column(String(2), nullable=False)
-    observatory = Column(String(2), nullable=False)
-    polarization = Column(String(2))
+@dataclass
+class FlowEntry:
+    flow_type: str
+    state: str
+    priority: int
+    creation_time: datetime
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    flow_id: Optional[int] = None
+    call_data: str = ""
 
-    @hybrid_property
-    def file_name(self):
-        return f"L{self.level}_{self.file_type}{self.observatory}_" \
-               f"{datetime.strftime(self.date_acquired, '%Y%m%d%H%M%S')}_v{self.file_version}.fits"
+
+@dataclass
+class FileEntry:
+    level: int
+    file_version: int
+    software_version: int
+    date_acquired: datetime
+    date_observation: datetime
+    date_end: datetime
+    state: str
+    file_id: Optional[int] = None
+    processing_flow: Optional[int] = None
+
+
+

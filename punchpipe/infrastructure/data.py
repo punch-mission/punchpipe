@@ -1,4 +1,9 @@
-from controlsegment.data import DataObject, CalibrationObject
+class DataObject:
+    pass
+
+
+class CalibrationObject:
+    pass
 
 
 class PUNCHDataObject(DataObject):

@@ -25,9 +25,12 @@ setup(
         'sunpy',
         'pandas',
         'scikit-image',
-        'lmfit'],
+        'lmfit',
+        'prefect[mysql]',
+        'graphviz'],
     extras_require={
             'dev': [],
             'test': ['pytest', 'coverage'],
+            'docs': ['sphinx', 'sphinx-rtd-theme', 'sphinx-automodapi']
         },
 )

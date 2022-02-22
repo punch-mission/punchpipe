@@ -1,0 +1,4 @@
+Other page
+===========
+
+.. toctree::
