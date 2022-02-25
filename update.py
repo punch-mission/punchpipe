@@ -1,0 +1,3 @@
+import punchpipe
+
+print("hello")
