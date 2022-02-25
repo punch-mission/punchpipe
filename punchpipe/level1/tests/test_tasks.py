@@ -1,4 +1,4 @@
-from controlsegment.tasks.core import ScienceTask
+from punchpipe.infrastructure.tasks.core import ScienceTask
 from punchpipe.level1.tasks import destreak_task
 
 
