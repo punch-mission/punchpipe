@@ -1,6 +1,6 @@
 import numpy as np
 from punchpipe.infrastructure.tasks.core import ScienceFunction
-from punchpipe.infrastructure.data import PUNCHDataObject
+from punchpipe.infrastructure.data import PUNCHData
 from punchpipe.infrastructure.tasks.core import CalibrationConfiguration
 
 
@@ -71,7 +71,7 @@ class DestreakFunction(ScienceFunction):
                                                                       reset_line_time)
         return correction_matrix @ image
 
-    def process(self, data_object: PUNCHDataObject, parameters: CalibrationConfiguration) -> PUNCHDataObject:
+    def process(self, data_object: PUNCHData, parameters: CalibrationConfiguration) -> PUNCHData:
         # do the stuff on the actual data object
         # 1. get the data out somehow from PUNCHDataObject
         # 2. run the static methods on it
