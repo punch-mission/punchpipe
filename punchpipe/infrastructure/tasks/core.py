@@ -5,10 +5,10 @@ This module provides the core tasks for a controlsegment pipeline.
 from prefect import Task
 from abc import abstractmethod, ABCMeta
 from typing import Type, Dict, Optional, Union
-from punchpipe.infrastructure.data import DataObject, CalibrationObject
+from punchpipe.infrastructure.data import PUNCHData, PUNCHCalibration
 from punchpipe.infrastructure.db import FlowEntry
 
-CalibrationConfiguration = Dict[str, Union[CalibrationObject, str, int, float]]
+CalibrationConfiguration = Dict[str, Union[PUNCHCalibration, str, int, float]]
 
 
 class PipelineTask(Task):
@@ -86,8 +86,8 @@ class ScienceFunction(metaclass=ABCMeta):
     def __init__(self):
         pass
 
-    def process(self, data_object: DataObject,
-                parameters: Optional[CalibrationConfiguration]) -> DataObject:
+    def process(self, data_object: PUNCHData,
+                parameters: Optional[CalibrationConfiguration]) -> PUNCHData:
         """Main method to run a science function.
 
         Parameters
@@ -127,7 +127,7 @@ class ScienceTask(PipelineTask):
         self.science_function = science_function
         self.parameters = parameters
 
-    def run(self, data_object: DataObject,
+    def run(self, data_object: PUNCHData,
             parameters: Optional[CalibrationConfiguration]):
         """ Run the task.
         Parameters
@@ -162,7 +162,7 @@ class IngestTask(PipelineTask):
         super().__init__(name, **kwargs)
 
     @abstractmethod
-    def open(self, path: str) -> DataObject:
+    def open(self, path: str) -> PUNCHData:
         """Method to open the data and return it as a data object.
         Parameters
         ----------
@@ -206,7 +206,7 @@ class OutputTask(PipelineTask):
         super().__init__(name, **kwargs)
 
     @abstractmethod
-    def write(self, data: DataObject, path: str) -> None:
+    def write(self, data: PUNCHData, path: str) -> None:
         """Instructions on how to write the data to the specific file path
         Parameters
         ----------
@@ -222,7 +222,7 @@ class OutputTask(PipelineTask):
         """
         pass
 
-    def run(self, data: DataObject, path: str):
+    def run(self, data: PUNCHData, path: str):
         """Executes the writing method.
         Parameters
         ----------

@@ -27,7 +27,9 @@ setup(
         'scikit-image',
         'lmfit',
         'prefect[mysql]',
-        'graphviz'],
+        'graphviz',
+        'ndcube',
+        'matplotlib'],
     extras_require={
             'dev': [],
             'test': ['pytest', 'coverage'],
