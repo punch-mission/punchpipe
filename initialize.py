@@ -1,3 +1,0 @@
-import punchpipe
-
-print("Hello!")
