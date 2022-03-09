@@ -12,7 +12,7 @@ from punchpipe.infrastructure.tasks.processor import MarkFlowAsRunning, MarkFlow
     CreateFileDatabaseEntry
 from punchpipe.infrastructure.tasks.launcher import GatherQueuedFlows, CountRunningFlows, \
     EscalateLongWaitingFlows, FilterForLaunchableFlows, LaunchFlow
-from punchpipe.infrastructure.tasks.scheduler import CheckForInputs, ScheduleFlow
+from punchpipe.infrastructure.tasks.scheduler import CheckForInputs, ScheduleFlow, ScheduleFile
 
 
 __all__ = ['FlowGraph',
@@ -73,26 +73,22 @@ class FlowGraph:
         # set up the keyword dict
         if keywords:
             self._keywords: KeywordDict = keywords
-            # TODO: validate the keyword list
         else:
             self._keywords: KeywordDict = KeywordDict(dict())
-            # for start_task, end_task_list in self._adj_list.items():
-            #     for end_task in end_task_list:
-            #         self._keywords[(start_task, end_task)] = None
 
     def add_task(self, current_task: PipelineTask,
                  prior_tasks: Optional[List[PipelineTask]] = None,
                  keywords: Optional[KeywordDict] = None) -> None:
-        """Adds a task to the flow graph
+        """Adds a task to the flow graph.
 
         Parameters
         ----------
         current_task : PipelineTask
             The task that is being added.
         prior_tasks : Optional[List[PipelineTask]]
-            Tasks that directly preceed the `current_task` in execution
+            Tasks that directly preceed the `current_task` in execution.
         keywords : Optional[KeywordDict]
-            Mapping that dictates which of the `prior_tasks` are used as keywords input to the `current_task`
+            Mapping that dictates which of the `prior_tasks` are used as keywords input to the `current_task`.
 
         Returns
         -------
@@ -106,9 +102,6 @@ class FlowGraph:
 
         if keywords is None:
             keywords = dict()
-        # Make sure that all the keywords are present
-        # FlowGraph._expand_keywords(prior_tasks, keywords)
-        # assert FlowGraph._validate_keyword_prior_task_matches(prior_tasks, keywords), "keywords don't match tasks"
 
         if prior_tasks:
             assert all((task in self._adj_list for task in prior_tasks)), \
@@ -140,7 +133,17 @@ class FlowGraph:
         pass
 
     def render(self, path: str) -> None:
-        """ makes a graphical representation of the SegmentGraph"""
+        """Makes a graphical representation of the FlowGraph.
+
+        Parameters
+        ----------
+        path : str
+            where to write out the graphical representation.
+
+        Returns
+        -------
+        None
+        """
         g = graphviz.Digraph(self.segment_description)
         for task in self._tasks:
             g.node(task.name)
@@ -155,24 +158,81 @@ class FlowGraph:
         g.render(filename=path)
 
     def __len__(self) -> int:
+        """Number of tasks in the flow graph.
+        Returns
+        -------
+        int
+            Number of tasks in the flow graph.
+        """
         return len(self._tasks)
 
     def iterate_tasks(self) -> PipelineTask:
+        """Iterates over tasks in the FlowGraph.
+
+        Yields
+        -------
+        PipelineTask
+            the next pipeline task in the graph.
+        """
         for task in self._tasks:
             yield task
 
     def iterate_edges(self) -> Tuple[PipelineTask, PipelineTask]:
+        """Iterates over the edges in the graph.
+
+        Yields
+        -------
+        Tuple[PipelineTask, PipelineTask]
+            an edge in the graph where the first entry in the tuple is the start node and the last is the end node.
+        """
         for start_task in self._adj_list:
             for end_task in self._adj_list[start_task]:
                 yield start_task, end_task
 
     def get_downstream_tasks(self, task: PipelineTask) -> List[PipelineTask]:
+        """Determines downstream tasks for a given task. Downstream means a task that should be executed after.
+
+        Parameters
+        ----------
+        task : PipelineTask
+            Task for which to get the downstream tasks for.
+
+        Returns
+        -------
+        List[PipelineTask]
+            All downstream tasks. Will be empty if there are none.
+        """
         return self._adj_list[task] if task in self._adj_list else []
 
     def get_upstream_tasks(self, task: PipelineTask) -> List[PipelineTask]:
+        """Determines upstream task for a given task. Upstream means a task that should execute before the given task.
+
+        Parameters
+        ----------
+        task : PipelineTask
+            Query task that is used as a reference for finding those upstream
+
+        Returns
+        -------
+        List[PipelineTask]
+            All upstream tasks
+        """
         pass
 
     def gather_keywords_into(self, task: PipelineTask) -> Dict[str, PipelineTask]:
+        """Collects the keyword tasks that go into a given task as a dictionary. See the module description for
+        what a keyword task is.
+
+        Parameters
+        ----------
+        task : PipelineTask
+            Query task that is the end node for all the incoming tasks.
+
+        Returns
+        -------
+        Dict[str, PipelineTask]
+            Keys are the keywords and the value is the task that is upstream of the queried task.
+        """
         output: Dict[str, PipelineTask] = dict()
         for (start_task, end_task), keyword in self._keywords.items():
             if task == end_task:
@@ -182,7 +242,25 @@ class FlowGraph:
 
 
 class FlowBuilder(metaclass=ABCMeta):
-    def __init__(self, database_credentials: DatabaseCredentials, flow_name: str, frequency_in_minutes: Optional[int] = None):
+    """A generic builder class that the specific types of flows get constructed by.
+
+    Attributes
+    -----------
+    database_credentials : DatabaseCredentials
+        Database name, user, and password for the ControlSegment's database
+    flow_name : str
+        Name of the flow that will be built
+    frequency_in_minutes : Optional[int]
+        How often the given flow should run. If None, it does not run on a schedule but only when called.
+
+    See Also
+    ---------
+    CoreFlowBuilder, LauncherFlowBuilder, SchedulerFlowBuilder, ProcessFlowBuilder : children that implement this
+
+    """
+    def __init__(self, database_credentials: DatabaseCredentials,
+                 flow_name: str,
+                 frequency_in_minutes: Optional[int] = None):
         self.database_credentials = database_credentials
         self.flow_name = flow_name
         self.frequency_in_minutes = frequency_in_minutes
@@ -193,6 +271,10 @@ class FlowBuilder(metaclass=ABCMeta):
 
 
 class CoreFlowBuilder(FlowBuilder):
+    """A flow builder that takes a flow graph to create core flows. These core flows, by definition, should not touch
+    the databases.
+
+    """
     def __init__(self, database_credentials: DatabaseCredentials, level: int, flow_graph: FlowGraph):
         super().__init__(database_credentials, f"core level {level}")
         self.flow_graph = flow_graph
@@ -265,16 +347,20 @@ class SchedulerFlowBuilder(FlowBuilder):
 
     def build(self) -> Flow:
         schedule_flow = ScheduleFlow()
+        schedule_file = ScheduleFile()
 
         schedule = IntervalSchedule(interval=timedelta(minutes=self.frequency_in_minutes))
         flow = Flow(self.flow_name, schedule=schedule)
         flow.add_task(self.inputs_check_task)
-        # flow.add_task(schedule_flow)
-        # flow.set_dependencies(self.inputs_check_task,
-        #                       downstream_tasks=[schedule_flow])
-        # flow.set_dependencies(schedule_flow,
-        #                       keyword_tasks=dict(flow_entry=[self.inputs_check_task]),
-        #                       mapped=True)
+        flow.add_task(schedule_flow)
+        flow.set_dependencies(self.inputs_check_task,
+                              downstream_tasks=[schedule_flow])
+        flow.set_dependencies(schedule_flow,
+                              keyword_tasks=dict(pair=[self.inputs_check_task]),
+                              mapped=True)
+        flow.set_dependencies(schedule_file,
+                              keyword_tasks=dict(pair=[self.inputs_check_task]),
+                              mapped=True)
         return flow
 
 
