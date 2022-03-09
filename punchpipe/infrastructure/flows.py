@@ -3,13 +3,14 @@ from abc import ABCMeta, abstractmethod
 from prefect import Flow, Parameter
 from prefect.tasks.prefect.flow_run_rename import RenameFlowRun
 from prefect.schedules import IntervalSchedule
+from prefect.triggers import any_failed
 from typing import Optional, List, Dict, Set, Tuple, NewType
 import graphviz
 from datetime import timedelta, datetime
 from punchpipe.infrastructure.controlsegment import DatabaseCredentials, DatabaseCredentials
 from punchpipe.infrastructure.tasks.core import PipelineTask, OutputTask
 from punchpipe.infrastructure.tasks.processor import MarkFlowAsRunning, MarkFlowAsEnded, MarkFlowStartTime, MarkFlowEndTime, \
-    CreateFileDatabaseEntry
+    CreateFileDatabaseEntry, MarkFlowAsFailed
 from punchpipe.infrastructure.tasks.launcher import GatherQueuedFlows, CountRunningFlows, \
     EscalateLongWaitingFlows, FilterForLaunchableFlows, LaunchFlow
 from punchpipe.infrastructure.tasks.scheduler import CheckForInputs, ScheduleFlow, ScheduleFile
@@ -438,6 +439,19 @@ class ProcessFlowBuilder(FlowBuilder):
                 upstream_tasks=[output_task],
                 keyword_tasks=dict(flow_id=flow_id, meta_data=output_task)
             )
+
+        # Set up the graceful exit if something went wrong in executing the flow
+        # We add a task that follows all core flow and database tasks
+        # and marks the flow as failed if any of the prior tasks fail
+        # It does require the flow_id to know which flow failed
+        existing_tasks = process_flow.get_tasks()
+        core_failure_task = MarkFlowAsFailed(trigger=any_failed)
+        process_flow.add_task(core_failure_task)
+        process_flow.set_dependencies(core_failure_task, upstream_tasks=existing_tasks,
+                                      keyword_tasks=dict(flow_id=flow_id))
+
+        # The process flow is successful or not depending on the status of the core tasks
+        process_flow.set_reference_tasks(self.core_flow.get_tasks())
 
         return process_flow
 
