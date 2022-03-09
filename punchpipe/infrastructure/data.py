@@ -13,6 +13,7 @@ from dateutil.parser import parse as parse_datetime
 class PUNCHCalibration:
     pass
 
+
 class PUNCHData:
     """PUNCH data object
     Allows for the input of a dictionary of NDCubes for storage and custom methods.
@@ -80,32 +81,26 @@ class PUNCHData:
         """Generate relevant plots to display or file"""
         self.cubes[kind].show()
 
-    @property
     def observatory(self, kind: str = "default") -> str:
         """Observatory or Telescope name"""
         return self.cubes[kind].meta.get('obsrvtry', self.meta.get('telescop', "")).replace("_", " ")
 
-    @property
     def instrument(self, kind: str = "default") -> str:
         """Instrument name"""
         return self.cubes[kind].meta.get('instrument', "").replace("_", " ")
 
-    @property
     def detector(self, kind: str = "default") -> str:
         """Detector name"""
         return self.cubes[kind].meta.get('detector', "")
 
-    @property
     def processing_level(self, kind: str = "default") -> int:
         """FITS processing level if present"""
         return self.cubes[kind].meta.get('lvl_num', None)
 
-    @property
     def exposure_time(self, kind: str = "default") -> float:
         """Exposure time of the image"""
         if 'exptime' in self.cubes[kind].meta:
             return self.cubes[kind].meta['exptime']
 
-    @property
     def date_obs(self, kind: str = "default") -> datetime:
         return parse_datetime(self.cubes[kind].meta.get("date-obs"))
