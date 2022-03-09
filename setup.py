@@ -6,10 +6,10 @@ long_description = (here / 'README.md').read_text(encoding='utf-8')
 
 setup(
     name='punchpipe',
-    version='1.0',
-    package_dir={"": "punchpipe"},
-    packages=find_packages(where="punchpipe"),
-    python_requires=">=3.6, <4",
+    version='0.0.1',
+    # package_dir={"": "punchpipe"},
+    packages=find_packages(),
+    python_requires=">=3.7, <4",
     url='',
     license='',
     author='hughes.jmb',
