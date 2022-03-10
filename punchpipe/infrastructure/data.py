@@ -60,7 +60,18 @@ class PUNCHData:
             print("Please specify either an NDCube object, or a dictionary of NDCube objects")
 
     @classmethod
-    def from_fits(cls, filename: str) -> PUNCHData:
+    def from_fits(cls, inputs: Union[str, List[str], Dict[str, str]]) -> PUNCHData:
+        """
+        tries to infer from filename for str and List[str] what the keywords are. If it can't infer... Exception!
+        which tells them to do it manually For the dict it uses the manually indicated keywords
+        Parameters
+        ----------
+        inputs
+
+        Returns
+        -------
+
+        """
         with fits.open(filename) as hdul:
             data = hdul[0].data
             wcs = WCS(hdul[0].header)
@@ -70,6 +81,33 @@ class PUNCHData:
             ndcube_obj = NDCube(data, wcs=wcs, uncertainty=uncertainty, meta=meta, unit=unit)
             data_obj = {"wfi-starfield": ndcube_obj}
         return cls(data_obj)
+
+    # Implement some other functions from dictionary
+
+    def __getitem__(self, item) -> None:
+        pass
+
+    def __setitem__(self, key, value) -> None:
+        pass
+
+    def __delitem__(self, key) -> None:
+        pass
+
+    def clear(self) -> None:
+        """remove all NDCubes"""
+        pass
+
+    def update(self, other: PUNCHData) -> None:
+        """merge two PUNCHData objects"""
+        pass
+
+    def __contains__(self, item):
+        pass
+
+    def merge(self):
+
+    def purge(self):
+        # Just call the built in dictionary delitem function?
 
     def write(self, filename: str, kind: str = "default") -> None:
         """Write to FITS file"""
