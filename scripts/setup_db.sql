@@ -3,7 +3,7 @@ CREATE DATABASE IF NOT EXISTS punchpipe;
 USE punchpipe;
 
 CREATE TABLE flows (
-    flow_id  VARCHAR(44) UNIQUE NOT NULL,
+    flow_id  CHAR(44) UNIQUE NOT NULL,
     flow_type VARCHAR(64) NOT NULL,
     state VARCHAR(64) NOT NULL,
     creation_time DATETIME NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE files (
     date_end DATETIME NOT NULL,
     polarization CHAR(2),
     state VARCHAR(64) NOT NULL,
-    processing_flow INT UNSIGNED NOT NULL,
+    processing_flow CHAR(44) NOT NULL,
     file_name char(29) GENERATED ALWAYS AS
         (concat("L", level ,"_", file_type, observatory, "_",
             DATE_FORMAT(date_acquired, '%Y%m%d%H%i%s'),

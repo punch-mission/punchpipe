@@ -1,6 +1,7 @@
 from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from prefect import Flow, Parameter
+from prefect.tasks.mysql import MySQLFetch
 from prefect.tasks.prefect.flow_run_rename import RenameFlowRun
 from prefect.schedules import IntervalSchedule
 from prefect.triggers import any_failed
@@ -340,10 +341,13 @@ class LauncherFlowBuilder(FlowBuilder):
 
 class SchedulerFlowBuilder(FlowBuilder):
     def __init__(self, database_credentials: DatabaseCredentials,
-                 level: int, frequency_in_minutes: int, inputs_check_task: CheckForInputs):
+                 level: int, frequency_in_minutes: int, inputs_check_task: CheckForInputs, query_task: MySQLFetch):
         super().__init__(database_credentials, f"scheduler level {level}")
         self.level = level
         self.frequency_in_minutes = frequency_in_minutes
+        self.query_task = query_task(user=self.database_credentials.user,
+                                     password=self.database_credentials.password,
+                                     db_name=self.database_credentials.project_name)
         self.inputs_check_task = inputs_check_task()
 
     def build(self) -> Flow:
@@ -352,17 +356,21 @@ class SchedulerFlowBuilder(FlowBuilder):
 
         schedule = IntervalSchedule(interval=timedelta(minutes=self.frequency_in_minutes))
         flow = Flow(self.flow_name, schedule=schedule)
+        flow.add_task(self.query_task)
         flow.add_task(self.inputs_check_task)
         flow.add_task(schedule_flow)
         flow.add_task(schedule_file)
 
+        flow.set_dependencies(self.query_task,
+                              downstream_tasks=[self.inputs_check_task])
         flow.set_dependencies(self.inputs_check_task,
-                              downstream_tasks=[schedule_flow])
+                              downstream_tasks=[schedule_flow],
+                              keyword_tasks=dict(query_result=self.query_task))
         flow.set_dependencies(schedule_flow,
-                              keyword_tasks=dict(pair=[self.inputs_check_task]),
+                              keyword_tasks=dict(pair=self.inputs_check_task),
                               mapped=True)
         flow.set_dependencies(schedule_file,
-                              keyword_tasks=dict(pair=[self.inputs_check_task]),
+                              keyword_tasks=dict(pair=self.inputs_check_task),
                               mapped=True)
         return flow
 
