@@ -40,7 +40,7 @@ if __name__ == "__main__":
                         state="queued",
                         creation_time= now,
                         priority=1,
-                        call_data=json.dumps({"flow_id":this_flow_id})
+                        call_data=json.dumps({"flow_id": this_flow_id})
                     )
                     new_file = FileEntry(
                         level=2,

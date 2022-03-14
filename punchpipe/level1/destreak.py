@@ -32,6 +32,7 @@ class DestreakFunction(ScienceFunction):
         np.ndarray
             value of specified streak correction array
 
+        # TODO : add example call
         """
         L = np.tril(np.ones((n, n)) * below, -1)
         U = np.triu(np.ones((n, n)) * above, 1)
@@ -62,6 +63,7 @@ class DestreakFunction(ScienceFunction):
         np.ndarray
             a streak-corrected image
 
+        # TODO: add example call
         """
         assert len(image.shape) == 2, "must be a 2-D image"
         assert np.equal(*image.shape), "must be a square image"

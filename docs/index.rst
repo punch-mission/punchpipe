@@ -9,7 +9,7 @@ can be found in the `punchpipe repository`_.
 
 To aid in comprehending this package, we provide a tutorial on how to set up a pipeline in `samplepipe`_.
 
-.. automodule:: controlsegment.core
+.. automodule:: punchpipe.infrastructure.controlsegment
    :members:
 
 Indices and tables
