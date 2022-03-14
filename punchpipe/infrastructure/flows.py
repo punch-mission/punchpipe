@@ -354,6 +354,8 @@ class SchedulerFlowBuilder(FlowBuilder):
         flow = Flow(self.flow_name, schedule=schedule)
         flow.add_task(self.inputs_check_task)
         flow.add_task(schedule_flow)
+        flow.add_task(schedule_file)
+
         flow.set_dependencies(self.inputs_check_task,
                               downstream_tasks=[schedule_flow])
         flow.set_dependencies(schedule_flow,
@@ -402,7 +404,7 @@ class ProcessFlowBuilder(FlowBuilder):
         process_flow.set_dependencies(
             rename_flow,
             downstream_tasks=[mark_as_running],
-            keyword_tasks=dict(flow_run_name=str(datetime.now()))
+            keyword_tasks=dict(flow_run_name=flow_id)
         )
         process_flow.set_dependencies(
             mark_as_running,

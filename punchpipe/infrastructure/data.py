@@ -3,7 +3,7 @@ from ndcube import NDCube
 from astropy.io import fits
 from astropy.wcs import WCS
 import astropy.units as u
-from typing import Union, Optional
+from typing import Union, Optional, List, Dict
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime

@@ -3,7 +3,7 @@ CREATE DATABASE IF NOT EXISTS punchpipe;
 USE punchpipe;
 
 CREATE TABLE flows (
-    flow_id  INT UNSIGNED UNIQUE NOT NULL AUTO_INCREMENT,
+    flow_id  VARCHAR(44) UNIQUE NOT NULL,
     flow_type VARCHAR(64) NOT NULL,
     state VARCHAR(64) NOT NULL,
     creation_time DATETIME NOT NULL,
