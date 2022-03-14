@@ -73,7 +73,7 @@ class DestreakFunction(ScienceFunction):
                                                                       reset_line_time)
         return correction_matrix @ image
 
-    def process(self, data_object: PUNCHData, parameters: CalibrationConfiguration) -> PUNCHData:
+    def process(self, data_object: PUNCHData) -> PUNCHData:
         # do the stuff on the actual data object
         # 1. get the data out somehow from PUNCHDataObject
         # 2. run the static methods on it

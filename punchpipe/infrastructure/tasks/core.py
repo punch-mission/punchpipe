@@ -105,8 +105,8 @@ class ScienceTask(PipelineTask):
         self.science_function = science_function
         self.parameters = parameters
 
-    def run(self, data_object: PUNCHData,
-            parameters: Optional[CalibrationConfiguration]):
+    def run(self, data_object: PUNCHData):
+            #parameters: Optional[CalibrationConfiguration]):
         """ Run the task.
         Parameters
         ----------
