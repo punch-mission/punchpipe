@@ -275,7 +275,6 @@ class FlowBuilder(metaclass=ABCMeta):
 class CoreFlowBuilder(FlowBuilder):
     """A flow builder that takes a flow graph to create core flows. These core flows, by definition, should not touch
     the databases.
-
     """
     def __init__(self, database_credentials: DatabaseCredentials, level: int, flow_graph: FlowGraph):
         super().__init__(database_credentials, f"core level {level}")
@@ -284,9 +283,12 @@ class CoreFlowBuilder(FlowBuilder):
 
     def build(self) -> Flow:
         flow = Flow(self.flow_name)
+
+        # Add all tasks to the flow
         for task in self.flow_graph.iterate_tasks():
             flow.add_task(task)
 
+        # Create the dependencies between tasks
         for start_task in self.flow_graph.iterate_tasks():
             flow.set_dependencies(start_task,
                                   keyword_tasks=self.flow_graph.gather_keywords_into(start_task),
@@ -296,14 +298,19 @@ class CoreFlowBuilder(FlowBuilder):
 
 
 class LauncherFlowBuilder(FlowBuilder):
+    """A flow builder that makes launcher flows, i.e. the flows that start process flows running.
+    """
     def __init__(self, database_credentials: DatabaseCredentials, frequency_in_minutes: int):
         super().__init__(database_credentials, "launcher")
         self.frequency_in_minutes = frequency_in_minutes
 
     def build(self) -> Flow:
+        # Prepare the schedule
         schedule = IntervalSchedule(interval=timedelta(minutes=self.frequency_in_minutes))
 
         flow = Flow(self.flow_name, schedule=schedule)
+
+        # Create all necessary tasks and add them to the flow
         gather_queued_flows = GatherQueuedFlows(user=self.database_credentials.user,
                                                 password=self.database_credentials.password,
                                                 db_name=self.database_credentials.project_name)
@@ -322,6 +329,7 @@ class LauncherFlowBuilder(FlowBuilder):
         flow.add_task(filter_for_launchable_flows)
         flow.add_task(launch_flow)
 
+        # Build the dependencies between tasks
         flow.set_dependencies(count_running_flows,
                               downstream_tasks=[filter_for_launchable_flows])
         flow.set_dependencies(escalate_long_waiting_flows,
@@ -340,6 +348,9 @@ class LauncherFlowBuilder(FlowBuilder):
 
 
 class SchedulerFlowBuilder(FlowBuilder):
+    """A flow builder that creates scheduler flows, i.e. the kinds of flows that look for ready files and schedule
+    process flows to process them.
+    """
     def __init__(self, database_credentials: DatabaseCredentials,
                  level: int, frequency_in_minutes: int, inputs_check_task: CheckForInputs, query_task: MySQLFetch):
         super().__init__(database_credentials, f"scheduler level {level}")
@@ -376,6 +387,8 @@ class SchedulerFlowBuilder(FlowBuilder):
 
 
 class ProcessFlowBuilder(FlowBuilder):
+    """A flow builder that converts core flows into process flows.
+    """
     def __init__(self, database_credentials: DatabaseCredentials, level: int, core_flow: Flow) -> None:
         super().__init__(database_credentials, f"processor level {level}")
         self.core_flow = core_flow

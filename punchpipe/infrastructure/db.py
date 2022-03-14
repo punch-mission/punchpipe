@@ -6,6 +6,8 @@ from datetime import datetime
 
 @dataclass
 class FlowEntry:
+    """A representation of an entry from the flows table in the database.
+    """
     flow_type: str
     state: str
     priority: int
@@ -18,6 +20,8 @@ class FlowEntry:
 
 @dataclass
 class FileEntry:
+    """A representation of an entry from the files table in the database.
+    """
     level: int
     file_type: str
     observatory: str

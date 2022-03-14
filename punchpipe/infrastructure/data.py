@@ -61,6 +61,18 @@ class PUNCHData:
 
     @classmethod
     def from_fits(cls, filename: str) -> PUNCHData:
+        """Create a PUNCHData object from a FITS file
+
+        Parameters
+        ----------
+        filename : str
+            the FITS file to load
+
+        Returns
+        -------
+        PUNCHData
+            prepared data object from the file specified by filename
+        """
         with fits.open(filename) as hdul:
             data = hdul[0].data
             wcs = WCS(hdul[0].header)
@@ -103,4 +115,5 @@ class PUNCHData:
             return self.cubes[kind].meta['exptime']
 
     def date_obs(self, kind: str = "default") -> datetime:
+        """Date of observation"""
         return parse_datetime(self.cubes[kind].meta.get("date-obs"))

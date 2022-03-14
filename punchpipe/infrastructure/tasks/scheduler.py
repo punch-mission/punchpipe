@@ -7,6 +7,8 @@ from punchpipe.infrastructure.db import FlowEntry, FileEntry
 
 
 class CheckForInputs(PipelineTask):
+    """A generic kind of task for checking for inputs. This is inherited by a more specific task for each flow.
+    """
     def __init__(self, **kwargs):
         super().__init__("check for inputs", **kwargs)
 
@@ -16,6 +18,8 @@ class CheckForInputs(PipelineTask):
 
 
 class DetermineSchedule(PipelineTask):
+    """wut?
+    """
     def __init__(self, **kwargs):
         super().__init__("determine schedule", **kwargs)
 
@@ -25,6 +29,11 @@ class DetermineSchedule(PipelineTask):
 
 
 class ScheduleFile(MySQLExecute):
+    """A task that schedules a file.
+
+    This is done at the same time that a flow is scheduled. It creates a placeholder for the new file that is going
+    to be created so that it doesn't get queried twice.
+    """
     def __init__(self, *args, pair: Optional[Tuple[FlowEntry, FileEntry]]= None, **kwargs):
         if pair is not None:
             _, self.file_entry = pair
@@ -45,6 +54,8 @@ class ScheduleFile(MySQLExecute):
 
 
 class ScheduleFlow(MySQLExecute):
+    """A task that schedules a flow.
+    """
     def __init__(self, *args, pair: Optional[Tuple[FlowEntry, FileEntry]] = None, **kwargs):
         if pair is not None:
             self.flow_entry, _ = pair
