@@ -387,6 +387,8 @@ class SchedulerFlowBuilder(FlowBuilder):
         flow.set_dependencies(schedule_flow,
                               keyword_tasks=dict(pair=self.inputs_check_task),
                               mapped=True)
+
+        # TODO: re-enable scheduling file writing
         # flow.set_dependencies(schedule_file,
         #                       keyword_tasks=dict(pair=self.inputs_check_task),
         #                       mapped=True)
@@ -460,7 +462,8 @@ class ProcessFlowBuilder(FlowBuilder):
                                      password=self.database_credentials.password,
                                      db_name=self.database_credentials.project_name,
                                      commit=True)
-        create_database_entry_tasks = [CreateFileDatabaseEntry() for _ in self.output_tasks]
+        # TODO: re-enable writing to database for completed tasks
+        # create_database_entry_tasks = [CreateFileDatabaseEntry() for _ in self.output_tasks]
 
         process_flow.set_dependencies(
             mark_flow_end_time,
@@ -474,13 +477,14 @@ class ProcessFlowBuilder(FlowBuilder):
             keyword_tasks=dict(flow_id=flow_id)
         )
 
-        for database_task, output_task in zip(create_database_entry_tasks, self.output_tasks):
-            print(database_task, output_task)
-            process_flow.set_dependencies(
-                database_task,
-                upstream_tasks=[output_task],
-                keyword_tasks=dict(flow_id=flow_id, meta_data=output_task)
-            )
+        # TODO: re-enable writing to database for completed files
+        # for database_task, output_task in zip(create_database_entry_tasks, self.output_tasks):
+        #     print(database_task, output_task)
+        #     process_flow.set_dependencies(
+        #         database_task,
+        #         upstream_tasks=[output_task],
+        #         keyword_tasks=dict(flow_id=flow_id, meta_data=output_task)
+        #     )
 
         # Set up the graceful exit if something went wrong in executing the flow
         # We add a task that follows all core flow and database tasks

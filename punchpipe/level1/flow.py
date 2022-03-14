@@ -7,7 +7,7 @@ db_cred = DatabaseCredentials("project_name", "user", "password")
 level1_graph: FlowGraph = FlowGraph(1, "Level0 to Level1")
 level1_graph.add_task(input_filename, None)
 level1_graph.add_task(output_filename, None)
-level1_graph.add_task(load_level1, [input_filename], keywords={input_filename: "input_filename"})
+level1_graph.add_task(load_level1, [input_filename], keywords={input_filename: "path"})
 level1_graph.add_task(destreak_task, [load_level1], keywords={load_level1: "data_object"})
 level1_graph.add_task(output_level2, [destreak_task, output_filename],
                       keywords={destreak_task: "data", output_filename: "path"})

@@ -74,9 +74,4 @@ class DestreakFunction(ScienceFunction):
         return correction_matrix @ image
 
     def process(self, data_object: PUNCHData) -> PUNCHData:
-        # do the stuff on the actual data object
-        # 1. get the data out somehow from PUNCHDataObject
-        # 2. run the static methods on it
-        # 3. put it back in the data object
-        # 4. track history
-        pass
+        return data_object  # TODO : actually do destreaking!

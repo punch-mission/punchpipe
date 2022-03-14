@@ -121,7 +121,7 @@ class ScienceTask(PipelineTask):
             Data modified by the task.
 
         """
-        pass
+        return self.science_function().process(data_object)
 
 
 class IngestTask(PipelineTask):
