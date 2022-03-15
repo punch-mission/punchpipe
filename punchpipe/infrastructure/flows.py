@@ -1,6 +1,7 @@
 from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from prefect import Flow, Parameter
+from prefect.tasks.mysql import MySQLFetch
 from prefect.tasks.prefect.flow_run_rename import RenameFlowRun
 from prefect.schedules import IntervalSchedule
 from prefect.triggers import any_failed
@@ -95,7 +96,6 @@ class FlowGraph:
         -------
         None
         """
-        assert isinstance(current_task, PipelineTask), "type doesn't match"
 
         # If they're none just fill them in with defaults
         if prior_tasks is None:
@@ -274,7 +274,6 @@ class FlowBuilder(metaclass=ABCMeta):
 class CoreFlowBuilder(FlowBuilder):
     """A flow builder that takes a flow graph to create core flows. These core flows, by definition, should not touch
     the databases.
-
     """
     def __init__(self, database_credentials: DatabaseCredentials, level: int, flow_graph: FlowGraph):
         super().__init__(database_credentials, f"core level {level}")
@@ -283,9 +282,12 @@ class CoreFlowBuilder(FlowBuilder):
 
     def build(self) -> Flow:
         flow = Flow(self.flow_name)
+
+        # Add all tasks to the flow
         for task in self.flow_graph.iterate_tasks():
             flow.add_task(task)
 
+        # Create the dependencies between tasks
         for start_task in self.flow_graph.iterate_tasks():
             flow.set_dependencies(start_task,
                                   keyword_tasks=self.flow_graph.gather_keywords_into(start_task),
@@ -295,17 +297,23 @@ class CoreFlowBuilder(FlowBuilder):
 
 
 class LauncherFlowBuilder(FlowBuilder):
+    """A flow builder that makes launcher flows, i.e. the flows that start process flows running.
+    """
     def __init__(self, database_credentials: DatabaseCredentials, frequency_in_minutes: int):
         super().__init__(database_credentials, "launcher")
         self.frequency_in_minutes = frequency_in_minutes
 
     def build(self) -> Flow:
+        # Prepare the schedule
         schedule = IntervalSchedule(interval=timedelta(minutes=self.frequency_in_minutes))
 
         flow = Flow(self.flow_name, schedule=schedule)
+
+        # Create all necessary tasks and add them to the flow
         gather_queued_flows = GatherQueuedFlows(user=self.database_credentials.user,
                                                 password=self.database_credentials.password,
-                                                db_name=self.database_credentials.project_name)
+                                                db_name=self.database_credentials.project_name,
+                                                fetch='all')
         count_running_flows = CountRunningFlows(user=self.database_credentials.user,
                                                 password=self.database_credentials.password,
                                                 db_name=self.database_credentials.project_name)
@@ -321,6 +329,7 @@ class LauncherFlowBuilder(FlowBuilder):
         flow.add_task(filter_for_launchable_flows)
         flow.add_task(launch_flow)
 
+        # Build the dependencies between tasks
         flow.set_dependencies(count_running_flows,
                               downstream_tasks=[filter_for_launchable_flows])
         flow.set_dependencies(escalate_long_waiting_flows,
@@ -339,33 +348,56 @@ class LauncherFlowBuilder(FlowBuilder):
 
 
 class SchedulerFlowBuilder(FlowBuilder):
+    """A flow builder that creates scheduler flows, i.e. the kinds of flows that look for ready files and schedule
+    process flows to process them.
+    """
     def __init__(self, database_credentials: DatabaseCredentials,
-                 level: int, frequency_in_minutes: int, inputs_check_task: CheckForInputs):
+                 level: int, frequency_in_minutes: int, inputs_check_task: CheckForInputs, query_task: MySQLFetch):
         super().__init__(database_credentials, f"scheduler level {level}")
         self.level = level
         self.frequency_in_minutes = frequency_in_minutes
+        self.query_task = query_task(user=self.database_credentials.user,
+                                     password=self.database_credentials.password,
+                                     db_name=self.database_credentials.project_name,
+                                     fetch='all')
         self.inputs_check_task = inputs_check_task()
 
     def build(self) -> Flow:
-        schedule_flow = ScheduleFlow()
-        schedule_file = ScheduleFile()
+        schedule_flow = ScheduleFlow(user=self.database_credentials.user,
+                                     password=self.database_credentials.password,
+                                     db_name=self.database_credentials.project_name,
+                                     commit=True)
+        schedule_file = ScheduleFile(user=self.database_credentials.user,
+                                     password=self.database_credentials.password,
+                                     db_name=self.database_credentials.project_name,
+                                     commit=True)
 
         schedule = IntervalSchedule(interval=timedelta(minutes=self.frequency_in_minutes))
         flow = Flow(self.flow_name, schedule=schedule)
+        flow.add_task(self.query_task)
         flow.add_task(self.inputs_check_task)
         flow.add_task(schedule_flow)
+        # flow.add_task(schedule_file)
+
+        flow.set_dependencies(self.query_task,
+                              downstream_tasks=[self.inputs_check_task])
         flow.set_dependencies(self.inputs_check_task,
-                              downstream_tasks=[schedule_flow])
+                              downstream_tasks=[schedule_flow],
+                              keyword_tasks=dict(query_result=self.query_task))
         flow.set_dependencies(schedule_flow,
-                              keyword_tasks=dict(pair=[self.inputs_check_task]),
+                              keyword_tasks=dict(pair=self.inputs_check_task),
                               mapped=True)
-        flow.set_dependencies(schedule_file,
-                              keyword_tasks=dict(pair=[self.inputs_check_task]),
-                              mapped=True)
+
+        # TODO: re-enable scheduling file writing
+        # flow.set_dependencies(schedule_file,
+        #                       keyword_tasks=dict(pair=self.inputs_check_task),
+        #                       mapped=True)
         return flow
 
 
 class ProcessFlowBuilder(FlowBuilder):
+    """A flow builder that converts core flows into process flows.
+    """
     def __init__(self, database_credentials: DatabaseCredentials, level: int, core_flow: Flow) -> None:
         super().__init__(database_credentials, f"processor level {level}")
         self.core_flow = core_flow
@@ -396,13 +428,19 @@ class ProcessFlowBuilder(FlowBuilder):
 
         # set up the pre-flow tasks
         rename_flow = RenameFlowRun()
-        mark_as_running = MarkFlowAsRunning()
-        mark_flow_start_time = MarkFlowStartTime()
+        mark_as_running = MarkFlowAsRunning(user=self.database_credentials.user,
+                                     password=self.database_credentials.password,
+                                     db_name=self.database_credentials.project_name,
+                                     commit=True)
+        mark_flow_start_time = MarkFlowStartTime(user=self.database_credentials.user,
+                                     password=self.database_credentials.password,
+                                     db_name=self.database_credentials.project_name,
+                                     commit=True)
 
         process_flow.set_dependencies(
             rename_flow,
             downstream_tasks=[mark_as_running],
-            keyword_tasks=dict(flow_run_name=str(datetime.now()))
+            keyword_tasks=dict(flow_run_name=flow_id)
         )
         process_flow.set_dependencies(
             mark_as_running,
@@ -416,9 +454,16 @@ class ProcessFlowBuilder(FlowBuilder):
         )
 
         # set up the post-flow tasks
-        mark_as_ended = MarkFlowAsEnded()
-        mark_flow_end_time = MarkFlowEndTime()
-        create_database_entry_tasks = [CreateFileDatabaseEntry() for _ in self.output_tasks]
+        mark_as_ended = MarkFlowAsEnded(user=self.database_credentials.user,
+                                     password=self.database_credentials.password,
+                                     db_name=self.database_credentials.project_name,
+                                     commit=True)
+        mark_flow_end_time = MarkFlowEndTime(user=self.database_credentials.user,
+                                     password=self.database_credentials.password,
+                                     db_name=self.database_credentials.project_name,
+                                     commit=True)
+        # TODO: re-enable writing to database for completed tasks
+        # create_database_entry_tasks = [CreateFileDatabaseEntry() for _ in self.output_tasks]
 
         process_flow.set_dependencies(
             mark_flow_end_time,
@@ -432,20 +477,24 @@ class ProcessFlowBuilder(FlowBuilder):
             keyword_tasks=dict(flow_id=flow_id)
         )
 
-        for database_task, output_task in zip(create_database_entry_tasks, self.output_tasks):
-            print(database_task, output_task)
-            process_flow.set_dependencies(
-                database_task,
-                upstream_tasks=[output_task],
-                keyword_tasks=dict(flow_id=flow_id, meta_data=output_task)
-            )
+        # TODO: re-enable writing to database for completed files
+        # for database_task, output_task in zip(create_database_entry_tasks, self.output_tasks):
+        #     print(database_task, output_task)
+        #     process_flow.set_dependencies(
+        #         database_task,
+        #         upstream_tasks=[output_task],
+        #         keyword_tasks=dict(flow_id=flow_id, meta_data=output_task)
+        #     )
 
         # Set up the graceful exit if something went wrong in executing the flow
         # We add a task that follows all core flow and database tasks
         # and marks the flow as failed if any of the prior tasks fail
         # It does require the flow_id to know which flow failed
         existing_tasks = process_flow.get_tasks()
-        core_failure_task = MarkFlowAsFailed(trigger=any_failed)
+        core_failure_task = MarkFlowAsFailed(trigger=any_failed, user=self.database_credentials.user,
+                                     password=self.database_credentials.password,
+                                     db_name=self.database_credentials.project_name,
+                                     commit=True)
         process_flow.add_task(core_failure_task)
         process_flow.set_dependencies(core_failure_task, upstream_tasks=existing_tasks,
                                       keyword_tasks=dict(flow_id=flow_id))

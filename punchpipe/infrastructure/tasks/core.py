@@ -57,28 +57,6 @@ class PipelineTask(Task):
         """
         pass
 
-# TODO: delete from code!
-# class ControlTask(PipelineTask):
-#     # def __init__(self, name, session: Optional[Session] = None, flows_table: Optional[FlowEntry] = None, **kwargs):
-#     #     super().__init__(name, **kwargs)
-#     #     self.session = session
-#     #     self.flows_table = flows_table
-#
-#     def __init__(self, name, **kwargs):
-#         super().__init__(name, **kwargs)
-#
-#     def _assign_inputs(self, session: Session, flows_table: FlowEntry) -> None:
-#         if session is not None:
-#             self.session = session
-#         if flows_table is not None:
-#             self.flows_table = flows_table
-#         assert self.session is not None, "Session was never assigned"
-#         assert self.flows_table is not None, "Flows table was never assigned"
-#
-#     @abstractmethod
-#     def run(self, **kwargs):
-#         pass
-
 
 class ScienceFunction(metaclass=ABCMeta):
     """Class science code writers inherit from to create a new pipeline item
@@ -127,8 +105,8 @@ class ScienceTask(PipelineTask):
         self.science_function = science_function
         self.parameters = parameters
 
-    def run(self, data_object: PUNCHData,
-            parameters: Optional[CalibrationConfiguration]):
+    def run(self, data_object: PUNCHData):
+            #parameters: Optional[CalibrationConfiguration]):
         """ Run the task.
         Parameters
         ----------
@@ -143,7 +121,7 @@ class ScienceTask(PipelineTask):
             Data modified by the task.
 
         """
-        pass
+        return self.science_function().process(data_object)
 
 
 class IngestTask(PipelineTask):
