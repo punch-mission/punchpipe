@@ -8,6 +8,32 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
 from dateutil.parser import parse as parse_datetime
+from collections import namedtuple
+
+HistoryEntry = namedtuple("HistoryEntry", "datetime, source, comment")
+
+
+class History:
+    def __init__(self):
+        self._entries: List[HistoryEntry] = []
+
+    def add_entry(self, entry: HistoryEntry) -> None:
+        self._entries.append(entry)
+
+    def clear(self) -> None:
+        self._entries = []
+
+    def __getitem__(self, index: int) -> HistoryEntry:
+        return self._entries[index]
+
+    def most_recent(self) -> HistoryEntry:
+        return self._entries[-1]
+
+    def convert_to_fits_cards(self) -> None:
+        pass
+
+    def __len__(self):
+        return len(self._entries)
 
 
 class PUNCHCalibration:
@@ -58,6 +84,8 @@ class PUNCHData:
             self.cubes = dict()
         else:
             print("Please specify either an NDCube object, or a dictionary of NDCube objects")
+
+        self._history = History()
 
     @classmethod
     def from_fits(cls, filename: str) -> PUNCHData:
@@ -117,3 +145,4 @@ class PUNCHData:
     def date_obs(self, kind: str = "default") -> datetime:
         """Date of observation"""
         return parse_datetime(self.cubes[kind].meta.get("date-obs"))
+
