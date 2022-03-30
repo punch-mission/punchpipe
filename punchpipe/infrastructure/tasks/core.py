@@ -65,7 +65,7 @@ class ScienceFunction(metaclass=ABCMeta):
         pass
 
     def process(self, data_object: PUNCHData,
-                parameters: Optional[CalibrationConfiguration]) -> PUNCHData:
+                parameters: Optional[CalibrationConfiguration] = None) -> PUNCHData:
         """Main method to run a science function.
 
         Parameters
