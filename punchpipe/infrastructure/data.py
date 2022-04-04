@@ -1,14 +1,13 @@
 from __future__ import annotations
 from ndcube import NDCube
+from ndcube.visualization import BasePlotter, PlotterDescriptor
 from astropy.io import fits
 from astropy.wcs import WCS
 import astropy.units as u
 from typing import Union, Optional
 import numpy as np
-import matplotlib.pyplot as plt
 from datetime import datetime
 from dateutil.parser import parse as parse_datetime
-
 
 class PUNCHCalibration:
     pass
@@ -74,11 +73,12 @@ class PUNCHData:
         """
         with fits.open(filename) as hdul:
             data = hdul[0].data
+            meta = hdul[0].header
             wcs = WCS(hdul[0].header)
-            uncertainty = np.sqrt(np.abs(data))
-            meta = dict()
+            uncertainty = hdul[1].data
+            mask = hdul[2].data
             unit = u.ct  # counts
-            ndcube_obj = NDCube(data, wcs=wcs, uncertainty=uncertainty, meta=meta, unit=unit)
+            ndcube_obj = NDCube(data, wcs=wcs, uncertainty=uncertainty, mask=mask, meta=meta, unit=unit)
             data_obj = {"wfi-starfield": ndcube_obj}
         return cls(data_obj)
 
@@ -105,15 +105,33 @@ class PUNCHData:
         pass
 
     def merge(self):
+        pass
 
     def purge(self):
         # Just call the built in dictionary delitem function?
+        pass
 
     def write(self, filename: str, kind: str = "default") -> None:
         """Write to FITS file"""
         data = self.cubes[kind].data
+        uncert = self.cubes[kind].uncertainty
+        mask = self.cubes[kind].mask
+        meta = self.cubes[kind].meta
+        wcs = self.cubes[kind].wcs
 
-        fits.writeto(filename, data)
+        hdu_data = fits.PrimaryHDU()
+        hdu_data.data = data
+        hdu_data.header = meta
+
+        hdu_uncert = fits.ImageHDU()
+        hdu_uncert.data = uncert
+
+        hdu_mask = fits.ImageHDU()
+        hdu_mask.data = mask
+
+        hdul = fits.HDUList([hdu_data, hdu_uncert, hdu_mask])
+
+        hdul.writeto(filename)
 
     def plot(self, kind: str = "default") -> None:
         """Generate relevant plots to display or file"""
@@ -142,3 +160,23 @@ class PUNCHData:
 
     def date_obs(self, kind: str = "default") -> datetime:
         return parse_datetime(self.cubes[kind].meta.get("date-obs"))
+
+class HeaderTemplate:
+    """
+
+    """
+
+    pass
+
+class History:
+    """
+    
+    """
+    pass
+
+class PUNCHPlotter(BasePlotter):
+    """
+    Custom PUNCHPlotter class
+    """
+    def plot(self):
+        pass
