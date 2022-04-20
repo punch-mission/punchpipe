@@ -2,6 +2,10 @@ import os
 from pytest import fixture
 from punchpipe.infrastructure.data import PUNCHData
 
+from ndcube import NDCube
+
+import numpy as np
+
 
 TESTDATA_DIR = os.path.dirname(__file__)
 SAMPLE_FITS_PATH = os.path.join(TESTDATA_DIR, "L0_CL1_20211111070246_PUNCHData.fits")
@@ -26,31 +30,44 @@ def test_sample_data_creation(sample_data):
 
 
 def test_generate_empty():
-    pass
+    pd = PUNCHData()
+    assert isinstance(pd, PUNCHData)
 
 
 def test_generate_from_filename():
-    pass
+    pd = PUNCHData(SAMPLE_FITS_PATH)
+    assert isinstance(pd, PUNCHData)
 
 
 def test_generate_from_filenamelist():
-    pass
+    fl_list = [SAMPLE_FITS_PATH, SAMPLE_FITS_PATH]
+    pd = PUNCHData(fl_list)
+    assert isinstance(pd, PUNCHData)
 
 
 def test_generate_from_filenamedict():
-    pass
+    fl_dict = {"default": SAMPLE_FITS_PATH}
+    pd = PUNCHData(fl_dict)
+    assert isinstance(pd, PUNCHData)
 
 
 def test_generate_from_ndcube():
-    pass
+    nd_obj = NDCube(np.zeros(1024,1024))
+    pd = PUNCHData(nd_obj)
+    assert isintance(pd, PUNCHData)
 
 
 def test_generate_from_ndcubedict():
-    pass
+    nd_obj = NDCube(np.zeros(1024, 1024))
+    data_obj = {"default": nd_obj}
+    pd = PUNCHData(data_obj)
+    assert isintance(pd, PUNCHData)
 
 
 def test_write_data():
-    pass
+    pd = PUNCHData(SAMPLE_FITS_PATH)
+    pd.write(SAMPLE_WRITE_PATH)
+    # Check for writing to file? Read back in and compare?
 
 
 # Tests of PUNCHData dictionary manipulation
