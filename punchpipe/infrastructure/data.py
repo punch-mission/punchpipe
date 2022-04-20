@@ -3,9 +3,9 @@ from __future__ import annotations
 from collections import namedtuple
 from datetime import datetime
 from typing import Union, Optional, List, Dict
-
 import astropy.units as u
 import matplotlib
+from typing import Union, Optional, List, Dict
 import numpy as np
 from astropy.io import fits
 from astropy.nddata import StdDevUncertainty
@@ -13,6 +13,31 @@ from astropy.wcs import WCS
 from dateutil.parser import parse as parse_datetime
 from ndcube import NDCube
 from ndcube.visualization import BasePlotter
+
+HistoryEntry = namedtuple("HistoryEntry", "datetime, source, comment")
+
+
+class History:
+    def __init__(self):
+        self._entries: List[HistoryEntry] = []
+
+    def add_entry(self, entry: HistoryEntry) -> None:
+        self._entries.append(entry)
+
+    def clear(self) -> None:
+        self._entries = []
+
+    def __getitem__(self, index: int) -> HistoryEntry:
+        return self._entries[index]
+
+    def most_recent(self) -> HistoryEntry:
+        return self._entries[-1]
+
+    def convert_to_fits_cards(self) -> None:
+        pass
+
+    def __len__(self):
+        return len(self._entries)
 
 
 class PUNCHCalibration:
@@ -64,7 +89,10 @@ class PUNCHData:
         else:
             raise Exception("Please specify either an NDCube object, or a dictionary of NDCube objects")
 
+        self._history = History()
+
     @classmethod
+<<<<<<< HEAD
     def from_fits(cls, inputs: Union[str, List[str], Dict[str, str]]) -> PUNCHData:
         """
         Populates a PUNCHData object from specified FITS files.
@@ -320,45 +348,3 @@ class PUNCHData:
     def date_obs(self, kind: str = "default") -> datetime:
         return parse_datetime(self._cubes[kind].meta["date-obs"])
 
-
-class HeaderTemplate:
-    """
-
-    """
-
-    pass
-
-
-HistoryEntry = namedtuple("HistoryEntry", "datetime, source, comment")
-
-
-class History:
-    def __init__(self):
-        self._entries: List[HistoryEntry] = []
-
-    def add_entry(self, entry: HistoryEntry) -> None:
-        self._entries.append(entry)
-
-    def clear(self) -> None:
-        self._entries = []
-
-    def __getitem__(self, index: int) -> HistoryEntry:
-        return self._entries[index]
-
-    def most_recent(self) -> HistoryEntry:
-        return self._entries[-1]
-
-    def convert_to_fits_cards(self) -> None:
-        pass
-
-    def __len__(self):
-        return len(self._entries)
-
-
-class PUNCHPlotter(BasePlotter):
-    """
-    Custom PUNCHPlotter class
-    (useful for bespoke colormaps, or special handling of weights / masks)
-    """
-    def plot(self):
-        pass

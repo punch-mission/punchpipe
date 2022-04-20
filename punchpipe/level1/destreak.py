@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Optional
 from punchpipe.infrastructure.tasks.core import ScienceFunction
 from punchpipe.infrastructure.data import PUNCHData
 from punchpipe.infrastructure.tasks.core import CalibrationConfiguration
@@ -32,6 +33,7 @@ class DestreakFunction(ScienceFunction):
         np.ndarray
             value of specified streak correction array
 
+        # TODO : add example call
         """
         L = np.tril(np.ones((n, n)) * below, -1)
         U = np.triu(np.ones((n, n)) * above, 1)
@@ -62,6 +64,7 @@ class DestreakFunction(ScienceFunction):
         np.ndarray
             a streak-corrected image
 
+        # TODO: add example call
         """
         assert len(image.shape) == 2, "must be a 2-D image"
         assert np.equal(*image.shape), "must be a square image"
@@ -71,10 +74,5 @@ class DestreakFunction(ScienceFunction):
                                                                       reset_line_time)
         return correction_matrix @ image
 
-    def process(self, data_object: PUNCHData, parameters: CalibrationConfiguration) -> PUNCHData:
-        # do the stuff on the actual data object
-        # 1. get the data out somehow from PUNCHDataObject
-        # 2. run the static methods on it
-        # 3. put it back in the data object
-        # 4. track history
-        pass
+    def process(self, data_object: PUNCHData, config: Optional[CalibrationConfiguration] = None) -> PUNCHData:
+        return data_object  # TODO : actually do destreaking!

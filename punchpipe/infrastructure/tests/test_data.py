@@ -1,6 +1,7 @@
 import os
 from pytest import fixture
-from punchpipe.infrastructure.data import PUNCHData
+from datetime import datetime
+from punchpipe.infrastructure.data import PUNCHData, History, HistoryEntry
 
 from ndcube import NDCube
 
@@ -24,9 +25,6 @@ def write_data():
 
 def test_sample_data_creation(sample_data):
     assert isinstance(sample_data, PUNCHData)
-
-
-# Tests of PUNCHData object generation
 
 
 def test_generate_empty():
@@ -70,31 +68,18 @@ def test_write_data():
     # Check for writing to file? Read back in and compare?
 
 
-# Tests of PUNCHData dictionary manipulation
+@fixture
+def empty_history():
+    return History()
 
 
-def test_cubes_delete():
-    pass
-
-
-def test_cubes_clear():
-    pass
-
-
-def test_cubes_update():
-    pass
-
-
-# Tests of PUNCHData object writing
-
-
-def test_gen_filename():
-    pass
-
-
-def test_write():
-    pass
-
-
-def test_write_png():
-    pass
+def test_history_add_one(empty_history):
+    entry = HistoryEntry(datetime.now(), "test", "dummy")
+    assert len(empty_history) == 0
+    empty_history.add_entry(entry)
+    assert len(empty_history) == 1
+    assert empty_history.most_recent().source == "test"
+    assert empty_history.most_recent().comment == "dummy"
+    assert empty_history.most_recent() == empty_history[-1]
+    empty_history.clear()
+    assert len(empty_history) == 0

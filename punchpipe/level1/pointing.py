@@ -9,6 +9,9 @@ import lmfit
 from lmfit.lineshapes import gaussian2d
 
 
+# This file will be deleted and replaced with alignment.py
+
+
 def load_test_image():
     img = fits.open("data/WFI/L0_CL1_20211111063222.fits")[0].data
     hdr = fits.open("data/WFI/L0_CL1_20211111063222.wcs")[0].header

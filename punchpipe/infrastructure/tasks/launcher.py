@@ -9,6 +9,8 @@ from punchpipe.infrastructure.controlsegment import MAX_SECONDS_WAITING
 
 
 class GatherQueuedFlows(MySQLFetch):
+    """A task that queries the flows database for all flows that are queued.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args,
                          query="SELECT * FROM flows WHERE state = 'queued' ORDER BY priority DESC;",
@@ -16,6 +18,8 @@ class GatherQueuedFlows(MySQLFetch):
 
 
 class CountRunningFlows(MySQLFetch):
+    """A task that counts the number of flows that are currently running.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args,
                          query="SELECT COUNT(*) FROM flows WHERE state = 'running';",
@@ -23,6 +27,8 @@ class CountRunningFlows(MySQLFetch):
 
 
 class EscalateLongWaitingFlows(MySQLExecute):
+    """A task that tasks flows that have been running for too long and escalates their priority.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args,
                          query=f"UPDATE flows f1 LEFT JOIN flows f2 ON f1.flow_id = f2.flow_id SET f1.priority = 100 "
@@ -33,6 +39,8 @@ class EscalateLongWaitingFlows(MySQLExecute):
 
 
 class FilterForLaunchableFlows(PipelineTask):
+    """A task that checks if more flows are allowed to run.
+    """
     def __init__(self,  **kwargs):
         super().__init__("filter for launchable flows", **kwargs)
 
@@ -48,6 +56,8 @@ class FilterForLaunchableFlows(PipelineTask):
 
 
 class LaunchFlow(PipelineTask):
+    """A task that actually launches a flow given a flow entry result from an SQL query.
+    """
     def __init__(self, **kwargs):
         super().__init__("launch flow", **kwargs)
 
