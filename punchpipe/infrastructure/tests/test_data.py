@@ -20,10 +20,6 @@ def sample_data():
 
 
 @fixture
-def write_data():
-    return PUNCHData.write(SAMPLE_WRITE_PATH)
-
-@fixture
 def simple_ndcube():
     # Taken from NDCube documentation
 
@@ -52,13 +48,13 @@ def test_generate_from_filename():
 
 def test_generate_from_filenamelist():
     fl_list = [SAMPLE_FITS_PATH, SAMPLE_FITS_PATH]
-    pd = PUNCHData(fl_list)
+    pd = PUNCHData.from_fits(fl_list)
     assert isinstance(pd, PUNCHData)
 
 
 def test_generate_from_filenamedict():
     fl_dict = {"default": SAMPLE_FITS_PATH}
-    pd = PUNCHData(fl_dict)
+    pd = PUNCHData.from_fits(fl_dict)
     assert isinstance(pd, PUNCHData)
 
 
@@ -74,8 +70,8 @@ def test_generate_from_ndcubedict(simple_ndcube):
 
 
 def test_write_data():
-    pd = PUNCHData(SAMPLE_FITS_PATH)
-    pd.write(SAMPLE_WRITE_PATH)
+    pd = PUNCHData.from_fits(SAMPLE_FITS_PATH)
+    pd.write(SAMPLE_WRITE_PATH, kind="default")
     # Check for writing to file? Read back in and compare?
 
 
