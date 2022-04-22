@@ -1,4 +1,5 @@
 import os
+import astropy
 from pytest import fixture
 from datetime import datetime
 from punchpipe.infrastructure.data import PUNCHData, History, HistoryEntry
@@ -22,18 +23,30 @@ def sample_data():
 def write_data():
     return PUNCHData.write(SAMPLE_WRITE_PATH)
 
+@fixture
+def simple_ndcube():
+    # Taken from NDCube documentation
+
+    # Define data array.
+    data = np.random.rand(4, 4, 5)
+    # Define WCS transformations in an astropy WCS object.
+    wcs = astropy.wcs.WCS(naxis=3)
+    wcs.wcs.ctype = 'WAVE', 'HPLT-TAN', 'HPLN-TAN'
+    wcs.wcs.cunit = 'Angstrom', 'deg', 'deg'
+    wcs.wcs.cdelt = 0.2, 0.5, 0.4
+    wcs.wcs.crpix = 0, 2, 2
+    wcs.wcs.crval = 10, 0.5, 1
+    wcs.wcs.cname = 'wavelength', 'HPC lat', 'HPC lon'
+    nd_obj = NDCube(data=data, wcs=wcs)
+    return nd_obj
+
 
 def test_sample_data_creation(sample_data):
     assert isinstance(sample_data, PUNCHData)
 
 
-def test_generate_empty():
-    pd = PUNCHData()
-    assert isinstance(pd, PUNCHData)
-
-
 def test_generate_from_filename():
-    pd = PUNCHData(SAMPLE_FITS_PATH)
+    pd = PUNCHData.from_fits(SAMPLE_FITS_PATH)
     assert isinstance(pd, PUNCHData)
 
 
@@ -49,17 +62,15 @@ def test_generate_from_filenamedict():
     assert isinstance(pd, PUNCHData)
 
 
-def test_generate_from_ndcube():
-    nd_obj = NDCube(np.zeros(1024,1024))
-    pd = PUNCHData(nd_obj)
-    assert isintance(pd, PUNCHData)
+def test_generate_from_ndcube(simple_ndcube):
+    pd = PUNCHData(simple_ndcube)
+    assert isinstance(pd, PUNCHData)
 
 
-def test_generate_from_ndcubedict():
-    nd_obj = NDCube(np.zeros(1024, 1024))
-    data_obj = {"default": nd_obj}
+def test_generate_from_ndcubedict(simple_ndcube):
+    data_obj = {"default": simple_ndcube}
     pd = PUNCHData(data_obj)
-    assert isintance(pd, PUNCHData)
+    assert isinstance(pd, PUNCHData)
 
 
 def test_write_data():

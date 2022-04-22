@@ -79,7 +79,6 @@ class PUNCHData:
         None
 
         """
-
         if isinstance(data_obj, dict):
             self._cubes = data_obj
         elif isinstance(data_obj, NDCube):
@@ -92,7 +91,6 @@ class PUNCHData:
         self._history = History()
 
     @classmethod
-<<<<<<< HEAD
     def from_fits(cls, inputs: Union[str, List[str], Dict[str, str]]) -> PUNCHData:
         """
         Populates a PUNCHData object from specified FITS files.
