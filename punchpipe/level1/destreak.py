@@ -1,5 +1,6 @@
 import numpy as np
 from typing import Optional
+from datetime import datetime
 from punchpipe.infrastructure.tasks.core import ScienceFunction
 from punchpipe.infrastructure.data import PUNCHData
 from punchpipe.infrastructure.tasks.core import CalibrationConfiguration
@@ -75,4 +76,5 @@ class DestreakFunction(ScienceFunction):
         return correction_matrix @ image
 
     def process(self, data_object: PUNCHData, config: Optional[CalibrationConfiguration] = None) -> PUNCHData:
+        data_object.add_history(datetime.now(), "LEVEL1-Destreak", "destreaking done")
         return data_object  # TODO : actually do destreaking!
