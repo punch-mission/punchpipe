@@ -36,8 +36,11 @@ class History:
     def convert_to_fits_cards(self) -> None:
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._entries)
+
+    def __str__(self) -> str:
+        return "\n".join([f"{e.datetime}: {e.source}: {e.comment}" for e in self._entries])
 
 
 class PUNCHCalibration:
@@ -89,6 +92,9 @@ class PUNCHData:
             raise Exception("Please specify either an NDCube object, or a dictionary of NDCube objects")
 
         self._history = History()
+
+    def add_history(self, time: datetime, source: str, comment: str):
+        self._history.add_entry(HistoryEntry(time, source, comment))
 
     @classmethod
     def from_fits(cls, inputs: Union[str, List[str], Dict[str, str]]) -> PUNCHData:
@@ -282,7 +288,11 @@ class PUNCHData:
 
         hdu_data = fits.PrimaryHDU()
         hdu_data.data = data
-        hdu_data.header = meta
+        for key, value in meta.items():
+            hdu_data.header[key] = value
+        for entry in self._history._entries:
+            hdu_data.header['HISTORY'] = f"{entry.datetime}: {entry.source}, {entry.comment}"
+
 
         hdu_uncert = fits.ImageHDU()
         hdu_uncert.data = uncert.array
