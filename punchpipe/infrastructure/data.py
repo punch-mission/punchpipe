@@ -36,8 +36,11 @@ class History:
     def convert_to_fits_cards(self) -> None:
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._entries)
+
+    def __str__(self) -> str:
+        return "\n".join([f"{e.datetime}: {e.source}: {e.comment}" for e in self._entries])
 
 
 class PUNCHCalibration:
@@ -64,7 +67,7 @@ class PUNCHData:
     >>> data = PUNCHData(data_obj)
     """
 
-    def __init__(self, data_obj: Union[dict, NDCube, None]) -> None:
+    def __init__(self, data_obj: Union[dict, NDCube, None]):
         """Initialize the PUNCHData object with either an
         empty NDCube object, or a provided NDCube / dictionary
         of NDCube objects
@@ -79,7 +82,6 @@ class PUNCHData:
         None
 
         """
-
         if isinstance(data_obj, dict):
             self._cubes = data_obj
         elif isinstance(data_obj, NDCube):
@@ -91,8 +93,10 @@ class PUNCHData:
 
         self._history = History()
 
+    def add_history(self, time: datetime, source: str, comment: str):
+        self._history.add_entry(HistoryEntry(time, source, comment))
+
     @classmethod
-<<<<<<< HEAD
     def from_fits(cls, inputs: Union[str, List[str], Dict[str, str]]) -> PUNCHData:
         """
         Populates a PUNCHData object from specified FITS files.
@@ -116,7 +120,7 @@ class PUNCHData:
         elif type(inputs) is list:
             files = {}
             for file in inputs:
-                if type(inputs[file]) is str:
+                if type(file) is str:
                     files[file] = file
                 else:
                     raise Exception("PUNCHData objects are generated with a list of filename strings.")
@@ -212,7 +216,7 @@ class PUNCHData:
 
         return filename
 
-    def write(self, filename:str, kind: str = "default") -> Dict:
+    def write(self, filename: str, kind: str = "default", overwrite=True) -> Dict:
         """
         Write PUNCHData elements to file
 
@@ -222,6 +226,8 @@ class PUNCHData:
             output filename (including path and file extension)
         kind
             specified element of the PUNCHData object to write to file
+        overwrite
+            True will overwrite an exsiting file, False will create an execption if a file exists
 
         Returns
         -------
@@ -231,7 +237,7 @@ class PUNCHData:
         """
 
         if filename.endswith('.fits'):
-            self._write_fits(filename, kind)
+            self._write_fits(filename, kind, overwrite=overwrite)
         elif filename.endswith('.png'):
             self._write_ql(filename, kind)
         elif (filename.endswith('.jpg')) or (filename.endswith('.jpeg')):
@@ -256,7 +262,7 @@ class PUNCHData:
 
         return update_table
 
-    def _write_fits(self, filename: str, kind: str = "default") -> None:
+    def _write_fits(self, filename: str, kind: str = "default", overwrite=True) -> None:
         """
         Write PUNCHData elements to FITS files
 
@@ -266,6 +272,8 @@ class PUNCHData:
             output filename (including path and file extension)
         kind
             specified element of the PUNCHData object to write to file
+        overwrite
+            True will overwrite an exsiting file, False will throw an exeception in that scenario
 
         Returns
         -------
@@ -280,7 +288,11 @@ class PUNCHData:
 
         hdu_data = fits.PrimaryHDU()
         hdu_data.data = data
-        hdu_data.header = meta
+        for key, value in meta.items():
+            hdu_data.header[key] = value
+        for entry in self._history._entries:
+            hdu_data.header['HISTORY'] = f"{entry.datetime}: {entry.source}, {entry.comment}"
+
 
         hdu_uncert = fits.ImageHDU()
         hdu_uncert.data = uncert.array
@@ -288,7 +300,7 @@ class PUNCHData:
         hdul = fits.HDUList([hdu_data, hdu_uncert])
 
         # Write to FITS
-        hdul.writeto(filename)
+        hdul.writeto(filename, overwrite=overwrite)
 
     def _write_ql(self, filename: str, kind: str = "default") -> None:
         """
@@ -321,29 +333,18 @@ class PUNCHData:
         self._cubes[kind].show()
 
     def get_meta(self, key: str, kind: str = "default") -> Union[str, int, float]:
-        """Encapsulating function for the methods below"""
-        # def observatory(self, kind: str = "default") -> str:
-        #     """Observatory or Telescope name"""
-        #     return self._cubes[kind].meta.get('obsrvtry', self.meta.get('telescop', "")).replace("_", " ")
-        #
-        # def instrument(self, kind: str = "default") -> str:
-        #     """Instrument name"""
-        #     return self._cubes[kind].meta.get('instrument', "").replace("_", " ")
-        #
-        # def detector(self, kind: str = "default") -> str:
-        #     """Detector name"""
-        #     return self._cubes[kind].meta.get('detector', "")
-        #
-        # def processing_level(self, kind: str = "default") -> int:
-        #     """FITS processing level if present"""
-        #     return self._cubes[kind].meta.get('LEVEL', None)
-        #
-        # def exposure_time(self, kind: str = "default") -> float:
-        #     """Exposure time of the image"""
-        #     if 'exptime' in self._cubes[kind].meta:
-        #         return self._cubes[kind].meta['exptime']
+        """
+        Retrieves meta data about a cube
+        Parameters
+        ----------
+        key
+        kind
 
-        pass
+        Returns
+        -------
+
+        """
+        return self._cubes[kind].meta[key]
 
     def date_obs(self, kind: str = "default") -> datetime:
         return parse_datetime(self._cubes[kind].meta["date-obs"])
