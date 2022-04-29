@@ -27,7 +27,8 @@ setup(
         'prefect[mysql]',
         'graphviz',
         'ndcube',
-        'matplotlib'],
+        'matplotlib',
+        'ccsdspy'],
     extras_require={
             'dev': [],
             'test': ['pytest', 'coverage'],
