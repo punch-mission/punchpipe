@@ -2,9 +2,6 @@ from punchpipe.infrastructure.flows import FlowGraph, CoreFlowBuilder, ProcessFl
 from punchpipe.level1.tasks import destreak_task, input_filename, output_filename, load_level1, output_level2, \
     align_task, deficient_pixel_removal_task, despike_task, flagging_task, psf_correction_task,\
     quartic_fit_task, vignetting_correction_task, stray_light_removal_task
-from punchpipe.infrastructure.controlsegment import DatabaseCredentials
-
-db_cred = DatabaseCredentials("project_name", "user", "password")
 
 level1_graph: FlowGraph = FlowGraph(1, "Level0 to Level1")
 level1_graph.add_task(input_filename, None)
@@ -27,4 +24,4 @@ level1_graph.add_task(flagging_task, [psf_correction_task],
 level1_graph.add_task(output_level2, [flagging_task, output_filename],
                       keywords={flagging_task: "data", output_filename: "path"})
 
-level1_core_flow = CoreFlowBuilder(db_cred, 1, level1_graph).build()  # TODO: core flow builder shouldn't need db_cred
+level1_core_flow = CoreFlowBuilder(1, level1_graph).build()  # TODO: core flow builder shouldn't need db_cred

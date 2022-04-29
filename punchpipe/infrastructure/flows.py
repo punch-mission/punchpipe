@@ -275,8 +275,8 @@ class CoreFlowBuilder(FlowBuilder):
     """A flow builder that takes a flow graph to create core flows. These core flows, by definition, should not touch
     the databases.
     """
-    def __init__(self, database_credentials: DatabaseCredentials, level: int, flow_graph: FlowGraph):
-        super().__init__(database_credentials, f"core level {level}")
+    def __init__(self, level: int, flow_graph: FlowGraph):
+        super().__init__(None, f"core level {level}")
         self.flow_graph = flow_graph
         self.level = level
 

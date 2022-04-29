@@ -43,8 +43,8 @@ def expanded_segment_graph():
 
 
 @fixture
-def empty_flow(empty_segment_graph, default_database_credentials):
-    return CoreFlowBuilder(default_database_credentials, 0, empty_segment_graph).build()
+def empty_flow(empty_segment_graph):
+    return CoreFlowBuilder(0, empty_segment_graph).build()
 
 
 def test_segment_graph_init(empty_segment_graph):
@@ -89,6 +89,6 @@ def test_segment_graph_render(initialized_segment_graph):
 
 
 def test_flow_convert_core_to_process(initialized_segment_graph, default_database_credentials):
-    core_flow = CoreFlowBuilder(default_database_credentials, 0, initialized_segment_graph).build()
+    core_flow = CoreFlowBuilder(0, initialized_segment_graph).build()
     process_flow = ProcessFlowBuilder(default_database_credentials, 0, core_flow).build()
     process_flow.visualize()
