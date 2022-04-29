@@ -14,14 +14,14 @@ from punchpipe.level1.stray_light import StrayLightRemovalFunction
 from punchpipe.infrastructure.data import PUNCHData
 
 
-class LoadLevel1(IngestTask):
+class LoadLevel0(IngestTask):
     def open(self, path):
         return PUNCHData.from_fits(path)
 
 
-class OutputLevel2(OutputTask):
+class OutputLevel1(OutputTask):
     def write(self, data, path):
-        data.write(path, "wfi-starfield")
+        return data.write(path)
 
 
 destreak_task: ScienceTask = ScienceTask("destreak", DestreakFunction)
@@ -37,5 +37,5 @@ stray_light_removal_task: ScienceTask = ScienceTask("stray_light_removal", Stray
 
 input_filename = Parameter("input_filename")
 output_filename = Parameter("output_filename")
-load_level1 = LoadLevel1("load_level1")
-output_level2 = OutputLevel2("output_level2")
+load_level0 = LoadLevel0("load_level0")
+output_level1 = OutputLevel1("output_level1")

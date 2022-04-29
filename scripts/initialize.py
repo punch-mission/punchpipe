@@ -25,6 +25,7 @@ if __name__ == "__main__":
                              query="SELECT * FROM files WHERE state = 'finished' AND level = 0",
                              **kwargs)
 
+
     class Level1InputsCheck(CheckForInputs):
         def run(self, query_result):
             output = []

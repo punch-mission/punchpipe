@@ -245,20 +245,18 @@ class PUNCHData:
         else:
             raise Exception('Please specify a valid file extension (.fits, .png, .jpg, .jpeg)')
 
-        update_table = {}
-        update_table['file_id'] = filename
-        update_table['level'] = self._cubes[kind].meta.get('LEVEL', None)
-        update_table['file_type'] = self._cubes[kind].meta.get('TYPECODE', None)
-        update_table['observatory'] = self._cubes[kind].meta.get('obsrvtry', self._cubes[kind].meta.get('telescop', "")).replace("_", " ")
-        update_table['file_version'] = self._cubes[kind].meta.get('VERSION', None)
-        update_table['software_version'] = self._cubes[kind].meta.get('SOFTVERS', None)
-        update_table['date_acquired'] = self._cubes[kind].meta.get('DATE-AQD', None)
-        update_table['date_obs'] = self._cubes[kind].meta.get('DATE-OBS', None)
-        update_table['date_end'] = self._cubes[kind].meta.get('DATE-END', None)
-        update_table['polarization'] = self._cubes[kind].meta.get('POL', None)
-        update_table['state'] = self._cubes[kind].meta.get('STATE', None)
-        update_table['processing_flow'] = self._cubes[kind].meta.get('PROCFLOW', None)
-        update_table['file_name'] = filename
+        update_table = {'level': self._cubes[kind].meta.get('LEVEL', None),
+                        'file_type': self._cubes[kind].meta.get('TYPECODE', None),
+                        'observatory': self._cubes[kind].meta.get('obsrvtry',
+                                                                  self._cubes[kind].meta.get('telescop', "")).replace(
+                            "_", " "), 'file_version': self._cubes[kind].meta.get('VERSION', None),
+                        'software_version': self._cubes[kind].meta.get('SOFTVERS', None),
+                        'date_acquired': self._cubes[kind].meta.get('DATE-AQD', None),
+                        'date_obs': self._cubes[kind].meta.get('DATE-OBS', None),
+                        'date_end': self._cubes[kind].meta.get('DATE-END', None),
+                        'polarization': self._cubes[kind].meta.get('POL', None),
+                        'state': self._cubes[kind].meta.get('STATE', None),
+                        'processing_flow': self._cubes[kind].meta.get('PROCFLOW', None)}
 
         return update_table
 
