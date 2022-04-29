@@ -212,7 +212,7 @@ class PUNCHData:
         date_obs = self._cubes[kind].date_obs
         date_string = date_obs.strftime("%Y%m%d%H%M%S")
 
-        filename = 'L' + file_level + '_' + type_code + observatory + '_' + date_string
+        filename = 'PUNCH_L' + file_level + '_' + type_code + observatory + '_' + date_string
 
         return filename
 
