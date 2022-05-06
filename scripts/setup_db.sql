@@ -32,7 +32,7 @@ CREATE TABLE files (
     state VARCHAR(64) NOT NULL,
     processing_flow CHAR(44) NOT NULL,
     file_name char(29) GENERATED ALWAYS AS
-        (concat("L", level ,"_", file_type, observatory, "_",
+        (concat("PUNCH_L", level ,"_", file_type, observatory, "_",
             DATE_FORMAT(date_acquired, '%Y%m%d%H%i%s'),
             "_", 'v', file_version, '.fits' )),
     PRIMARY KEY ( file_id ),
