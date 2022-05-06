@@ -28,6 +28,20 @@ class LoadLevel0(IngestTask):
 class OutputLevel1(OutputTask):
     """Outputs a processed Level 1 file """
     def write(self, data, path):
+        kind = list(data._cubes.keys())[0]
+
+        data[kind].meta['OBSRVTRY'] = 'Z'
+        data[kind].meta['LEVEL'] = 1
+        data[kind].meta['TYPECODE'] = 'ZZ'
+        data[kind].meta['VERSION'] = 1
+        data[kind].meta['SOFTVERS'] = 1
+        data[kind].meta['DATE-OBS'] = str(datetime.now())
+        data[kind].meta['DATE-AQD'] = str(datetime.now())
+        data[kind].meta['DATE-END'] = str(datetime.now())
+        data[kind].meta['POL'] = 'Z'
+        data[kind].meta['STATE'] = 'finished'
+        data[kind].meta['PROCFLOW'] = '?'
+
         return data.write(path + data.generate_id() + ".fits")
 
 
@@ -67,8 +81,8 @@ class Level1InputsCheck(CheckForInputs):
                     creation_time=now,
                     priority=1,
                     call_data=json.dumps({"flow_id": this_flow_id,
-                                          'input_filename': incoming_filename,
-                                          'output_filename': f'/Users/jhughes/Desktop/repos/punchpipe/example_run_data'})
+                                          'input_filename': f'/Users/jhughes/Desktop/repos/punchpipe/example_run_data/' + incoming_filename,
+                                          'output_filename': f'/Users/jhughes/Desktop/repos/punchpipe/example_run_data/'})
                 )
 
                 # construct the FileEntry

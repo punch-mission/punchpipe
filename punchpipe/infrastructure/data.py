@@ -323,10 +323,10 @@ class PUNCHData:
             output identification string
 
         """
-        observatory = self._cubes[kind].meta['OBSRVTRY']
-        file_level = self._cubes[kind].meta['LEVEL']
-        type_code = self._cubes[kind].meta['TYPECODE']
-        date_obs = self._cubes[kind].date_obs
+        observatory = str(self._cubes[kind].meta['OBSRVTRY'])
+        file_level = str(self._cubes[kind].meta['LEVEL'])
+        type_code = str(self._cubes[kind].meta['TYPECODE'])
+        date_obs = self.date_obs(kind)
         date_string = date_obs.strftime("%Y%m%d%H%M%S")
 
         filename = 'PUNCH_L' + file_level + '_' + type_code + observatory + '_' + date_string
@@ -364,9 +364,8 @@ class PUNCHData:
 
         update_table = {'level': self._cubes[kind].meta.get('LEVEL', None),
                         'file_type': self._cubes[kind].meta.get('TYPECODE', None),
-                        'observatory': self._cubes[kind].meta.get('obsrvtry',
-                                                                  self._cubes[kind].meta.get('telescop', "")).replace(
-                            "_", " "), 'file_version': self._cubes[kind].meta.get('VERSION', None),
+                        'observatory': self._cubes[kind].meta.get('OBSRVTRY'),
+                        'file_version': self._cubes[kind].meta.get('VERSION', None),
                         'software_version': self._cubes[kind].meta.get('SOFTVERS', None),
                         'date_acquired': self._cubes[kind].meta.get('DATE-AQD', None),
                         'date_obs': self._cubes[kind].meta.get('DATE-OBS', None),

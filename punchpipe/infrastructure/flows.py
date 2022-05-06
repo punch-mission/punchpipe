@@ -463,7 +463,10 @@ class ProcessFlowBuilder(FlowBuilder):
                                      password=self.database_credentials.password,
                                      db_name=self.database_credentials.project_name,
                                      commit=True)
-        create_database_entry_tasks = [CreateFileDatabaseEntry() for _ in self.output_tasks]
+        create_database_entry_tasks = [CreateFileDatabaseEntry(user=self.database_credentials.user,
+                                                               password=self.database_credentials.password,
+                                                               db_name=self.database_credentials.project_name,
+                                                               commit=True) for _ in self.output_tasks]
 
         process_flow.set_dependencies(
             mark_flow_end_time,
@@ -481,7 +484,7 @@ class ProcessFlowBuilder(FlowBuilder):
             process_flow.set_dependencies(
                 database_task,
                 upstream_tasks=[output_task],
-                keyword_tasks=dict(meta_data=output_task)
+                keyword_tasks=dict(meta_data=output_task, flow_id=flow_id)
             )
 
         # Set up the graceful exit if something went wrong in executing the flow

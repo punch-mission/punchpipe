@@ -31,17 +31,21 @@ class MarkFlowStartTime(MySQLExecute):
 
 class CreateFileDatabaseEntry(MySQLExecute):
     """Update the database that a file has been created."""
-    def __init__(self, *args,  meta_data: Optional[dict] = None, **kwargs):
+    def __init__(self, *args,  meta_data: Optional[dict] = None, flow_id: Optional[str] = None, **kwargs):
         self.meta_data = meta_data
+        self.flow_id = flow_id
         super().__init__(*args, **kwargs)
 
-    def run(self, meta_data: Optional[dict] = None):
+    def run(self, meta_data: Optional[dict] = None, flow_id: Optional[str] = None):
+        logger = prefect.context.get("logger")
+        meta_data['processing_flow'] = flow_id
         self.query = f"INSERT INTO files (level, file_type, observatory, file_version, software_version, " \
                      f"date_acquired, date_obs, date_end, polarization, state, processing_flow) VALUES(" \
                      f"'{meta_data['level']}', '{meta_data['file_type']}', '{meta_data['observatory']}', " \
                      f"{meta_data['file_version']}, {meta_data['software_version']}, '{meta_data['date_acquired']}'," \
-                     f"'{meta_data['date_obs']}', '{meta_data['polarization']}', '{meta_data['state']}', " \
-                     f"{meta_data['processing_flow']});"
+                     f"'{meta_data['date_obs']}', '{meta_data['date_end']}', '{meta_data['polarization']}', '{meta_data['state']}', " \
+                     f"'{meta_data['processing_flow']}');"
+        logger.debug("query=" + self.query)
         super().run()
 
 
