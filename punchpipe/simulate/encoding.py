@@ -1,6 +1,8 @@
 import numpy as np
-from punchpipe.infrastructure.data import PUNCHData
+import os.path
 from punchpipe.infrastructure.tasks.core import ScienceFunction
+
+TABLE_PATH = os.path.dirname(__file__)
 
 
 class Encoding(ScienceFunction):
@@ -32,22 +34,20 @@ class Encoding(ScienceFunction):
         ibits = tobits * 2
         factor = np.array(2 ** (ibits - frombits)).astype(np.ulonglong)
         s2 = (data * factor).astype(np.ulonglong)
+
         return np.round(np.sqrt(s2)).astype(np.ulonglong)
 
     @staticmethod
-    def decode(data: np.ndarray = np.zeros([2048, 2048]),
-               bias_level: float = 100,
-               gain: float = 4.3,
-               readnoise_level: float = 17,
-               frombits: int = 12,
-               tobits: int = 16) -> np.ndarray:
+    def gen_decode_table(bias_level: float = 100,
+                         gain: float = 4.3,
+                         readnoise_level: float = 17,
+                         frombits: int = 12,
+                         tobits: int = 16) -> None:
         """
-        Square root decode between specified bitrate values
+        Generates a square root decode table between specified bitrate values and CCD parameters
 
         Parameters
         ----------
-        data
-            input encoded data array (n x n)
         bias_level
             ccd bias level
         gain
@@ -61,12 +61,9 @@ class Encoding(ScienceFunction):
 
         Returns
         -------
-        np.ndarray
-            square root decoded version of the input image (n x n)
+        None
 
         """
-
-        # Define some functions to be used internally
 
         int_type = np.int32
 
@@ -123,10 +120,59 @@ class Encoding(ScienceFunction):
                 output[i] = decode_corrected(i, frombits, tobits, ccd_gain, ccd_offset, ccd_fixedsigma)
             return output
 
+        table = gen_decode_table(frombits, tobits, gain, bias_level, readnoise_level)
+
+        filename = TABLE_PATH + '/decoding_tables/' + 'tab_fb' + str(frombits) + '_tb' + str(tobits) + '_g' + \
+                                str(gain) + '_b' + str(bias_level) + '_r' + str(readnoise_level) + '.npy'
+
+        np.save(filename, table)
+
+    @staticmethod
+    def decode(data: np.ndarray = np.zeros([2048, 2048]),
+               bias_level: float = 100,
+               gain: float = 4.3,
+               readnoise_level: float = 17,
+               frombits: int = 12,
+               tobits: int = 16) -> np.ndarray:
+        """
+        Square root decode between specified bitrate values
+
+        Parameters
+        ----------
+        data
+            input encoded data array (n x n)
+        bias_level
+            ccd bias level
+        gain
+            ccd gain
+        readnoise_level
+            ccd read noise level
+        frombits
+            Specified bitrate of encoded image to unpack
+        tobits
+            Specified bitrate of output data (decoded)
+
+        Returns
+        -------
+        np.ndarray
+            square root decoded version of the input image (n x n)
+
+        """
+
+        int_type = np.int32
+
         def decode_bytable(s, table):
             s = np.round(s).astype(int_type).clip(0, table.shape[0])
             return table[s]
 
-        tab = gen_decode_table(frombits, tobits, gain, bias_level, readnoise_level)
+        filename = TABLE_PATH + '/decoding_tables/' + 'tab_fb' + str(frombits) + '_tb' + str(tobits) + '_g' + \
+                                str(gain) + '_b' + str(bias_level) + '_r' + str(readnoise_level) + '.npy'
 
-        return decode_bytable(data, tab)
+        # Check for an existing table, otherwise generate one
+        if os.path.isfile(filename):
+            table = np.load(filename)
+        else:
+            Encoding.gen_decode_table(bias_level, gain, readnoise_level, frombits, tobits)
+            table = np.load(filename)
+
+        return decode_bytable(data, table)
