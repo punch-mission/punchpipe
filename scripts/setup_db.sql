@@ -1,3 +1,7 @@
+/*
+ These commands can be run to set up the Science Reduction Database for punchpipe.
+ */
+
 CREATE DATABASE IF NOT EXISTS punchpipe;
 
 USE punchpipe;

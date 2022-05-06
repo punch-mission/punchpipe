@@ -1,7 +1,7 @@
 """Launcher flow specific tasks.
 """
 import json
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 from prefect.tasks.prefect import create_flow_run
 from prefect.tasks.mysql import MySQLExecute, MySQLFetch
 from punchpipe.infrastructure.tasks.core import PipelineTask
@@ -9,7 +9,7 @@ from punchpipe.infrastructure.controlsegment import MAX_SECONDS_WAITING
 
 
 class GatherQueuedFlows(MySQLFetch):
-    """A task that queries the flows database for all flows that are queued.
+    """A task that queries the flow's database for all flows that are queued.
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args,

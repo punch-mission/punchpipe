@@ -1,8 +1,7 @@
 from datetime import datetime
 from typing import Optional
 import prefect
-from prefect.tasks.mysql import MySQLFetch, MySQLExecute
-from prefect.utilities.tasks import defaults_from_attrs
+from prefect.tasks.mysql import MySQLExecute
 from punchpipe.infrastructure.db import FlowEntry
 
 

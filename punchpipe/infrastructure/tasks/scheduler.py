@@ -1,9 +1,7 @@
-import logging
 from abc import abstractmethod
 from typing import Optional, Tuple
 import prefect
 from prefect.tasks.mysql import MySQLExecute
-from prefect.utilities.tasks import defaults_from_attrs
 from punchpipe.infrastructure.tasks.core import PipelineTask
 from punchpipe.infrastructure.db import FlowEntry, FileEntry
 
