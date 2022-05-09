@@ -1,49 +1,101 @@
 from __future__ import annotations
-
 from collections import namedtuple
 from datetime import datetime
-from typing import Union, Optional, List, Dict
-import astropy.units as u
 import matplotlib
-from typing import Union, Optional, List, Dict
+from typing import Union, List, Dict
 import numpy as np
 from astropy.io import fits
+import astropy.units as u
 from astropy.nddata import StdDevUncertainty
 from astropy.wcs import WCS
 from dateutil.parser import parse as parse_datetime
 from ndcube import NDCube
-from ndcube.visualization import BasePlotter
 
 HistoryEntry = namedtuple("HistoryEntry", "datetime, source, comment")
 
 
 class History:
+    """Representation of the history of edits done to a PUNCHData object
+    """
     def __init__(self):
         self._entries: List[HistoryEntry] = []
 
     def add_entry(self, entry: HistoryEntry) -> None:
+        """
+        Add an entry to the History log
+
+        Parameters
+        ----------
+        entry : HistoryEntry
+            A HistoryEntry object to add to the History log
+
+        Returns
+        -------
+        None
+
+        """
         self._entries.append(entry)
 
     def clear(self) -> None:
+        """
+        Clears all the history entries so the History is blank
+
+        Returns
+        -------
+        None
+        """
         self._entries = []
 
     def __getitem__(self, index: int) -> HistoryEntry:
+        """
+        Given an index, returns the requested HistoryEntry
+
+        Parameters
+        ----------
+        index : int
+            numerical index of the history entry, increasing number typically indicates an older entry
+
+        Returns
+        -------
+        HistoryEntry
+
+        """
         return self._entries[index]
 
     def most_recent(self) -> HistoryEntry:
+        """
+        Gets the most recent HistoryEntry, i.e. the youngest
+
+        Returns
+        -------
+        HistoryEntry that is the youngest
+        """
         return self._entries[-1]
 
-    def convert_to_fits_cards(self) -> None:
-        pass
-
     def __len__(self) -> int:
+        """
+        Returns
+        -------
+        int : the number of history entries
+        """
         return len(self._entries)
 
     def __str__(self) -> str:
-        return "\n".join([f"{e.datetime}: {e.source}: {e.comment}" for e in self._entries])
+        """
+        Formats a string combining all the history entries
+
+        Returns
+        -------
+        str : a combined record of the history entries
+        """
+        return "\n".join([f"{e.datetime}: {e.source}, {e.comment}" for e in self._entries])
 
 
 class PUNCHCalibration:
+    """
+    This will be inherited and developed as the various calibration objects, e.g. the quartic fit coefficients, are
+    developed. This will be an abstract base class for all of them.
+    """
     pass
 
 
@@ -93,7 +145,23 @@ class PUNCHData:
 
         self._history = History()
 
-    def add_history(self, time: datetime, source: str, comment: str):
+    def add_history(self, time: datetime, source: str, comment: str) -> None:
+        """
+        Append to the object's history
+
+        Parameters
+        ----------
+        time : datetime
+            When the history is updated
+        source : str
+            What module is doing the updating
+        comment : str
+            A description of what is being done
+
+        Returns
+        -------
+        None
+        """
         self._history.add_entry(HistoryEntry(time, source, comment))
 
     @classmethod
@@ -111,7 +179,6 @@ class PUNCHData:
         Returns
         -------
         PUNCHData object
-
         """
 
         if type(inputs) is str:
@@ -169,19 +236,69 @@ class PUNCHData:
 
         return 1./self._cubes[kind].uncertainty.array
 
-    def __contains__(self, kind) -> bool:
+    def __contains__(self, kind: str) -> bool:
+        """
+        Determines if a specific `kind` is present in the PUNCHData
+
+        Parameters
+        ----------
+        kind : str
+            keyword query for containment in the PUNCHData
+
+        Returns
+        -------
+        bool : True if contained, otherwise False
+
+        """
         return kind in self._cubes
 
-    def __getitem__(self, kind) -> NDCube:
+    def __getitem__(self, kind: str) -> NDCube:
+        """
+        Allows for dictionary like access to a specific NDCube in the PUNCHData, as specified by the kind
+
+        Parameters
+        ----------
+        kind : str
+            which NDCube to access
+
+        Returns
+        -------
+        NDCube
+        """
         return self._cubes[kind]
 
-    def __setitem__(self, kind, data) -> None:
+    def __setitem__(self, kind: str, data: NDCube) -> None:
+        """
+        Allows for dictionary like setting of an NDCube in the PUNCHData, as specified by kind
+
+        Parameters
+        ----------
+        kind : str
+            which keyword in the PUNCHData is being modified
+        data : NDCube
+
+        Returns
+        -------
+        None
+        """
         if type(data) is NDCube:
             self._cubes[kind] = data
         else:
             raise Exception("PUNCHData entries must contain NDCube objects.")
 
     def __delitem__(self, kind) -> None:
+        """
+        Deletes an NDCube entry from the PUNCHData
+
+        Parameters
+        ----------
+        kind : str
+            which entry to delete
+
+        Returns
+        -------
+        None
+        """
         del self._cubes[kind]
 
     def clear(self) -> None:
@@ -206,13 +323,13 @@ class PUNCHData:
             output identification string
 
         """
-        observatory = self._cubes[kind].meta['OBSRVTRY']
-        file_level = self._cubes[kind].meta['LEVEL']
-        type_code = self._cubes[kind].meta['TYPECODE']
-        date_obs = self._cubes[kind].date_obs
+        observatory = str(self._cubes[kind].meta['OBSRVTRY'])
+        file_level = str(self._cubes[kind].meta['LEVEL'])
+        type_code = str(self._cubes[kind].meta['TYPECODE'])
+        date_obs = self.date_obs(kind)
         date_string = date_obs.strftime("%Y%m%d%H%M%S")
 
-        filename = 'L' + file_level + '_' + type_code + observatory + '_' + date_string
+        filename = 'PUNCH_L' + file_level + '_' + type_code + observatory + '_' + date_string
 
         return filename
 
@@ -245,20 +362,17 @@ class PUNCHData:
         else:
             raise Exception('Please specify a valid file extension (.fits, .png, .jpg, .jpeg)')
 
-        update_table = {}
-        update_table['file_id'] = filename
-        update_table['level'] = self._cubes[kind].meta.get('LEVEL', None)
-        update_table['file_type'] = self._cubes[kind].meta.get('TYPECODE', None)
-        update_table['observatory'] = self._cubes[kind].meta.get('obsrvtry', self._cubes[kind].meta.get('telescop', "")).replace("_", " ")
-        update_table['file_version'] = self._cubes[kind].meta.get('VERSION', None)
-        update_table['software_version'] = self._cubes[kind].meta.get('SOFTVERS', None)
-        update_table['date_acquired'] = self._cubes[kind].meta.get('DATE-AQD', None)
-        update_table['date_obs'] = self._cubes[kind].meta.get('DATE-OBS', None)
-        update_table['date_end'] = self._cubes[kind].meta.get('DATE-END', None)
-        update_table['polarization'] = self._cubes[kind].meta.get('POL', None)
-        update_table['state'] = self._cubes[kind].meta.get('STATE', None)
-        update_table['processing_flow'] = self._cubes[kind].meta.get('PROCFLOW', None)
-        update_table['file_name'] = filename
+        update_table = {'level': self._cubes[kind].meta.get('LEVEL', None),
+                        'file_type': self._cubes[kind].meta.get('TYPECODE', None),
+                        'observatory': self._cubes[kind].meta.get('OBSRVTRY'),
+                        'file_version': self._cubes[kind].meta.get('VERSION', None),
+                        'software_version': self._cubes[kind].meta.get('SOFTVERS', None),
+                        'date_acquired': self._cubes[kind].meta.get('DATE-AQD', None),
+                        'date_obs': self._cubes[kind].meta.get('DATE-OBS', None),
+                        'date_end': self._cubes[kind].meta.get('DATE-END', None),
+                        'polarization': self._cubes[kind].meta.get('POL', None),
+                        'state': self._cubes[kind].meta.get('STATE', None),
+                        'processing_flow': self._cubes[kind].meta.get('PROCFLOW', None)}
 
         return update_table
 
@@ -347,5 +461,17 @@ class PUNCHData:
         return self._cubes[kind].meta[key]
 
     def date_obs(self, kind: str = "default") -> datetime:
+        """
+        Formats the date-obs meta data as a datetime
+
+        Parameters
+        ----------
+        kind : str
+            which NDCube to query
+
+        Returns
+        -------
+        datetime
+        """
         return parse_datetime(self._cubes[kind].meta["date-obs"])
 

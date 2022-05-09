@@ -1,5 +1,6 @@
 from __future__ import annotations
 from abc import ABCMeta, abstractmethod
+import prefect
 from prefect import Flow, Parameter
 from prefect.tasks.mysql import MySQLFetch
 from prefect.tasks.prefect.flow_run_rename import RenameFlowRun
@@ -14,7 +15,7 @@ from punchpipe.infrastructure.tasks.processor import MarkFlowAsRunning, MarkFlow
     CreateFileDatabaseEntry, MarkFlowAsFailed
 from punchpipe.infrastructure.tasks.launcher import GatherQueuedFlows, CountRunningFlows, \
     EscalateLongWaitingFlows, FilterForLaunchableFlows, LaunchFlow
-from punchpipe.infrastructure.tasks.scheduler import CheckForInputs, ScheduleFlow, ScheduleFile
+from punchpipe.infrastructure.tasks.scheduler import CheckForInputs, ScheduleFlow, AdvanceFiles
 
 
 __all__ = ['FlowGraph',
@@ -275,8 +276,8 @@ class CoreFlowBuilder(FlowBuilder):
     """A flow builder that takes a flow graph to create core flows. These core flows, by definition, should not touch
     the databases.
     """
-    def __init__(self, database_credentials: DatabaseCredentials, level: int, flow_graph: FlowGraph):
-        super().__init__(database_credentials, f"core level {level}")
+    def __init__(self, level: int, flow_graph: FlowGraph):
+        super().__init__(None, f"core level {level}")
         self.flow_graph = flow_graph
         self.level = level
 
@@ -363,11 +364,13 @@ class SchedulerFlowBuilder(FlowBuilder):
         self.inputs_check_task = inputs_check_task()
 
     def build(self) -> Flow:
+        logger = prefect.context.get("logger")
+
         schedule_flow = ScheduleFlow(user=self.database_credentials.user,
                                      password=self.database_credentials.password,
                                      db_name=self.database_credentials.project_name,
                                      commit=True)
-        schedule_file = ScheduleFile(user=self.database_credentials.user,
+        advance_files = AdvanceFiles(user=self.database_credentials.user,
                                      password=self.database_credentials.password,
                                      db_name=self.database_credentials.project_name,
                                      commit=True)
@@ -377,21 +380,19 @@ class SchedulerFlowBuilder(FlowBuilder):
         flow.add_task(self.query_task)
         flow.add_task(self.inputs_check_task)
         flow.add_task(schedule_flow)
-        # flow.add_task(schedule_file)
+        flow.add_task(advance_files)
 
         flow.set_dependencies(self.query_task,
                               downstream_tasks=[self.inputs_check_task])
         flow.set_dependencies(self.inputs_check_task,
                               downstream_tasks=[schedule_flow],
                               keyword_tasks=dict(query_result=self.query_task))
+        flow.set_dependencies(advance_files,
+                              downstream_tasks=[],
+                              keyword_tasks=dict(query_result=self.query_task))
         flow.set_dependencies(schedule_flow,
                               keyword_tasks=dict(pair=self.inputs_check_task),
                               mapped=True)
-
-        # TODO: re-enable scheduling file writing
-        # flow.set_dependencies(schedule_file,
-        #                       keyword_tasks=dict(pair=self.inputs_check_task),
-        #                       mapped=True)
         return flow
 
 
@@ -462,8 +463,10 @@ class ProcessFlowBuilder(FlowBuilder):
                                      password=self.database_credentials.password,
                                      db_name=self.database_credentials.project_name,
                                      commit=True)
-        # TODO: re-enable writing to database for completed tasks
-        # create_database_entry_tasks = [CreateFileDatabaseEntry() for _ in self.output_tasks]
+        create_database_entry_tasks = [CreateFileDatabaseEntry(user=self.database_credentials.user,
+                                                               password=self.database_credentials.password,
+                                                               db_name=self.database_credentials.project_name,
+                                                               commit=True) for _ in self.output_tasks]
 
         process_flow.set_dependencies(
             mark_flow_end_time,
@@ -477,14 +480,12 @@ class ProcessFlowBuilder(FlowBuilder):
             keyword_tasks=dict(flow_id=flow_id)
         )
 
-        # TODO: re-enable writing to database for completed files
-        # for database_task, output_task in zip(create_database_entry_tasks, self.output_tasks):
-        #     print(database_task, output_task)
-        #     process_flow.set_dependencies(
-        #         database_task,
-        #         upstream_tasks=[output_task],
-        #         keyword_tasks=dict(flow_id=flow_id, meta_data=output_task)
-        #     )
+        for database_task, output_task in zip(create_database_entry_tasks, self.output_tasks):
+            process_flow.set_dependencies(
+                database_task,
+                upstream_tasks=[output_task],
+                keyword_tasks=dict(meta_data=output_task, flow_id=flow_id)
+            )
 
         # Set up the graceful exit if something went wrong in executing the flow
         # We add a task that follows all core flow and database tasks

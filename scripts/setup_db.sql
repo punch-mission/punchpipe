@@ -1,3 +1,7 @@
+/*
+ These commands can be run to set up the Science Reduction Database for punchpipe.
+ */
+
 CREATE DATABASE IF NOT EXISTS punchpipe;
 
 USE punchpipe;
@@ -27,8 +31,8 @@ CREATE TABLE files (
     polarization CHAR(2),
     state VARCHAR(64) NOT NULL,
     processing_flow CHAR(44) NOT NULL,
-    file_name char(29) GENERATED ALWAYS AS
-        (concat("L", level ,"_", file_type, observatory, "_",
+    file_name char(35) GENERATED ALWAYS AS
+        (concat("PUNCH_L", level ,"_", file_type, observatory, "_",
             DATE_FORMAT(date_acquired, '%Y%m%d%H%i%s'),
             "_", 'v', file_version, '.fits' )),
     PRIMARY KEY ( file_id ),

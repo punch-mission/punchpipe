@@ -1,16 +1,14 @@
 from __future__ import annotations
-from typing import List, Dict, Any, Callable
+from typing import List, Dict, Any
 from prefect import Flow, Client
 from dataclasses import dataclass
-from punchpipe.infrastructure.db import FlowEntry
+
 
 MAX_SECONDS_WAITING = 10000  # TODO: remove and make come from controlsegment configuration
 
 
 class ControlSegment:
-    """Documentation!
-
-    Please show up.
+    """The PUNCH control segment. This module handles initializing the control segment that is then run through Prefect.
     """
     def __init__(self, project_name: str,
                  process_flows: List[Flow],
@@ -19,7 +17,7 @@ class ControlSegment:
                  control_configuration: ControlSegmentConfiguration,
                  database_credentials: DatabaseCredentials,
                  ):
-        """Create a controlsegment object.
+        """Create a ContrlSegment object.
 
         Parameters
         ----------

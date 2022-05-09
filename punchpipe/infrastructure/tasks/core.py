@@ -6,7 +6,6 @@ from prefect import Task
 from abc import abstractmethod, ABCMeta
 from typing import Type, Dict, Optional, Union
 from punchpipe.infrastructure.data import PUNCHData, PUNCHCalibration
-from punchpipe.infrastructure.db import FlowEntry
 
 CalibrationConfiguration = Dict[str, Union[PUNCHCalibration, str, int, float]]
 
@@ -105,15 +104,12 @@ class ScienceTask(PipelineTask):
         self.science_function = science_function
         self.parameters = parameters
 
-    def run(self, data_object: PUNCHData):
-            #parameters: Optional[CalibrationConfiguration]):
+    def run(self, data_object: PUNCHData):  # parameters: Optional[CalibrationConfiguration]):
         """ Run the task.
         Parameters
         ----------
         data_object : DataObject
             Data to run the task on.
-        parameters : CalibrationConfiguration, Optional
-            Parameters used in running the task.
 
         Returns
         -------
