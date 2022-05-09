@@ -31,7 +31,7 @@ setup(
         'ccsdspy'],
     extras_require={
             'dev': [],
-            'test': ['pytest', 'coverage'],
+            'test': ['pytest', 'coverage', 'pytest-mock-resources[mysql]'],
             'docs': ['sphinx', 'sphinx-rtd-theme', 'sphinx-automodapi']
         },
 )
