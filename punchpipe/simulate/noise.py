@@ -1,5 +1,4 @@
 import numpy as np
-from punchpipe.infrastructure.data import PUNCHData
 from punchpipe.infrastructure.tasks.core import ScienceFunction
 
 

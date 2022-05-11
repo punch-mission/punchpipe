@@ -2,6 +2,8 @@ import numpy as np
 import pytest
 from punchpipe.simulate.encoding import Encoding
 
+# TODO - Parameterize to go over a few tobits values
+# TODO - Test to make sure encoded / decoded values are... similar. Perhaps a new test function.
 
 def test_encoding():
     arr_dim = 2048
