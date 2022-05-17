@@ -206,9 +206,9 @@ class PUNCHData:
             output identification string
 
         """
-        observatory = self._cubes[kind].meta['OBSRVTRY']
-        file_level = self._cubes[kind].meta['LEVEL']
-        type_code = self._cubes[kind].meta['TYPECODE']
+        observatory = self.get_meta(key='OBSRVTRY', kind=kind)
+        file_level = self.get_meta(key='LEVEL', kind=kind)
+        type_code = self.get_meta(key='TYPECODE', kind=kind)
         date_obs = self._cubes[kind].date_obs
         date_string = date_obs.strftime("%Y%m%d%H%M%S")
 
@@ -247,17 +247,17 @@ class PUNCHData:
 
         update_table = {}
         update_table['file_id'] = filename
-        update_table['level'] = self._cubes[kind].meta.get('LEVEL', None)
-        update_table['file_type'] = self._cubes[kind].meta.get('TYPECODE', None)
-        update_table['observatory'] = self._cubes[kind].meta.get('obsrvtry', self._cubes[kind].meta.get('telescop', "")).replace("_", " ")
-        update_table['file_version'] = self._cubes[kind].meta.get('VERSION', None)
-        update_table['software_version'] = self._cubes[kind].meta.get('SOFTVERS', None)
-        update_table['date_acquired'] = self._cubes[kind].meta.get('DATE-AQD', None)
-        update_table['date_obs'] = self._cubes[kind].meta.get('DATE-OBS', None)
-        update_table['date_end'] = self._cubes[kind].meta.get('DATE-END', None)
-        update_table['polarization'] = self._cubes[kind].meta.get('POL', None)
-        update_table['state'] = self._cubes[kind].meta.get('STATE', None)
-        update_table['processing_flow'] = self._cubes[kind].meta.get('PROCFLOW', None)
+        update_table['level'] = self.get_meta(key='LEVEL', kind=kind)
+        update_table['file_type'] = self.get_meta(key='TYPECODE', kind=kind)
+        update_table['observatory'] = self.get_meta(key='OBSRVTRY', kind=kind)
+        update_table['file_version'] = self.get_meta(key='VERSION', kind=kind)
+        update_table['software_version'] = self.get_meta(key='SOFTVERS', kind=kind)
+        update_table['date_acquired'] = self.get_meta(key='DATE-AQD', kind=kind)
+        update_table['date_obs'] = self.get_meta(key='DATE-OBS', kind=kind)
+        update_table['date_end'] = self.get_meta(key='DATE-END', kind=kind)
+        update_table['polarization'] = self.get_meta(key='POL', kind=kind)
+        update_table['state'] = self.get_meta(key='STATE', kind=kind)
+        update_table['processing_flow'] = self.get_meta(key='PROCFLOW', kind=kind)
         update_table['file_name'] = filename
 
         return update_table
@@ -277,6 +277,7 @@ class PUNCHData:
 
         Returns
         -------
+        None
 
         """
 
@@ -334,18 +335,39 @@ class PUNCHData:
 
     def get_meta(self, key: str, kind: str = "default") -> Union[str, int, float]:
         """
-        Retrieves meta data about a cube
+        Retrieves metadata about a cube
         Parameters
         ----------
         key
+            specified metadata key
         kind
+            specified element of the PUNCHData object to write to file
 
         Returns
         -------
+        Requested metadata
 
         """
         return self._cubes[kind].meta[key]
 
-    def date_obs(self, kind: str = "default") -> datetime:
-        return parse_datetime(self._cubes[kind].meta["date-obs"])
+    def set_meta(self, key: str, value: str, kind: str = "default") -> None:
+        """
+        Retrieves metadata about a cube
+        Parameters
+        ----------
+        key
+            specified metadata key
+        value
+            Updated metadata information
+        kind
+            specified element of the PUNCHData object to write to file
 
+        Returns
+        -------
+        None
+
+        """
+        self._cubes[kind].meta[key] = value
+
+    def date_obs(self, kind: str = "default") -> datetime:
+        return parse_datetime(self.get_meta(key='DATE-OBS', kind=kind))
