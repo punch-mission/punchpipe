@@ -114,6 +114,8 @@ class PUNCHData:
 
         """
 
+        # TODO - If metadata isn't available, warn and try to use parse_id to grab from filename?
+
         if type(inputs) is str:
             files = {"default": inputs}
 
@@ -194,7 +196,9 @@ class PUNCHData:
 
     def generate_id(self, kind: str = "default") -> str:
         """
-        Dynamically generate an identification string for the given data product, using the format 'Ln_ttO_yyyymmddhhmmss'
+        Dynamically generate an identification string for the given data product,
+        using the format 'PUNCH_Ln_ttO_yyyymmddhhmmss'
+
         Parameters
         ----------
         kind
@@ -212,9 +216,14 @@ class PUNCHData:
         date_obs = self._cubes[kind].date_obs
         date_string = date_obs.strftime("%Y%m%d%H%M%S")
 
-        filename = 'L' + file_level + '_' + type_code + observatory + '_' + date_string
+        filename = 'PUNCH_L' + file_level + '_' + type_code + observatory + '_' + date_string
 
         return filename
+
+    @staticmethod
+    def parse_id(input: str):
+        # TODO - Write this.
+        pass
 
     def write(self, filename: str, kind: str = "default", overwrite=True) -> Dict:
         """
@@ -294,7 +303,6 @@ class PUNCHData:
         for entry in self._history._entries:
             hdu_data.header['HISTORY'] = f"{entry.datetime}: {entry.source}, {entry.comment}"
 
-
         hdu_uncert = fits.ImageHDU()
         hdu_uncert.data = uncert.array
 
@@ -330,7 +338,20 @@ class PUNCHData:
         matplotlib.image.saveim(filename, output_data)
 
     def plot(self, kind: str = "default") -> None:
-        """Generate relevant plots to display or file"""
+        """
+        Generate relevant plots to display or file
+
+        Parameters
+        ----------
+        kind
+            specified element of the PUNCHData object to write to file
+
+        Returns
+        -------
+        None
+
+        """
+
         self._cubes[kind].show()
 
     def get_meta(self, key: str, kind: str = "default") -> Union[str, int, float]:
@@ -348,6 +369,9 @@ class PUNCHData:
         Requested metadata
 
         """
+        if ~(key in self._cubes[kind].meta):
+            raise Exception("Invalid key in observation metadata.")
+
         return self._cubes[kind].meta[key]
 
     def set_meta(self, key: str, value: str, kind: str = "default") -> None:
@@ -367,6 +391,10 @@ class PUNCHData:
         None
 
         """
+
+        if type(value) != str:
+            raise Exception("Provided metadata must be in string format.")
+
         self._cubes[kind].meta[key] = value
 
     def date_obs(self, kind: str = "default") -> datetime:
