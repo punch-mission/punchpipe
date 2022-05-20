@@ -71,6 +71,18 @@ def test_generate_from_ndcubedict(simple_ndcube):
 
 def test_write_data():
     pd = PUNCHData.from_fits(SAMPLE_FITS_PATH)
+    pd.set_meta("LEVEL", 1)
+    pd.set_meta("TYPECODE", "XX")
+    pd.set_meta("OBSRVTRY", "Y")
+    pd.set_meta("VERSION", 0.1)
+    pd.set_meta("SOFTVERS", 0.1)
+    pd.set_meta("DATE-OBS", str(datetime.now()))
+    pd.set_meta("DATE-AQD", str(datetime.now()))
+    pd.set_meta("DATE-END", str(datetime.now()))
+    pd.set_meta("POL", "M")
+    pd.set_meta("STATE", "running")
+    pd.set_meta("PROCFLOW", 1)
+
     pd.write(SAMPLE_WRITE_PATH, kind="default")
     # Check for writing to file? Read back in and compare?
 

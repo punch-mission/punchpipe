@@ -3,7 +3,7 @@ from collections import namedtuple
 from datetime import datetime
 import astropy.units as u
 import matplotlib
-from typing import Union, List, Dict
+from typing import Union, List, Dict, Any
 import numpy as np
 from astropy.io import fits
 from astropy.nddata import StdDevUncertainty
@@ -254,8 +254,8 @@ class PUNCHData:
                         'date_end': self.get_meta(key='DATE-END', kind=kind),
                         'polarization': self.get_meta(key='POL', kind=kind),
                         'state': self.get_meta(key='STATE', kind=kind),
-                        'processing_flow': self.get_meta(key='PROCFLOW', kind=kind),
-                        'file_name': filename}
+                        'processing_flow': self.get_meta(key='PROCFLOW', kind=kind)
+                        }
 
         return update_table
 
@@ -285,8 +285,9 @@ class PUNCHData:
 
         hdu_data = fits.PrimaryHDU()
         hdu_data.data = data
-        for key, value in meta.items():
-            hdu_data.header[key] = value
+        # TODO: properly write meta to header
+        # for key, value in meta.items():
+        #     hdu_data.header[key] = value
 
         # TODO: remove protected usage by adding a new iterate method
         for entry in self._history._entries:
@@ -343,6 +344,25 @@ class PUNCHData:
 
         """
         return self._cubes[kind].meta[key]
+
+    def set_meta(self, key: str, value: Any, kind: str = "default") -> None:
+        """
+        Retrieves metadata about a cube
+        Parameters
+        ----------
+        key
+            specified metadata key
+        value
+            Updated metadata information
+        kind
+            specified element of the PUNCHData object to write to file
+
+        Returns
+        -------
+        None
+
+        """
+        self._cubes[kind].meta[key] = value
 
     def date_obs(self, kind: str = "default") -> datetime:
         return parse_datetime(self._cubes[kind].meta["date-obs"])
