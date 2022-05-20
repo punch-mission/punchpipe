@@ -1,18 +1,15 @@
 from __future__ import annotations
-
 from collections import namedtuple
 from datetime import datetime
-from typing import Union, Optional, List, Dict
 import astropy.units as u
 import matplotlib
-from typing import Union, Optional, List, Dict
+from typing import Union, List, Dict
 import numpy as np
 from astropy.io import fits
 from astropy.nddata import StdDevUncertainty
 from astropy.wcs import WCS
 from dateutil.parser import parse as parse_datetime
 from ndcube import NDCube
-from ndcube.visualization import BasePlotter
 
 HistoryEntry = namedtuple("HistoryEntry", "datetime, source, comment")
 
@@ -194,7 +191,8 @@ class PUNCHData:
 
     def generate_id(self, kind: str = "default") -> str:
         """
-        Dynamically generate an identification string for the given data product, using the format 'Ln_ttO_yyyymmddhhmmss'
+        Dynamically generate an identification string for the given data product,
+            using the format 'Ln_ttO_yyyymmddhhmmss'
         Parameters
         ----------
         kind
@@ -245,20 +243,19 @@ class PUNCHData:
         else:
             raise Exception('Please specify a valid file extension (.fits, .png, .jpg, .jpeg)')
 
-        update_table = {}
-        update_table['file_id'] = filename
-        update_table['level'] = self._cubes[kind].meta.get('LEVEL', None)
-        update_table['file_type'] = self._cubes[kind].meta.get('TYPECODE', None)
-        update_table['observatory'] = self._cubes[kind].meta.get('obsrvtry', self._cubes[kind].meta.get('telescop', "")).replace("_", " ")
-        update_table['file_version'] = self._cubes[kind].meta.get('VERSION', None)
-        update_table['software_version'] = self._cubes[kind].meta.get('SOFTVERS', None)
-        update_table['date_acquired'] = self._cubes[kind].meta.get('DATE-AQD', None)
-        update_table['date_obs'] = self._cubes[kind].meta.get('DATE-OBS', None)
-        update_table['date_end'] = self._cubes[kind].meta.get('DATE-END', None)
-        update_table['polarization'] = self._cubes[kind].meta.get('POL', None)
-        update_table['state'] = self._cubes[kind].meta.get('STATE', None)
-        update_table['processing_flow'] = self._cubes[kind].meta.get('PROCFLOW', None)
-        update_table['file_name'] = filename
+        update_table = {'file_id': filename,
+                        'level': self.get_meta(key='LEVEL', kind=kind),
+                        'file_type': self.get_meta(key='TYPECODE', kind=kind),
+                        'observatory': self.get_meta(key='OBSRVTRY', kind=kind),
+                        'file_version': self.get_meta(key='VERSION', kind=kind),
+                        'software_version': self.get_meta(key='SOFTVERS', kind=kind),
+                        'date_acquired': self.get_meta(key='DATE-AQD', kind=kind),
+                        'date_obs': self.get_meta(key='DATE-OBS', kind=kind),
+                        'date_end': self.get_meta(key='DATE-END', kind=kind),
+                        'polarization': self.get_meta(key='POL', kind=kind),
+                        'state': self.get_meta(key='STATE', kind=kind),
+                        'processing_flow': self.get_meta(key='PROCFLOW', kind=kind),
+                        'file_name': filename}
 
         return update_table
 
@@ -290,9 +287,10 @@ class PUNCHData:
         hdu_data.data = data
         for key, value in meta.items():
             hdu_data.header[key] = value
+
+        # TODO: remove protected usage by adding a new iterate method
         for entry in self._history._entries:
             hdu_data.header['HISTORY'] = f"{entry.datetime}: {entry.source}, {entry.comment}"
-
 
         hdu_uncert = fits.ImageHDU()
         hdu_uncert.data = uncert.array
