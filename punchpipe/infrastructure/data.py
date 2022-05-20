@@ -15,32 +15,87 @@ HistoryEntry = namedtuple("HistoryEntry", "datetime, source, comment")
 
 
 class History:
+    """Representation of the history of edits done to a PUNCHData object
+    """
     def __init__(self):
         self._entries: List[HistoryEntry] = []
 
     def add_entry(self, entry: HistoryEntry) -> None:
+        """
+        Add an entry to the History log
+
+        Parameters
+        ----------
+        entry : HistoryEntry
+            A HistoryEntry object to add to the History log
+
+        Returns
+        -------
+        None
+
+        """
         self._entries.append(entry)
 
     def clear(self) -> None:
+        """
+        Clears all the history entries so the History is blank
+
+        Returns
+        -------
+        None
+        """
         self._entries = []
 
     def __getitem__(self, index: int) -> HistoryEntry:
+        """
+        Given an index, returns the requested HistoryEntry
+
+        Parameters
+        ----------
+        index : int
+            numerical index of the history entry, increasing number typically indicates an older entry
+
+        Returns
+        -------
+        HistoryEntry
+
+        """
         return self._entries[index]
 
     def most_recent(self) -> HistoryEntry:
+        """
+        Gets the most recent HistoryEntry, i.e. the youngest
+
+        Returns
+        -------
+        HistoryEntry that is the youngest
+        """
         return self._entries[-1]
 
-    def convert_to_fits_cards(self) -> None:
-        pass
-
     def __len__(self) -> int:
+        """
+        Returns
+        -------
+        int : the number of history entries
+        """
         return len(self._entries)
 
     def __str__(self) -> str:
+        """
+        Formats a string combining all the history entries
+
+        Returns
+        -------
+        str : a combined record of the history entries
+        """
         return "\n".join([f"{e.datetime}: {e.source}: {e.comment}" for e in self._entries])
 
 
 class PUNCHCalibration:
+    """
+    This will be inherited and developed as the various calibration objects, e.g. the quartic fit coefficients, are
+    developed. This will be an abstract base class for all of them.
+    """
     pass
 
 
@@ -210,7 +265,7 @@ class PUNCHData:
         date_obs = self._cubes[kind].date_obs
         date_string = date_obs.strftime("%Y%m%d%H%M%S")
 
-        filename = 'L' + file_level + '_' + type_code + observatory + '_' + date_string
+        filename = 'PUNCH_L' + file_level + '_' + type_code + observatory + '_' + date_string
 
         return filename
 
@@ -328,7 +383,19 @@ class PUNCHData:
         matplotlib.image.saveim(filename, output_data)
 
     def plot(self, kind: str = "default") -> None:
-        """Generate relevant plots to display or file"""
+        """
+         Generate relevant plots to display or file
+
+         Parameters
+         ----------
+         kind
+             specified element of the PUNCHData object to write to file
+
+         Returns
+         -------
+         None
+
+         """
         self._cubes[kind].show()
 
     def get_meta(self, key: str, kind: str = "default") -> Union[str, int, float]:
