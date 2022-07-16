@@ -28,7 +28,8 @@ setup(
         'graphviz',
         'ndcube',
         'matplotlib',
-        'ccsdspy'],
+        'ccsdspy',
+        'dash'],
     extras_require={
             'dev': [],
             'test': ['pytest', 'coverage', 'pytest-mock-resources[mysql]'],
