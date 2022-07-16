@@ -3,10 +3,14 @@ from datetime import datetime
 from punchpipe.infrastructure.tasks.core import ScienceFunction
 from punchpipe.infrastructure.data import PUNCHData
 from punchpipe.infrastructure.tasks.core import CalibrationConfiguration
+from prefect import task, get_run_logger
 
 
-class PSFCorrectionFunction(ScienceFunction):
-
-    def process(self, data_object: PUNCHData, configuration: Optional[CalibrationConfiguration] = None) -> PUNCHData:
-        data_object.add_history(datetime.now(), "LEVEL1-PSF", "psf corrected")
-        return data_object  # TODO : actually do psf correction!
+@task
+def correct_psf(data_object):
+    logger = get_run_logger()
+    logger.info("correct_psf started")
+    # do PSF correction in here
+    logger.info("correct_psf finished")
+    data_object.add_history(datetime.now(), "LEVEL1-correct_psf", "PSF corrected")
+    return data_object

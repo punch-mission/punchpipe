@@ -3,10 +3,16 @@ from datetime import datetime
 from punchpipe.infrastructure.tasks.core import ScienceFunction
 from punchpipe.infrastructure.data import PUNCHData
 from punchpipe.infrastructure.tasks.core import CalibrationConfiguration
+from prefect import task, get_run_logger
 
 
-class VignettingCorrectionFunction(ScienceFunction):
+@task
+def correct_vignetting(data_object):
+    logger = get_run_logger()
+    logger.info("correct_vignetting started")
+    # do vignetting correction in here
+    logger.info("correct_vignetting finished")
+    data_object.add_history(datetime.now(), "LEVEL1-correct_vignetting", "Vignetting corrected")
+    return data_object
 
-    def process(self, data_object: PUNCHData, configuration: Optional[CalibrationConfiguration] = None) -> PUNCHData:
-        data_object.add_history(datetime.now(), "LEVEL1-Vignette", "vignetting corrected")
-        return data_object  # TODO : actually do vignetting correction!
+

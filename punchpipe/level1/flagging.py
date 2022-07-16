@@ -2,11 +2,14 @@ from typing import Optional
 from datetime import datetime
 from punchpipe.infrastructure.tasks.core import ScienceFunction
 from punchpipe.infrastructure.data import PUNCHData
-from punchpipe.infrastructure.tasks.core import CalibrationConfiguration
+from prefect import task, get_run_logger
 
 
-class FlaggingFunction(ScienceFunction):
-
-    def process(self, data_object: PUNCHData, configuration: Optional[CalibrationConfiguration] = None) -> PUNCHData:
-        data_object.add_history(datetime.now(), "LEVEL1-Flagging", "flagging completed")
-        return data_object  # TODO : actually do flagging!
+@task
+def flag(data_object):
+    logger = get_run_logger()
+    logger.info("flagging started")
+    # do despiking in here
+    logger.info("flagging finished")
+    data_object.add_history(datetime.now(), "LEVEL1-flagging", "image flagged")
+    return data_object
