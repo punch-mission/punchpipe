@@ -1,5 +1,4 @@
 from punchpipe.level1.alignment import align
-from punchpipe import flow, get_run_logger, task
 from punchpipe.infrastructure.data import PUNCHData
 from punchpipe.level1.quartic_fit import perform_quartic_fit
 from punchpipe.level1.despike import despike
@@ -10,6 +9,9 @@ from punchpipe.level1.stray_light import remove_stray_light
 from punchpipe.level1.alignment import align
 from punchpipe.level1.psf import correct_psf
 from punchpipe.level1.flagging import flag
+
+from prefect import flow, get_run_logger, task
+
 
 @task
 def load_level0(input_filename):

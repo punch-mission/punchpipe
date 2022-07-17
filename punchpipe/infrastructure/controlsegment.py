@@ -62,38 +62,6 @@ class ControlSegment:
         for flow in [*self.process_flows, *self.scheduler_flows, self.launcher_flow]:
             flow.register(project_name=self.project_name)
 
-    @classmethod
-    def create(cls, core_flows: List[Flow], configuration: Dict[str, Any]) -> DatabaseCredentials:
-        """Create a control segment from the core flow definitions and a configuration dictionary
-
-        Parameters
-        ----------
-        core_flows : List[Flow]
-            All core flows that are expected to run, listed in order of level
-        configuration: Dict[str, Any]
-            Configuration object for creating a flow
-
-        Returns
-        -------
-        DatabaseCredentials
-            The constructed control segment with the provided core flows and configuration
-
-        """
-        # Create process flows
-
-        # Create scheduler flows
-
-        # Create launcher flow
-
-        # Register with Prefect
-
-        # Return ControlSegment object
-        # TODO: do all this creation here instaed of in the initialize script
-        pass
-
-    def _load_configuration(self, path: str) -> Dict[Any, Any]:
-        pass
-
 
 @dataclass
 class DatabaseCredentials:
