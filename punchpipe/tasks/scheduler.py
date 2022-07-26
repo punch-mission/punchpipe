@@ -2,8 +2,8 @@ from abc import abstractmethod
 from typing import Optional, Tuple
 import prefect
 from prefect.tasks.mysql import MySQLExecute
-from punchpipe.infrastructure.tasks.core import PipelineTask
-from punchpipe.infrastructure.db import FlowEntry, FileEntry
+from tasks import PipelineTask
+from db import FlowEntry, FileEntry
 
 
 class CheckForInputs(PipelineTask):

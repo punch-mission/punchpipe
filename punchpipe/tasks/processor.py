@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 import prefect
 from prefect.tasks.mysql import MySQLExecute
-from punchpipe.infrastructure.db import FlowEntry
+from db import FlowEntry
 
 
 class MarkFlowAsRunning(MySQLExecute):

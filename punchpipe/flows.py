@@ -236,4 +236,3 @@
 #         process_flow.set_reference_tasks(self.core_flow.get_tasks())
 
 #         return process_flow
-

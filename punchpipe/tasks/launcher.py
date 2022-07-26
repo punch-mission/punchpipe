@@ -4,8 +4,8 @@ import json
 from typing import List, Tuple
 from prefect.tasks.prefect import create_flow_run
 from prefect.tasks.mysql import MySQLExecute, MySQLFetch
-from punchpipe.infrastructure.tasks.core import PipelineTask
-from punchpipe.infrastructure.controlsegment import MAX_SECONDS_WAITING
+from tasks import PipelineTask
+from controlsegment import MAX_SECONDS_WAITING
 
 
 class GatherQueuedFlows(MySQLFetch):

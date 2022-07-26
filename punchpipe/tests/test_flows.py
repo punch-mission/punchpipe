@@ -2,9 +2,9 @@ from __future__ import annotations
 import os
 from pytest import fixture
 from prefect import Flow
-from punchpipe.infrastructure.flows import FlowGraph, CoreFlowBuilder, KeywordDict, ProcessFlowBuilder
-from punchpipe.infrastructure.tasks.core import PipelineTask
-from punchpipe.infrastructure.controlsegment import DatabaseCredentials
+from flows import FlowGraph, CoreFlowBuilder, KeywordDict, ProcessFlowBuilder
+from tasks import PipelineTask
+from controlsegment import DatabaseCredentials
 
 
 @fixture
