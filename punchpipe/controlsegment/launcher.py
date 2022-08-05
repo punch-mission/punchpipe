@@ -9,9 +9,10 @@ from sqlalchemy.orm import Session
 from typing import List, Any
 import json
 
+
 @task
 def gather_queued_flows(session):
-    return [flow.flow_id for flow in session.query(Flow).where(Flow.state == "queued").all()]
+    return [f.flow_id for f in session.query(Flow).where(Flow.state == "queued").all()]
 
 
 @task
