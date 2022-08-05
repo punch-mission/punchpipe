@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 from prefect.blocks.core import Block
 from pydantic import SecretStr
-from sqlalchemy import Column, ForeignKey, Integer, String, create_engine, DateTime, Float
+from sqlalchemy import Column, ForeignKey, Integer, String, create_engine, DateTime, Float, TEXT
 from sqlalchemy.orm import declarative_base, relationship
 
 
@@ -43,7 +43,7 @@ class Flow(Base):
     start_time = Column(DateTime, nullable=True)
     end_time = Column(DateTime, nullable=True)
     priority = Column(Integer, nullable=False)
-    call_data = Column(String(16000000), nullable=True)
+    call_data = Column(TEXT, nullable=True)
     flow_kind = Column(Integer, nullable=True)
 
 
