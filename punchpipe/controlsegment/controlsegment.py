@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import List, Dict, Any
-from prefect import Flow, Client
+from prefect import Flow
 from dataclasses import dataclass
 
 
@@ -43,24 +43,6 @@ class ControlSegment:
         self.control_configuration = control_configuration
 
         self.database_credentials = database_credentials
-
-    def register_with_prefect(self) -> None:
-        """Registers a flow with Prefect.
-
-        Notes
-        ------
-        This will create a project with the specified name as needed. It will also register every flow, not just the
-        process flows.
-
-        Returns
-        -------
-        None
-        """
-        client = Client()
-        client.create_project(project_name=self.project_name)
-
-        for flow in [*self.process_flows, *self.scheduler_flows, self.launcher_flow]:
-            flow.register(project_name=self.project_name)
 
 
 @dataclass

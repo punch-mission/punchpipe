@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 import prefect
 from prefect.tasks.mysql import MySQLExecute
 from tasks import PipelineTask
-from db import FlowEntry, FileEntry
+from controlsegment.db import FlowEntry, FileEntry
 
 
 class CheckForInputs(PipelineTask):

@@ -3,9 +3,9 @@ This script is used to initialize and update the pipeline in Prefect. Simply run
 Prefect, and it will update all the flows.
 """
 from controlsegment import ControlSegment, ControlSegmentConfiguration
-from flows import LauncherFlowBuilder, SchedulerFlowBuilder, ProcessFlowBuilder
-from punchpipe.level1.flow import level1_core_flow
-from punchpipe.level1.tasks import Level1QueryTask, Level1InputsCheck
+from controlsegment.flows import LauncherFlowBuilder, SchedulerFlowBuilder, ProcessFlowBuilder
+from flows.level1 import level1_core_flow
+from flows.level1 import Level1QueryTask, Level1InputsCheck
 from credentials import db_cred
 from prefect.storage import Local
 

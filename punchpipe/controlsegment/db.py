@@ -1,5 +1,3 @@
-from typing import Optional
-from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
@@ -11,38 +9,8 @@ from sqlalchemy.orm import declarative_base, relationship
 
 class MySQLCredentials(Block):
     user: Optional[str] = "localhost"
-    password: Optional[SecretStr] = None 
+    password: Optional[SecretStr] = None
 
-@dataclass
-class FlowEntry:
-    """A representation of an entry from the flows table in the database.
-    """
-    flow_type: str
-    state: str
-    priority: int
-    creation_time: datetime
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    flow_id: Optional[str] = None
-    call_data: str = ""
-
-
-@dataclass
-class FileEntry:
-    """A representation of an entry from the files table in the database.
-    """
-    level: int
-    file_type: str
-    observatory: str
-    file_version: int
-    software_version: int
-    date_acquired: datetime
-    date_observation: datetime
-    date_end: datetime
-    polarization: str
-    state: str
-    file_id: Optional[int] = None
-    processing_flow: Optional[str] = None
 
 Base = declarative_base()
 
@@ -65,6 +33,7 @@ class File(Base):
     def __repr__(self):
         return f"File(id={self.file_id!r})"
 
+
 class Flow(Base):
     __tablename__ = "flows"
     flow_id = Column(String(44), primary_key=True)
@@ -77,11 +46,13 @@ class Flow(Base):
     call_data = Column(String(16000000), nullable=True)
     flow_kind = Column(Integer, nullable=True)
 
+
 class FlowKind(Base):
     __tablename__ = "flow_kinds"
     flow_kind_id = Column(Integer, primary_key=True)
     flow_kind_descr = Column(String(80), nullable=True)
     fast_threshold = Column(Float, nullable=True)
+
 
 class FileRelationship(Base):
     __tablename__ = "relationships"
