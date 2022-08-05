@@ -16,9 +16,9 @@ e.g. `level1` means the Level 0 to Level 1 segment.
 4. Set up database credentials Prefect block by running `python scripts/credentials.py`. 
     - If this file does not exist for you. You need to determine your mySQL credentials then create a block in Python: 
     ```py
-        from punchpipe.controlsegment.db import MySQLCredentials
-        cred = MySQLCredentials(user="username", password="password")
-        cred.save('mysql-cred')
+   from punchpipe.controlsegment.db import MySQLCredentials
+   cred = MySQLCredentials(user="username", password="password")
+   cred.save('mysql-cred')
     ```
 5. Set up databases using the `setup_db.sql` in the `scripts` directory. 
 6. Build all the necessary deployments for Prefect by follwing [these instructions](https://docs.prefect.io/concepts/deployments/).

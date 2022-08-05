@@ -11,7 +11,7 @@ async def main():
         print(deployments)
         my_org = {d.name: d.id for d in deployments}
         print(my_org)
-        depl_id = my_org['level1_process_flow']
+        depl_id = my_org['level1-process-flow']
         response1 = await client.create_flow_run_from_deployment(depl_id)
         response2 = await client.create_flow_run_from_deployment(depl_id)
         response3 = await client.create_flow_run_from_deployment(depl_id)
