@@ -1,5 +1,3 @@
-from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Optional
 from prefect.blocks.core import Block
 from pydantic import SecretStr
@@ -23,35 +21,31 @@ class File(Base):
     observatory = Column(String(1), nullable=False)
     file_version = Column(Integer, nullable=False)
     software_version = Column(Integer, nullable=False)
-    date_acquired = Column(DateTime, nullable=False)
+    date_created = Column(DateTime, nullable=True)
     date_obs = Column(DateTime, nullable=False)
-    date_end = Column(DateTime, nullable=False)
+    date_beg = Column(DateTime, nullable=True)
+    date_end = Column(DateTime, nullable=True)
     polarization = Column(String(2), nullable=True)
     state = Column(String(64), nullable=False)
-    processing_flow = Column(String(44), nullable=False)
+    processing_flow = Column(Integer, nullable=True)
 
     def __repr__(self):
         return f"File(id={self.file_id!r})"
 
+    def filename(self) -> str:
+        return f'PUNCH_L{self.level}_{self.file_type}{self.observatory}_{self.date_obs.strftime("%Y%m%d%H%M%S")}.fits'
 
 class Flow(Base):
     __tablename__ = "flows"
-    flow_id = Column(String(44), primary_key=True)
+    flow_id = Column(Integer, primary_key=True)
     flow_type = Column(String(64), nullable=False)
+    flow_run = Column(String(64), nullable=True)
     state = Column(String(64), nullable=False)
     creation_time = Column(DateTime, nullable=False)
     start_time = Column(DateTime, nullable=True)
     end_time = Column(DateTime, nullable=True)
     priority = Column(Integer, nullable=False)
     call_data = Column(TEXT, nullable=True)
-    flow_kind = Column(Integer, nullable=True)
-
-
-class FlowKind(Base):
-    __tablename__ = "flow_kinds"
-    flow_kind_id = Column(Integer, primary_key=True)
-    flow_kind_descr = Column(String(80), nullable=True)
-    fast_threshold = Column(Float, nullable=True)
 
 
 class FileRelationship(Base):

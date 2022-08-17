@@ -20,18 +20,14 @@ e.g. `level1` means the Level 0 to Level 1 segment.
    cred = MySQLCredentials(user="username", password="password")
    cred.save('mysql-cred')
     ```
-5. Set up databases using the `setup_db.sql` in the `scripts` directory. 
-6. Build all the necessary deployments for Prefect by follwing [these instructions](https://docs.prefect.io/concepts/deployments/).
+5. Set up databases by running `scripts/create_db.py` directory. 
+6. Build all the necessary deployments for Prefect by following [these instructions](https://docs.prefect.io/concepts/deployments/).
    - See below for an example:
    ```shell
-    prefect deployment build ./punchpipe/flows/level1.py:level1_process_flow -n level1-process-flow
-    ```
-7. Apply the deployments using the previous instructions
-   ```shell
-   prefect deployment apply ./level1_process_flow-deployment.yaml
+   ./deploy.sh
    ```
-8. Create a work queue in the Prefect UI for the deployments
-9. Create an agent for the worflow by following instructions in the UI
+7. Create a work queue in the Prefect UI for the deployments
+8. Create an agent for the work queue by following instructions in the UI
 
 ## Running
 1. Make sure first-time setup is complete

@@ -12,7 +12,7 @@ import json
 
 @task
 def gather_queued_flows(session):
-    return [f.flow_id for f in session.query(Flow).where(Flow.state == "queued").all()]
+    return [f.flow_id for f in session.query(Flow).where(Flow.state == "planned").all()]
 
 
 @task
@@ -23,7 +23,7 @@ def count_running_flows(session):
 @task
 def escalate_long_waiting_flows(session, max_seconds_waiting=100, escalated_priority=1):
     since = datetime.now() - timedelta(seconds=max_seconds_waiting)
-    session.query(Flow).where(and_(Flow.state == "queued", Flow.creation_time < since)).update(
+    session.query(Flow).where(and_(Flow.state == "planned", Flow.creation_time < since)).update(
         {'priority': escalated_priority})
     session.commit()
 
@@ -69,8 +69,8 @@ async def launch_ready_flows(session: Session, flow_ids: List[int]):
         # for every flow launch it and store the response
         for this_flow in flow_info:
             this_deployment_id = deployment_ids[this_flow.name]
-            this_flow_params = json.loads(this_flow.call_data)
-            response = await client.create_flow_run_from_deployment(this_deployment_id, parameters=this_flow_params)
+            response = await client.create_flow_run_from_deployment(this_deployment_id,
+                                                                    parameters={'flow_id': flow_info.flow_id})
             responses.append(response)
     return responses
 
