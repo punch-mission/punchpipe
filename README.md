@@ -26,7 +26,7 @@ e.g. `level1` means the Level 0 to Level 1 segment.
    ```shell
    ./deploy.sh
    ```
-7. Create a work queue in the Prefect UI for the deployments
+7. Create a work queue in the Prefect UI for the deployments (will need to run `prefect orion start` to get the UI)
 8. Create an agent for the work queue by following instructions in the UI
 
 ## Running

@@ -18,7 +18,7 @@ def level1_query_ready_files(session):
 
 @task
 def level1_construct_flow_info(level0_file: File, level1_file: File):
-    flow_type = "level1-process-flow"
+    flow_type = "level1_process_flow"
     state = "planned"
     creation_time = datetime.now()
     priority = 1
@@ -89,6 +89,7 @@ def level1_process_flow(flow_id: int):
     flow_run_context = get_run_context()
     flow_db_entry.flow_run = flow_run_context.flow_run.name
     flow_db_entry.state = "running"
+    flow_db_entry.start_time = datetime.now()
     session.commit()
 
     # update the file database entry as being created
@@ -103,9 +104,11 @@ def level1_process_flow(flow_id: int):
     except Exception as e:
         flow_db_entry.state = "failed"
         file_db_entry.state = "failed"
+        flow_db_entry.end_time = datetime.now()
         session.commit()
         raise e
     else:
         flow_db_entry.state = "completed"
         file_db_entry.state = "created"
+        flow_db_entry.end_time = datetime.now()
         session.commit()

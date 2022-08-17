@@ -12,7 +12,3 @@ if __name__ == "__main__":
     engine = create_engine(
         f'mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe')
     Base.metadata.create_all(engine)
-
-
-
-    level1_scheduler_flow()
