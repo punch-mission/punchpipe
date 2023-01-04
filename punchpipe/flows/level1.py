@@ -1,15 +1,14 @@
-from punchpipe.controlsegment.db import Flow, MySQLCredentials, File, FileRelationship
-from punchpipe.controlsegment.scheduler import update_file_state
-
+from datetime import datetime
+import json
 
 from sqlalchemy import and_, create_engine
 from sqlalchemy.orm import Session
 from prefect import flow, task
 from prefect.context import get_run_context
 from punchbowl.level1.flow import level1_core_flow
-from datetime import datetime
-import json
 
+from punchpipe.controlsegment.db import Flow, MySQLCredentials, File, FileRelationship
+from punchpipe.controlsegment.scheduler import update_file_state
 
 @task
 def level1_query_ready_files(session):
