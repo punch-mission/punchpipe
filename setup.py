@@ -22,7 +22,9 @@ setup(
         'pymysql',
         'pydantic',
         'sqlalchemy',
-        'punchbowl'],
+        'punchbowl',
+        'datapane',
+        'plotly'],
     extras_require={
             'dev': [],
             'test': ['pytest', 'coverage', 'pytest-mock-resources[mysql]'],

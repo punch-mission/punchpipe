@@ -1,41 +1,81 @@
 # Run this app with `python app.py` and
 # visit http://127.0.0.1:8050/ in your web browser.
 
-from dash import Dash, dcc, html, Input, Output, State
+from dash import Dash, dcc, html, Input, Output, State, dash_table
 import plotly.express as px
 import pandas as pd
-
+import numpy as np
+from datetime import timedelta, date
+from dash.exceptions import PreventUpdate
+import json
 
 app = Dash(__name__)
 
-df = pd.read_csv('https://gist.githubusercontent.com/chriddyp/5d1ea79569ed194d432e56108a04d188/raw/a9f9e8076b837d541398e999dcbac2b2826a81f8/gdp-life-exp-2007.csv')
+df = pd.read_csv("/Users/jhughes/Desktop/repos/punchpipe/punchpipe/monitor/sample.csv",
+                 parse_dates=['creation_time', 'start_time', 'end_time'])
+df.set_index("flow_id")
+df['duration'] = (df['end_time'] - df['start_time']).map(timedelta.total_seconds)
 
-fig = px.scatter(df, x="gdp per capita", y="life expectancy",
-                 size="population", color="continent", hover_name="country",
-                 log_x=True, size_max=60)
+fig = px.histogram(df, x="duration")
 
 app.layout = html.Div([
+    dcc.DatePickerRange(
+        id='date_picker_range',
+        min_date_allowed=date(2022, 1, 1),
+        max_date_allowed=date.today(),
+        initial_visible_month=date(2022, 1, 1),
+        start_date=date.today() - timedelta(days=1),
+        end_date=date.today()
+    ),
     dcc.Graph(
-        id='life-exp-vs-gdp',
+        id='duration',
         figure=fig
     ),
-    html.Div(dcc.Input(id='input-on-submit', type='text')),
-    html.Button('Submit', id='submit-val', n_clicks=0),
-    html.Div(id='container-button-basic',
-             children='Enter a value and press submit')
+    dash_table.DataTable(id='flow_table',
+                         data=df.to_dict('records'),
+                         columns=[{"name": i, "id": i} for i in df.columns],
+                         page_action='none',
+                         style_table={'height': '300px', 'overflowY': 'auto'},
+                         sort_action='native'),
+    html.Pre(id='relayout-data'),
 ])
 
+
 @app.callback(
-    Output('container-button-basic', 'children'),
-    Input('submit-val', 'n_clicks'),
-    State('input-on-submit', 'value')
+    Output('duration', 'figure'),
+    Input('date_picker_range', 'start_date'),
+    Input('date_picker_range', 'end_date')
 )
-def update_output(n_clicks, value):
-    return 'The input value was "{}" and the button has been clicked {} times'.format(
-        value,
-        n_clicks
-    )
+def update_histogram(start_date, end_date):
+    filtered_df = df[(df['start_time'] > start_date) * (df['end_time'] < end_date)]
+    fig = px.histogram(filtered_df, x='duration')
+    fig.update_layout(transition_duration=500)
+
+    return fig
+
+
+@app.callback(
+    Output('flow_table', 'data'),
+    Input('date_picker_range', 'start_date'),
+    Input('date_picker_range', 'end_date')
+)
+def update_table(start_date, end_date):
+    return df[(df['start_time'] > start_date) * (df['end_time'] < end_date)].to_dict('records')
+
+
+@app.callback(
+    Output('relayout-data', 'children'),
+    Input('duration', 'relayoutData'))
+def display_relayout_data(relayoutData):
+    if relayoutData is None:
+        raise PreventUpdate
+    elif "xaxis.range[0]" not in relayoutData.keys():
+        raise PreventUpdate
+    else:
+        # get the relevant axis ranges, you can use to drop columns from the datatable
+        print(relayoutData, type(relayoutData))
+        return json.dumps(relayoutData, indent=2)
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False)
