@@ -6,6 +6,7 @@ from prefect import flow, task
 from prefect.context import get_run_context
 from punchbowl.level1.flow import level1_core_flow
 
+from punchpipe import __version__
 from punchpipe.controlsegment.db import Flow, File
 from punchpipe.controlsegment.processor import generic_process_flow_logic
 from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
@@ -36,7 +37,7 @@ def level1_construct_file_info(level0_file: File):
                 file_type=level0_file.file_type,
                 observatory=level0_file.observatory,
                 file_version="0",  # TODO: decide how to implement this
-                software_version="0",  # TODO: decide how to implement this
+                software_version=__version__,
                 date_obs=level0_file.date_obs,
                 polarization=level0_file.polarization,
                 state="planned")

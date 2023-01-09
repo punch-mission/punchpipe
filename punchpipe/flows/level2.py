@@ -5,6 +5,7 @@ from sqlalchemy import and_
 from prefect import flow, task
 from punchbowl.level2.flow import level2_core_flow
 
+from punchpipe import __version__
 from punchpipe.controlsegment.db import Flow, File
 from punchpipe.controlsegment.processor import generic_process_flow_logic
 from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
@@ -35,7 +36,7 @@ def level2_construct_file_info(level1_file: File):
                 file_type=level1_file.file_type,
                 observatory=level1_file.observatory,
                 file_version="0",  # TODO: decide how to implement this
-                software_version="0",  # TODO: decide how to implement this
+                software_version= __version__,
                 date_obs=level1_file.date_obs,
                 polarization=level1_file.polarization,
                 state="planned")
