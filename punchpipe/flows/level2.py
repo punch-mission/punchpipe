@@ -32,7 +32,7 @@ def level2_construct_flow_info(level1_file: File, level2_file: File):
 
 
 @task
-def level1_construct_file_info(level1_file: File):
+def level2_construct_file_info(level1_file: File):
     return File(level=2,
                 file_type=level1_file.file_type,
                 observatory=level1_file.observatory,
@@ -61,7 +61,7 @@ def level2_scheduler_flow():
         level1_file = session.query(File).where(File.file_id == file_id).one()
 
         # prepare the new level 1 flow and file
-        level2_file = level1_construct_file_info(level1_file)
+        level2_file = level2_construct_file_info(level1_file)
         database_flow_info = level2_construct_flow_info(level1_file, level2_file)
         session.add(level2_file)
         session.add(database_flow_info)
