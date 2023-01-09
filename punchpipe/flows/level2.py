@@ -1,15 +1,13 @@
 from datetime import datetime
 import json
 
-from sqlalchemy import and_, create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy import and_
 from prefect import flow, task
-from prefect.context import get_run_context
 from punchbowl.level2.flow import level2_core_flow
 
-from punchpipe.controlsegment.db import Flow, MySQLCredentials, File, FileRelationship
-from punchpipe.controlsegment.scheduler import update_file_state
-
+from punchpipe.controlsegment.db import Flow, File
+from punchpipe.controlsegment.processor import generic_process_flow_logic
+from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 
 @task
 def level2_query_ready_files(session):
@@ -45,72 +43,9 @@ def level2_construct_file_info(level1_file: File):
 
 @flow
 def level2_scheduler_flow():
-    # get database connection
-    credentials = MySQLCredentials.load("mysql-cred")
-    engine = create_engine(
-        f'mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe')
-    session = Session(engine)
-
-    # find all files that are ready to run
-    ready_file_ids = level2_query_ready_files(session)
-    for file_id in ready_file_ids:
-        # mark the file as progressed so that there aren't duplicate processing flows
-        update_file_state(session, file_id, "progressed")
-
-        # get the level0 file's information
-        level1_file = session.query(File).where(File.file_id == file_id).one()
-
-        # prepare the new level 1 flow and file
-        level2_file = level2_construct_file_info(level1_file)
-        database_flow_info = level2_construct_flow_info(level1_file, level2_file)
-        session.add(level2_file)
-        session.add(database_flow_info)
-        session.commit()
-
-        # set the processing flow now that we know the flow_id after committing the flow info
-        level2_file.processing_flow = database_flow_info.flow_id
-        session.commit()
-
-        # create a file relationship between the level 0 and level 1
-        session.add(FileRelationship(parent=level1_file.file_id, child=level2_file.file_id))
-        session.commit()
+    generic_scheduler_flow_logic(level2_query_ready_files, level2_construct_file_info, level2_construct_flow_info)
 
 
 @flow
 def level2_process_flow(flow_id: int):
-    credentials = MySQLCredentials.load("mysql-cred")
-    engine = create_engine(
-        f'mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe')
-    session = Session(engine)
-
-    # fetch the appropriate flow db entry
-    flow_db_entry = session.query(Flow).where(Flow.flow_id == flow_id).one()
-
-    # update the processing flow name with the flow run name from Prefect
-    flow_run_context = get_run_context()
-    flow_db_entry.flow_run_name = flow_run_context.flow_run.name
-    flow_db_entry.flow_run_id = flow_run_context.flow_run.id
-    flow_db_entry.state = "running"
-    flow_db_entry.start_time = datetime.now()
-    session.commit()
-
-    # update the file database entry as being created
-    file_db_entry = session.query(File).where(File.processing_flow == flow_db_entry.flow_id).one()
-    file_db_entry.state = "creating"
-    session.commit()
-
-    # load the call data and launch the core flow
-    flow_call_data = json.loads(flow_db_entry.call_data)
-    try:
-        level2_core_flow(flow_call_data['input_filename'], flow_call_data['output_filename'])
-    except Exception as e:
-        flow_db_entry.state = "failed"
-        file_db_entry.state = "failed"
-        flow_db_entry.end_time = datetime.now()
-        session.commit()
-        raise e
-    else:
-        flow_db_entry.state = "completed"
-        file_db_entry.state = "created"
-        flow_db_entry.end_time = datetime.now()
-        session.commit()
+    generic_process_flow_logic(flow_id, level2_core_flow)
