@@ -23,6 +23,7 @@ def level1_construct_flow_info(level0_file: File, level1_file: File):
     priority = 1
     call_data = json.dumps({"input_filename": level0_file.filename(), "output_filename": level1_file.filename()})
     return Flow(flow_type=flow_type,
+                flow_level=1,
                 state=state,
                 creation_time=creation_time,
                 priority=priority,
@@ -34,8 +35,8 @@ def level1_construct_file_info(level0_file: File):
     return File(level=1,
                 file_type=level0_file.file_type,
                 observatory=level0_file.observatory,
-                file_version=0,  # TODO: decide how to implement this
-                software_version=0,  # TODO: decide how to implement this
+                file_version="0",  # TODO: decide how to implement this
+                software_version="0",  # TODO: decide how to implement this
                 date_obs=level0_file.date_obs,
                 polarization=level0_file.polarization,
                 state="planned")
@@ -86,7 +87,8 @@ def level1_process_flow(flow_id: int):
 
     # update the processing flow name with the flow run name from Prefect
     flow_run_context = get_run_context()
-    flow_db_entry.flow_run = flow_run_context.flow_run.name
+    flow_db_entry.flow_run_name = flow_run_context.flow_run.name
+    flow_db_entry.flow_run_id = flow_run_context.flow_run.id
     flow_db_entry.state = "running"
     flow_db_entry.start_time = datetime.now()
     session.commit()
