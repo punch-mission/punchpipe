@@ -1,15 +1,14 @@
-from typing import List, Any
-import json
+from typing import List
+from datetime import datetime, timedelta
 
 from prefect import task, flow, get_run_logger
 from prefect.client import get_client
-from datetime import datetime, timedelta
-from sqlalchemy import and_, create_engine
+from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from punchpipe.controlsegment.db import Flow, MySQLCredentials
-from punchpipe.flows.level1 import level1_process_flow
+from punchpipe.controlsegment.db import Flow
 from punchpipe.controlsegment.util import get_database_session
+
 
 @task
 def gather_queued_flows(session):
