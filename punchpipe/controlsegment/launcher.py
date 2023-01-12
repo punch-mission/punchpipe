@@ -1,13 +1,13 @@
-from punchpipe.controlsegment.db import Flow, MySQLCredentials
-from punchpipe.flows.level1 import level1_process_flow
+from typing import List
+from datetime import datetime, timedelta
 
 from prefect import task, flow, get_run_logger
 from prefect.client import get_client
-from datetime import datetime, timedelta
-from sqlalchemy import and_, create_engine
+from sqlalchemy import and_
 from sqlalchemy.orm import Session
-from typing import List, Any
-import json
+
+from punchpipe.controlsegment.db import Flow
+from punchpipe.controlsegment.util import get_database_session
 
 
 @task
@@ -94,10 +94,7 @@ def launcher_flow():
 
     # Get database credentials and establish a connection
     logger.info("Establishing database connection")
-    credentials = MySQLCredentials.load('mysql-cred')
-    engine = create_engine(
-        f'mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe')
-    session = Session(engine)
+    session = get_database_session()
 
     # Perform the launcher flow responsibilities
     num_running_flows = count_running_flows(session)
