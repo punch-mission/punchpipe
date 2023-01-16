@@ -65,7 +65,7 @@ def generate_fake_level0_data():
     wcs.wcs.cname = "wavelength", "HPC lat", "HPC lon"
 
     meta = {"LEVEL": 0}
-    data = PUNCHData(data=data, wcs=wcs, meta=meta)
+    data = PUNCHData(data=data, wcs=wcs, meta=meta, uncertainty=np.zeros_like(data))
     return data
 
 @flow
