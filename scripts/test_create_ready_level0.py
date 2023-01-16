@@ -55,7 +55,7 @@ def insert_into_table(fake_flow, fake_file):
     session.commit()
 
 def generate_fake_level0_data():
-    data = np.random.rand(2048, 2048, 2)
+    data = np.random.rand(2048, 2048)
     wcs = astropy.wcs.WCS(naxis=3)
     wcs.wcs.ctype = "WAVE", "HPLT-TAN", "HPLN-TAN"
     wcs.wcs.cunit = "Angstrom", "deg", "deg"
