@@ -1,8 +1,13 @@
-from prefect import flow, task
 from datetime import datetime
 import json
+
+import numpy as np
+import astropy.wcs
+from prefect import flow, task
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from punchbowl.data import PUNCHData
+
 from punchpipe.controlsegment.db import Flow, File, MySQLCredentials
 
 
@@ -11,8 +16,8 @@ def construct_fake_entries():
     fake_file = File(level=0,
                      file_type="XX",
                      observatory="X",
-                     file_version=0,
-                     software_version=0,
+                     file_version="0",
+                     software_version="0",
                      date_created=datetime.now(),
                      date_beg=datetime.now(),
                      date_obs=datetime.now(),
@@ -22,6 +27,7 @@ def construct_fake_entries():
                      processing_flow=1)
 
     fake_flow = Flow(flow_type="Level 0",
+                     flow_level=0,
                      state="completed",
                      creation_time=datetime.now(),
                      start_time=datetime.now(),
@@ -48,10 +54,25 @@ def insert_into_table(fake_flow, fake_file):
     fake_file.processing_flow = fake_flow.flow_id
     session.commit()
 
+def generate_fake_level0_data():
+    data = np.random.rand(2048, 2048, 2)
+    wcs = astropy.wcs.WCS(naxis=3)
+    wcs.wcs.ctype = "WAVE", "HPLT-TAN", "HPLN-TAN"
+    wcs.wcs.cunit = "Angstrom", "deg", "deg"
+    wcs.wcs.cdelt = 0.2, 0.5, 0.4
+    wcs.wcs.crpix = 0, 2, 2
+    wcs.wcs.crval = 10, 0.5, 1
+    wcs.wcs.cname = "wavelength", "HPC lat", "HPC lon"
+
+    meta = {"LEVEL": 0}
+    data = PUNCHData(data=data, wcs=wcs, meta=meta)
+    return data
 
 @flow
 def create_fake_level0():
     fake_flow, fake_file = construct_fake_entries()
+    fake_data = generate_fake_level0_data()
+    fake_data.write(fake_file.filename())
     insert_into_table(fake_flow, fake_file)
 
 
