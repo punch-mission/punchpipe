@@ -10,6 +10,8 @@ from punchpipe.controlsegment.db import Flow, File
 from punchpipe.controlsegment.processor import generic_process_flow_logic
 from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 
+FILE_DIR = "/home/marcus.hughes/"
+
 @task
 def level2_query_ready_files(session):
     return [f.file_id for f in session.query(File).where(and_(File.state == "created", File.level == 1)).all()]
@@ -21,7 +23,8 @@ def level2_construct_flow_info(level1_file: File, level2_file: File):
     state = "planned"
     creation_time = datetime.now()
     priority = 1
-    call_data = json.dumps({"input_filename": level1_file.filename(), "output_filename": level2_file.filename()})
+    call_data = json.dumps({"input_filename": FILE_DIR + level1_file.filename(),
+                            "output_filename": FILE_DIR + level2_file.filename()})
     return Flow(flow_type=flow_type,
                 state=state,
                 flow_level=2,
