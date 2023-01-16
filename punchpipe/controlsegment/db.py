@@ -41,7 +41,7 @@ class Flow(Base):
     flow_level = Column(Integer, nullable=False)
     flow_type = Column(String(64), nullable=False)
     flow_run_name = Column(String(64), nullable=True)
-    flow_run_id = Column(String(36), primary_key=True)
+    flow_run_id = Column(String(36), nullable=True)
     state = Column(String(16), nullable=False)
     creation_time = Column(DateTime, nullable=False)
     start_time = Column(DateTime, nullable=True)
