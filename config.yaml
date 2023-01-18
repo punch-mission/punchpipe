@@ -1,0 +1,20 @@
+root: "/here/is/the/root/path/"
+
+launcher:
+  max_seconds_waiting: 100
+  escalated_priority: 100
+  max_flows_running: 30
+
+priority:
+  default:
+    initial: 1
+    seconds: [100, 200, 300]
+    escalation: [15, 18, 200]
+  level0:
+    initial: 5
+    seconds: [30, 120, 600]
+    escalation: [10, 20, 30]
+
+process_options:
+  pointing:
+    num_quads: 100
