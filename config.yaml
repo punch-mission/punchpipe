@@ -6,14 +6,18 @@ launcher:
   max_flows_running: 30
 
 priority:
-  default:
-    initial: 1
-    seconds: [100, 200, 300]
-    escalation: [15, 18, 200]
-  level0:
+  level0_process_flow:
     initial: 5
     seconds: [30, 120, 600]
     escalation: [10, 20, 30]
+  level1_process_flow:
+    initial: 6
+    seconds: [ 30, 120, 600 ]
+    escalation: [ 11, 21, 31]
+  level2_process_flow:
+    initial: 7
+    seconds: [30, 120, 600 ]
+    escalation: [ 12, 22, 32 ]
 
 process_options:
   pointing:

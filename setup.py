@@ -24,7 +24,8 @@ setup(
         'sqlalchemy',
         'punchbowl',
         'datapane',
-        'plotly'],
+        'plotly',
+        'pyyaml'],
     extras_require={
             'dev': [],
             'test': ['pytest', 'coverage', 'pytest-mock-resources[mysql]'],

@@ -1,5 +1,6 @@
 from datetime import datetime
 import json
+import os
 
 from sqlalchemy import and_
 from prefect import flow, task
@@ -10,7 +11,6 @@ from punchpipe.controlsegment.db import Flow, File
 from punchpipe.controlsegment.processor import generic_process_flow_logic
 from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 
-FILE_DIR = "/home/marcus.hughes/"
 
 @task
 def level2_query_ready_files(session):
@@ -18,13 +18,15 @@ def level2_query_ready_files(session):
 
 
 @task
-def level2_construct_flow_info(level1_file: File, level2_file: File):
+def level2_construct_flow_info(level1_file: File, level2_file: File, pipeline_config: dict):
     flow_type = "level2_process_flow"
     state = "planned"
     creation_time = datetime.now()
-    priority = 1
-    call_data = json.dumps({"input_filename": FILE_DIR + level1_file.filename(),
-                            "output_filename": FILE_DIR + level2_file.filename()})
+    priority = pipeline_config['priority']['level2']['initial']
+    call_data = json.dumps({"input_filename": os.path.join(level1_file.directory(pipeline_config['root']),
+                                                           level1_file.filename()),
+                            "output_filename": os.path.join(level2_file.directory(pipeline_config['root']),
+                                                            level2_file.filename())})
     return Flow(flow_type=flow_type,
                 state=state,
                 flow_level=2,
@@ -46,8 +48,11 @@ def level2_construct_file_info(level1_file: File):
 
 
 @flow
-def level2_scheduler_flow():
-    generic_scheduler_flow_logic(level2_query_ready_files, level2_construct_file_info, level2_construct_flow_info)
+def level2_scheduler_flow(pipeline_config_path="config.yaml"):
+    generic_scheduler_flow_logic(level2_query_ready_files,
+                                 level2_construct_file_info,
+                                 level2_construct_flow_info,
+                                 pipeline_config_path)
 
 
 @flow

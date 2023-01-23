@@ -1,6 +1,8 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from prefect import task
+import yaml
+from yaml.loader import FullLoader
 
 from punchpipe.controlsegment.db import MySQLCredentials
 from punchpipe.controlsegment.db import Flow, File, FileRelationship
@@ -18,3 +20,11 @@ def get_database_session():
 def update_file_state(session, file_id, new_state):
     session.query(File).where(File.file_id == file_id).update({"state": new_state})
     session.commit()
+
+
+@task
+def load_pipeline_configuration(path: str) -> dict:
+    with open(path) as f:
+        config = yaml.load(f, Loader=FullLoader)
+    # TODO: add validation
+    return config
