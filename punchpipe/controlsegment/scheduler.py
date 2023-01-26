@@ -1,6 +1,7 @@
 from punchpipe.controlsegment.db import File, FileRelationship
 from punchpipe.controlsegment.util import get_database_session, update_file_state, load_pipeline_configuration
 
+
 def generic_scheduler_flow_logic(query_ready_files_func,
                                  construct_child_file_info,
                                  construct_child_flow_info,

@@ -61,6 +61,8 @@ class File(Base):
                             str(self.level),
                             self.file_type,
                             self.date_obs.strftime("%Y/%m/%d"))
+
+
 class Flow(Base):
     __tablename__ = "flows"
     flow_id = Column(Integer, primary_key=True)
