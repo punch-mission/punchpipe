@@ -5,12 +5,14 @@ from punchpipe.controlsegment.util import get_database_session, update_file_stat
 def generic_scheduler_flow_logic(query_ready_files_func,
                                  construct_child_file_info,
                                  construct_child_flow_info,
-                                 pipeline_config_path):
+                                 pipeline_config_path,
+                                 session=None):
     # load pipeline configuration
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
 
     # get database connection
-    session = get_database_session()
+    if session is None:
+        session = get_database_session()
 
     # find all files that are ready to run
     ready_file_ids = query_ready_files_func(session)

@@ -23,7 +23,7 @@ def level1_construct_flow_info(level0_file: File, level1_file: File, pipeline_co
     flow_type = "level1_process_flow"
     state = "planned"
     creation_time = datetime.now()
-    priority = pipeline_config['priority']['level1']['initial']
+    priority = pipeline_config['priority']['level1_process_flow']['initial']
     call_data = json.dumps({"input_filename": os.path.join(level0_file.directory(pipeline_config['root']),
                                                            level0_file.filename()),
                             "output_filename": os.path.join(level1_file.directory(pipeline_config['root']),
@@ -49,11 +49,12 @@ def level1_construct_file_info(level0_file: File):
 
 
 @flow
-def level1_scheduler_flow(pipeline_config_path="config.yaml"):
+def level1_scheduler_flow(pipeline_config_path="config.yaml", session=None):
     generic_scheduler_flow_logic(level1_query_ready_files,
                                  level1_construct_file_info,
                                  level1_construct_flow_info,
-                                 pipeline_config_path)
+                                 pipeline_config_path,
+                                 session=session)
 
 
 @flow
