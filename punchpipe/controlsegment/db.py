@@ -1,4 +1,6 @@
 from typing import Optional
+import os
+
 from prefect.blocks.core import Block
 from pydantic import SecretStr
 from sqlalchemy import Column, ForeignKey, Integer, String, create_engine, DateTime, Float, TEXT
@@ -33,7 +35,33 @@ class File(Base):
         return f"File(id={self.file_id!r})"
 
     def filename(self) -> str:
+        """Constructs the filename for this file
+
+        Returns
+        -------
+        str
+            properly formatted PUNCH filename
+        """
         return f'PUNCH_L{self.level}_{self.file_type}{self.observatory}_{self.date_obs.strftime("%Y%m%d%H%M%S")}.fits'
+
+    def directory(self, root: str):
+        """Constructs the directory the file should be stored in
+
+        Parameters
+        ----------
+        root : str
+            the root directory where the top level PUNCH file hierarchy is
+
+        Returns
+        -------
+        str
+            the place to write the file
+        """
+        return os.path.join(root,
+                            str(self.level),
+                            self.file_type,
+                            self.date_obs.strftime("%Y/%m/%d"))
+
 
 class Flow(Base):
     __tablename__ = "flows"

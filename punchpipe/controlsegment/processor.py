@@ -6,6 +6,7 @@ from prefect.context import get_run_context
 from punchpipe.controlsegment.db import Flow, File
 from punchpipe.controlsegment.util import get_database_session
 
+
 def generic_process_flow_logic(flow_id: int, core_flow_to_launch):
     session = get_database_session()
 

@@ -7,7 +7,7 @@ from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from punchpipe.controlsegment.db import Flow
-from punchpipe.controlsegment.util import get_database_session
+from punchpipe.controlsegment.util import get_database_session, load_pipeline_configuration
 
 
 @task
@@ -21,11 +21,15 @@ def count_running_flows(session):
 
 
 @task
-def escalate_long_waiting_flows(session, max_seconds_waiting=100, escalated_priority=1):
-    since = datetime.now() - timedelta(seconds=max_seconds_waiting)
-    session.query(Flow).where(and_(Flow.state == "planned", Flow.creation_time < since)).update(
-        {'priority': escalated_priority})
-    session.commit()
+def escalate_long_waiting_flows(session, pipeline_config, escalated_priority=1):
+    for flow_type in pipeline_config['priority']:
+        for max_seconds_waiting, escalated_priority in zip(pipeline_config['priority'][flow_type]['seconds'],
+                                                           pipeline_config['priority'][flow_type]['escalation']):
+            since = datetime.now() - timedelta(seconds=max_seconds_waiting)
+            session.query(Flow).where(and_(Flow.state == "planned",
+                                           Flow.creation_time < since,
+                                           Flow.flow_type == flow_type)).update({'priority': escalated_priority})
+            session.commit()
 
 
 @task
@@ -80,7 +84,7 @@ async def launch_ready_flows(session: Session, flow_ids: List[int]):
 
 
 @flow
-def launcher_flow():
+def launcher_flow(pipeline_configuration_path="config.yaml"):
     """The main launcher flow for Prefect, responsible for identifying flows, based on priority,
         that are ready to run and creating flow runs for them. It also escalates long-waiting flows' priorities.
 
@@ -92,6 +96,9 @@ def launcher_flow():
     """
     logger = get_run_logger()
 
+    # load pipeline configuration
+    pipeline_config = load_pipeline_configuration(pipeline_configuration_path)
+
     # Get database credentials and establish a connection
     logger.info("Establishing database connection")
     session = get_database_session()
@@ -99,7 +106,7 @@ def launcher_flow():
     # Perform the launcher flow responsibilities
     num_running_flows = count_running_flows(session)
     logger.info(f"There are {num_running_flows} flows running right now.")
-    escalate_long_waiting_flows(session)
+    escalate_long_waiting_flows(session, pipeline_config)
     queued_flows = gather_queued_flows(session)
     logger.info(f"There are {len(queued_flows)} planned flows right now.")
     flows_to_launch = filter_for_launchable_flows(queued_flows, num_running_flows)

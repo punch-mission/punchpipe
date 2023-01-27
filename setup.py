@@ -24,10 +24,11 @@ setup(
         'sqlalchemy',
         'punchbowl',
         'datapane',
-        'plotly'],
+        'plotly',
+        'pyyaml'],
     extras_require={
             'dev': [],
-            'test': ['pytest', 'coverage', 'pytest-mock-resources[mysql]'],
+            'test': ['pytest', 'coverage', 'pytest-mock-resources[mysql]', 'freezegun'],
             'docs': ['sphinx', 'sphinx-rtd-theme', 'sphinx-automodapi']
         },
 )

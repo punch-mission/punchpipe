@@ -1,5 +1,6 @@
 from datetime import datetime
 import json
+import os
 
 from sqlalchemy import and_
 from prefect import flow, task
@@ -11,20 +12,22 @@ from punchpipe.controlsegment.db import Flow, File
 from punchpipe.controlsegment.processor import generic_process_flow_logic
 from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 
-FILE_DIR = "/home/marcus.hughes/"
+
 @task
 def level1_query_ready_files(session):
     return [f.file_id for f in session.query(File).where(and_(File.state == "created", File.level == 0)).all()]
 
 
 @task
-def level1_construct_flow_info(level0_file: File, level1_file: File):
+def level1_construct_flow_info(level0_file: File, level1_file: File, pipeline_config: dict):
     flow_type = "level1_process_flow"
     state = "planned"
     creation_time = datetime.now()
-    priority = 1
-    call_data = json.dumps({"input_filename": FILE_DIR + level0_file.filename(),
-                            "output_filename": FILE_DIR + level1_file.filename()})
+    priority = pipeline_config['priority']['level1_process_flow']['initial']
+    call_data = json.dumps({"input_filename": os.path.join(level0_file.directory(pipeline_config['root']),
+                                                           level0_file.filename()),
+                            "output_filename": os.path.join(level1_file.directory(pipeline_config['root']),
+                                                            level1_file.filename())})
     return Flow(flow_type=flow_type,
                 flow_level=1,
                 state=state,
@@ -46,8 +49,12 @@ def level1_construct_file_info(level0_file: File):
 
 
 @flow
-def level1_scheduler_flow():
-    generic_scheduler_flow_logic(level1_query_ready_files, level1_construct_file_info, level1_construct_flow_info)
+def level1_scheduler_flow(pipeline_config_path="config.yaml", session=None):
+    generic_scheduler_flow_logic(level1_query_ready_files,
+                                 level1_construct_file_info,
+                                 level1_construct_flow_info,
+                                 pipeline_config_path,
+                                 session=session)
 
 
 @flow
