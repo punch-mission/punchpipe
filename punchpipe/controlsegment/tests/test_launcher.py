@@ -91,21 +91,6 @@ def test_escalate_long_waiting_flows(db):
         escalate_long_waiting_flows.fn(db, pipeline_config)
         assert db.query(Flow).where(Flow.flow_id == 1).one().priority == 30
 
-    # def test_move_to():
-    #     initial_datetime = datetime.datetime(year=1, month=7, day=12,
-    #                                          hour=15, minute=6, second=3)
-    #
-    #     other_datetime = datetime.datetime(year=2, month=8, day=13,
-    #                                        hour=14, minute=5, second=0)
-    #     with freeze_time(initial_datetime) as frozen_datetime:
-    #         assert frozen_datetime() == initial_datetime
-    #
-    #         frozen_datetime.move_to(other_datetime)
-    #         assert frozen_datetime() == other_datetime
-    #
-    #         frozen_datetime.move_to(initial_datetime)
-    #         assert frozen_datetime() == initial_datetime
-
 
 def test_filter_for_launchable_flows(db):
     with prefect_test_harness(), disable_run_logger():
