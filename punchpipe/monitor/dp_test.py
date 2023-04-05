@@ -9,6 +9,7 @@ import numpy as np
 def _create_overall_blocks(start_date, end_date, df):
     return [f"## Overall: {start_date.strftime('%Y/%m/%d %H:%M')} to {end_date.strftime('%Y/%m/%d %H:%M')} "]
 
+
 def _process_level(start_date, end_date, level, df):
     filtered_df = df[((df['start_time'] > start_date) * (df['end_time'] < end_date) * (df['flow_type'] == f"Level {level}") * (df['state'] == "completed")) | ((df['state'] == "running") * (df['start_time'] > start_date))]
     filtered_df.set_index("flow_id")
@@ -41,6 +42,7 @@ def _process_level(start_date, end_date, level, df):
         stats = []
     return blocks, stats
 
+
 def _create_alert_blocks(start_date, end_date):
     return [f"## Alerts: {start_date.strftime('%Y/%m/%d %H:%M')} to {end_date.strftime('%Y/%m/%d %H:%M')}"]
 
@@ -67,6 +69,7 @@ def generate_monitoring_pages(start_date=datetime.now()-timedelta(days=3), end_d
     )
 
     app.save("monitor.html")
+
 
 if __name__ == "__main__":
     generate_monitoring_pages(start_date=datetime(2022, 12, 1), end_date=datetime.now())

@@ -11,8 +11,8 @@ from punchpipe.controlsegment.util import get_database_session, load_pipeline_co
 
 
 @task
-def gather_queued_flows(session):
-    return [f.flow_id for f in session.query(Flow).where(Flow.state == "planned").all()]
+def gather_planned_flows(session):
+    return [f.flow_id for f in session.query(Flow).where(Flow.state == "planned").order_by(Flow.priority.desc()).all()]
 
 
 @task
@@ -21,7 +21,7 @@ def count_running_flows(session):
 
 
 @task
-def escalate_long_waiting_flows(session, pipeline_config, escalated_priority=1):
+def escalate_long_waiting_flows(session, pipeline_config):
     for flow_type in pipeline_config['priority']:
         for max_seconds_waiting, escalated_priority in zip(pipeline_config['priority'][flow_type]['seconds'],
                                                            pipeline_config['priority'][flow_type]['escalation']):
@@ -33,15 +33,15 @@ def escalate_long_waiting_flows(session, pipeline_config, escalated_priority=1):
 
 
 @task
-def filter_for_launchable_flows(queued_flows, running_flow_count, max_flows_running: int = 10):
+def filter_for_launchable_flows(planned_flows, running_flow_count, max_flows_running):
     logger = get_run_logger()
 
     number_to_launch = max_flows_running - running_flow_count
     logger.info(f"{number_to_launch} flows can be launched at this time.")
 
     if number_to_launch > 0:
-        if queued_flows:  # there are flows to run
-            return queued_flows[:number_to_launch]
+        if planned_flows:  # there are flows to run
+            return planned_flows[:number_to_launch]
         else:
             return []
     else:
@@ -107,9 +107,10 @@ def launcher_flow(pipeline_configuration_path="config.yaml"):
     num_running_flows = count_running_flows(session)
     logger.info(f"There are {num_running_flows} flows running right now.")
     escalate_long_waiting_flows(session, pipeline_config)
-    queued_flows = gather_queued_flows(session)
+    queued_flows = gather_planned_flows(session)
     logger.info(f"There are {len(queued_flows)} planned flows right now.")
-    flows_to_launch = filter_for_launchable_flows(queued_flows, num_running_flows)
+    flows_to_launch = filter_for_launchable_flows(queued_flows, num_running_flows,
+                                                  pipeline_config['launcher']['max_flows_running'])
     logger.info(f"Flows with IDs of {flows_to_launch} will be launched.")
     launch_ready_flows(session, flows_to_launch)
     logger.info("Launcher flow exit.")

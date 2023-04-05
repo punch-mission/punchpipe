@@ -58,5 +58,5 @@ def level1_scheduler_flow(pipeline_config_path="config.yaml", session=None):
 
 
 @flow
-def level1_process_flow(flow_id: int):
-    generic_process_flow_logic(flow_id, level1_core_flow)
+def level1_process_flow(flow_id: int, pipeline_config_path="config.yaml", session=None):
+    generic_process_flow_logic(flow_id, level1_core_flow, pipeline_config_path, session=session)

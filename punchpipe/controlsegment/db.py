@@ -42,6 +42,7 @@ class File(Base):
         str
             properly formatted PUNCH filename
         """
+        # TODO: include version number
         return f'PUNCH_L{self.level}_{self.file_type}{self.observatory}_{self.date_obs.strftime("%Y%m%d%H%M%S")}.fits'
 
     def directory(self, root: str):
