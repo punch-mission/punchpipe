@@ -1,4 +1,4 @@
-root: "/here/is/the/root/path/"
+root: "./test_results/"
 
 launcher:
   max_seconds_waiting: 100

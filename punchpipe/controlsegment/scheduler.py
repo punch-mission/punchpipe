@@ -23,7 +23,7 @@ def generic_scheduler_flow_logic(query_ready_files_func,
         # get the level0 file's information
         parent_file = session.query(File).where(File.file_id == file_id).one()
 
-        # prepare the new level 1 flow and file
+        # prepare the new level flow and file
         child_file = construct_child_file_info(parent_file)
         database_flow_info = construct_child_flow_info(parent_file, child_file, pipeline_config)
         session.add(child_file)

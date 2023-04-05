@@ -16,6 +16,7 @@ from punchpipe.controlsegment.util import load_pipeline_configuration
 
 TEST_DIR = os.path.dirname(__file__)
 
+
 def session_fn(session):
     level0_file = File(level=0,
                        file_type='XX',
