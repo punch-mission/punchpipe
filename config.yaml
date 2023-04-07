@@ -1,4 +1,4 @@
-root: "/here/is/the/root/path/"
+root: "/home/marcus.hughes/running_test/"
 
 launcher:
   max_seconds_waiting: 100

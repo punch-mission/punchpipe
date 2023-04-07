@@ -1,5 +1,6 @@
 from datetime import datetime
 import json
+import os
 
 import numpy as np
 import astropy.wcs
@@ -75,7 +76,7 @@ def generate_fake_level0_data():
 def create_fake_level0():
     fake_flow, fake_file = construct_fake_entries()
     fake_data = generate_fake_level0_data()
-    fake_data.write(fake_file.filename())
+    fake_data.write(os.path.join(fake_file.directory("/home/marcus.hughes/running_test/"), fake_file.filename()))
     insert_into_table(fake_flow, fake_file)
 
 
