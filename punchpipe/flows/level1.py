@@ -14,7 +14,7 @@ from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 
 
 @task
-def level1_query_ready_files(session):
+def level1_query_ready_files(session, pipeline_config: dict):
     return [f.file_id for f in session.query(File).where(and_(File.state == "created", File.level == 0)).all()]
 
 

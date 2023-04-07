@@ -19,6 +19,11 @@ priority:
     seconds: [30, 120, 600 ]
     escalation: [ 12, 22, 32 ]
 
+scheduler:
+  level2_process_flow:
+    latency: 3
+    window_duration: 3
+
 process_options:
   pointing:
     num_quads: 100
