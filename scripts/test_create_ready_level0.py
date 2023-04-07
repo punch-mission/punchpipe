@@ -76,7 +76,11 @@ def generate_fake_level0_data():
 def create_fake_level0():
     fake_flow, fake_file = construct_fake_entries()
     fake_data = generate_fake_level0_data()
-    fake_data.write(os.path.join(fake_file.directory("/home/marcus.hughes/running_test/"), fake_file.filename()))
+    output_directory = fake_file.directory("/home/marcus.hughes/running_test/")
+    if not os.path.isdir(output_directory):
+        os.makedirs(output_directory)
+    output_path = os.path.join(output_directory, fake_file.filename())
+    fake_data.write(output_path)
     insert_into_table(fake_flow, fake_file)
 
 
