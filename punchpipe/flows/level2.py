@@ -30,10 +30,8 @@ def level2_construct_flow_info(level1_file: File, level2_file: File, pipeline_co
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config['priority']['level2_process_flow']['initial']
-    call_data = json.dumps({"input_filename": os.path.join(level1_file.directory(pipeline_config['root']),
-                                                           level1_file.filename()),
-                            "output_filename": os.path.join(level2_file.directory(pipeline_config['root']),
-                                                            level2_file.filename())})
+    call_data = json.dumps({"data_list": [os.path.join(level1_file.directory(pipeline_config['root']),
+                                                           level1_file.filename())]})
     return Flow(flow_type=flow_type,
                 state=state,
                 flow_level=2,
