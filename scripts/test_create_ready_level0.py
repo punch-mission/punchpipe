@@ -3,7 +3,8 @@ import json
 import os
 
 import numpy as np
-import astropy.wcs
+from astropy.nddata import StdDevUncertainty
+from astropy.wcs import WCS
 from prefect import flow, task
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -57,19 +58,23 @@ def insert_into_table(fake_flow, fake_file):
 
 
 def generate_fake_level0_data():
-    data = np.random.rand(2048, 2048)
-    wcs = astropy.wcs.WCS(naxis=3)
-    wcs.wcs.ctype = "WAVE", "HPLT-TAN", "HPLN-TAN"
-    wcs.wcs.cunit = "Angstrom", "deg", "deg"
-    wcs.wcs.cdelt = 0.2, 0.5, 0.4
-    wcs.wcs.crpix = 0, 2, 2
-    wcs.wcs.crval = 10, 0.5, 1
-    wcs.wcs.cname = "wavelength", "HPC lat", "HPC lon"
+    shape = (2048, 2048)
+    data = np.random.random(shape)
+    uncertainty = StdDevUncertainty(np.sqrt(np.abs(data)))
+    wcs = WCS(naxis=2)
+    wcs.wcs.ctype = "HPLN-ARC", "HPLT-ARC"
+    wcs.wcs.cunit = "deg", "deg"
+    wcs.wcs.cdelt = 0.1, 0.1
+    wcs.wcs.crpix = 0, 0
+    wcs.wcs.crval = 1, 1
+    wcs.wcs.cname = "HPC lon", "HPC lat"
 
-    meta = NormalizedMetadata({"OBSRVTRY": "Y", "LEVEL": 0, "TYPECODE": "XX", "DATE-OBS": str(datetime.now())},
-        required_fields=PUNCH_REQUIRED_META_FIELDS)
-    data = PUNCHData(data=data, wcs=wcs, meta=meta, uncertainty=np.zeros_like(data))
-    return data
+    meta = NormalizedMetadata({"LEVEL": str(0),
+                               'OBSRVTRY': 'Y',
+                               'TYPECODE': 'XX',
+                               'DATE-OBS': str(datetime.now())},
+                              required_fields=PUNCH_REQUIRED_META_FIELDS)
+    return PUNCHData(data=data, uncertainty=uncertainty, wcs=wcs, meta=meta)
 
 
 @flow
