@@ -57,7 +57,7 @@ def insert_into_table(fake_flow, fake_file):
     session.commit()
 
 
-def generate_fake_level0_data():
+def generate_fake_level0_data(date_obs):
     shape = (2048, 2048)
     data = np.random.random(shape)
     uncertainty = StdDevUncertainty(np.sqrt(np.abs(data)))
@@ -72,7 +72,7 @@ def generate_fake_level0_data():
     meta = NormalizedMetadata({"LEVEL": str(0),
                                'OBSRVTRY': 'Y',
                                'TYPECODE': 'XX',
-                               'DATE-OBS': str(datetime.now())},
+                               'DATE-OBS': str(date_obs)},
                               required_fields=PUNCH_REQUIRED_META_FIELDS)
     return PUNCHData(data=data, uncertainty=uncertainty, wcs=wcs, meta=meta)
 
@@ -80,7 +80,7 @@ def generate_fake_level0_data():
 @flow
 def create_fake_level0():
     fake_flow, fake_file = construct_fake_entries()
-    fake_data = generate_fake_level0_data()
+    fake_data = generate_fake_level0_data(fake_file.date_obs)
     output_directory = fake_file.directory("/home/marcus.hughes/running_test/")
     if not os.path.isdir(output_directory):
         os.makedirs(output_directory)
