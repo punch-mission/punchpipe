@@ -35,6 +35,7 @@ def _process_level(start_date, end_date, level):
         running_flow_count = len(flow_df[(flow_df['state'] == "running") * (flow_df['start_time'] > start_date)])
 
         written_count = len(file_df[file_df['state'] == 'created'])
+        failed_file_count = len(file_df[file_df['state'] == 'failed'])
 
         plot = px.histogram(completed, x='duration')
         blocks = [f"## Level {level}: {start_date.strftime('%Y/%m/%d %H:%M')} to {end_date.strftime('%Y/%m/%d %H:%M')}",
@@ -42,6 +43,7 @@ def _process_level(start_date, end_date, level):
                       dp.BigNumber(heading="Average Duration [sec]", value=f"{average_duration:.1f}"),
                       dp.BigNumber(heading='Stddev Duration [sec]', value=f"{stddev_duration: .1f}"),
                       dp.BigNumber(heading="Number of files written", value=written_count),
+                      dp.BigNumber(heading="Number of failed files", value=failed_file_count),
                       dp.BigNumber(heading="Running flow count", value=running_flow_count),
                       dp.BigNumber(heading="Planned flow count", value=planned_count),
                       columns=3
