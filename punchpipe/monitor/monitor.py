@@ -103,7 +103,7 @@ def row2table(row, drop_first_chars=6):
     table = "| Attribute | Value |\n| --- | --- |\n"
     for column in row.__table__.columns:
         value = str(getattr(row, column.name))
-        table += f"| {column[drop_first_chars:]} | {value} |\n"
+        table += f"| {column.name[drop_first_chars:]} | {value} |\n"
     return table
 
 
