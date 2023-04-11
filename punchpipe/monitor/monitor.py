@@ -98,12 +98,12 @@ def _process_level(start_date, end_date, level):
     return blocks
 
 
-def row2table(row, drop_first_chars=6):
+def row2table(row):
     """converts a sqlalchemy result row to a string table in markdown """
     table = "| Attribute | Value |\n| --- | --- |\n"
     for column in row.__table__.columns:
         value = str(getattr(row, column.name))
-        table += f"| {column.name[drop_first_chars:]} | {value} |\n"
+        table += f"| {column.name} | {value} |\n"
     return table
 
 
