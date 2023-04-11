@@ -102,7 +102,7 @@ def row2table(row, drop_first_chars=6):
     """converts a sqlalchemy result row to a string table in markdown """
     table = "| Attribute | Value |\n| --- | --- |\n"
     for column in row.__table__.columns:
-        value = str(getattr(row[drop_first_chars:], column.name))
+        value = str(getattr(row, column.name[drop_first_chars:]))
         table += f"| {column} | {value} |\n"
     return table
 
