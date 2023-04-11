@@ -49,7 +49,10 @@ def _process_level(start_date, end_date, level):
                       columns=3
                   ),
                   dp.Plot(plot),
-                  dp.DataTable(flow_df)
+                  "Flow table",
+                  dp.DataTable(flow_df, label='label'),
+                  "File table",
+                  dp.DataTable(file_df, caption='caption')
                   ]
         stats = []
     else:
