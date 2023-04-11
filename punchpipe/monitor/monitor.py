@@ -139,7 +139,7 @@ def _file_inquiry(file_id):
         parent_ids = [e.parent for e in session.query(FileRelationship).where(FileRelationship.child == file_id).all()]
         provenance = f"""**Children FileIDs: {children_ids} \n **Parent FileIDs: {parent_ids}"""
 
-        return dp.View(f"# FileID={file_id}", dp.Text(info_markdown), dp.Plot(fig), fp.Text(provenance))
+        return dp.View(f"# FileID={file_id}", dp.Text(info_markdown), dp.Plot(fig), dp.Text(provenance))
     except MultipleResultsFound as e:
         return dp.View(f"Multiple files with file_id={file_id} found.")
     except NoResultFound as e:
