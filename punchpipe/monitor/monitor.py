@@ -23,25 +23,51 @@ def _process_level(start_date, end_date, level):
     session = Session(engine)
     flow_query = session.query(Flow).where(or_(and_(Flow.start_time > start_date, Flow.end_time < end_date, Flow.flow_level == level, Flow.state == 'completed'), and_(Flow.flow_level == level, Flow.state == 'running', Flow.start_time > start_date))).statement
     file_query = session.query(File).where(and_(File.date_obs > start_date, File.date_obs < end_date, File.level == level)).statement
+    query_duration = end_date - start_date
+    previous_interval_start = start_date - query_duration
+    previous_interval_end = start_date
+
+    previous_flow_query = session.query(Flow).where(
+        or_(and_(Flow.start_time > previous_interval_start, Flow.end_time < previous_interval_end, Flow.flow_level == level,
+                 Flow.state == 'completed'),
+            and_(Flow.flow_level == level, Flow.state == 'running', Flow.start_time > start_date))).statement
+    previous_file_query = session.query(File).where(
+        and_(File.date_obs > previous_interval_start, File.date_obs < previous_interval_end, File.level == level)).statement
+
     flow_df = pd.read_sql_query(sql=flow_query, con=engine)
     file_df = pd.read_sql_query(sql=file_query, con=engine)
 
+    previous_flow_df = pd.read_sql_query(sql=previous_flow_query, con=engine)
+    previous_file_df = pd.read_sql_query(sql=previous_file_query, con=engine)
+
     if len(flow_df):
         completed = flow_df[flow_df['state'] == "completed"]
-        completed['duration'] = (completed['end_time'] - completed['start_time']).map(timedelta.total_seconds)
-        average_duration = np.nanmean(completed['duration'])
-        stddev_duration = np.nanstd(completed['duration'])
+        previous_completed = previous_flow_df[previous_flow_df['state'] == 'completed']
+
+        completed['duration [sec]'] = (completed['end_time'] - completed['start_time']).map(timedelta.total_seconds)
+        previous_completed['duration [sec]'] = (previous_completed['end_time'] - previous_completed['start_time']).map(timedelta.total_seconds)
+
+        average_duration = np.nanmean(completed['duration [sec]'])
+        stddev_duration = np.nanstd(completed['duration [sec]'])
+
+        previous_average_duration = np.nanmean(previous_completed['duration [sec]'])
+        previous_stddev_duration = np.nanstd(previous_completed['duration [sec]'])
+
         planned_count = len(flow_df[flow_df['state'] == 'planned'])
         running_flow_count = len(flow_df[(flow_df['state'] == "running") * (flow_df['start_time'] > start_date)])
 
         written_count = len(file_df[file_df['state'] == 'created']) + len(file_df[file_df['state'] == 'progressed'])
         failed_file_count = len(file_df[file_df['state'] == 'failed'])
 
-        plot = px.histogram(completed, x='duration')
+        plot = px.histogram(completed, x='duration [sec]')
         blocks = [f"## Level {level}: {start_date.strftime('%Y/%m/%d %H:%M')} to {end_date.strftime('%Y/%m/%d %H:%M')}",
                   dp.Group(
-                      dp.BigNumber(heading="Average Duration [sec]", value=f"{average_duration:.1f}"),
-                      dp.BigNumber(heading='Stddev Duration [sec]', value=f"{stddev_duration: .1f}"),
+                      dp.BigNumber(heading="Average Duration [sec]",
+                                   value=f"{average_duration:.1f}",
+                                   prev_value=f"{previous_average_duration:.1f}"),
+                      dp.BigNumber(heading='Stddev Duration [sec]',
+                                   value=f"{stddev_duration: .1f}",
+                                   prev_value=f"{previous_stddev_duration:.1f}"),
                       dp.BigNumber(heading="Number of files written", value=written_count),
                       dp.BigNumber(heading="Number of failed files", value=failed_file_count),
                       dp.BigNumber(heading="Running flow count", value=running_flow_count),
@@ -49,7 +75,7 @@ def _process_level(start_date, end_date, level):
                       columns=3
                   ),
                   dp.Plot(plot),
-                  dp.DataTable(flow_df, label='Flow database'),
+                  dp.DataTable(flow_df, caption='Flow database'),
                   dp.DataTable(file_df, caption='File database')
                   ]
         stats = []
