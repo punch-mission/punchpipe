@@ -108,7 +108,7 @@ def _file_inquiry(file_id, root_path=""):
         fits_path = os.path.join(file_entry.directory("/home/marcus.hughes/running_test"), file_entry.filename())
         data = PUNCHData.from_fits(fits_path)
         fig, ax = plt.subplots()
-        ax.imshow(data)
+        ax.imshow(data.data)
         return dp.View("Hooray", dp.Plot(fig))
     except MultipleResultsFound as e:
         return dp.View(f"Multiple files with file_id={file_id} found.")
