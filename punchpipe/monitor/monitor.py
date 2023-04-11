@@ -94,6 +94,15 @@ def _process_level(start_date, end_date, level):
     return blocks
 
 
+def row2table(row):
+    """converts a sqlalchemy result row to a string table in markdown """
+    table = "| Attribute | Value |\n| --- | --- |"
+    for column in row.__table__.columns:
+        value = str(getattr(row, column.name))
+        table += f"| {column} | {value} |"
+    return table
+
+
 def _file_inquiry(file_id, root_path=""):
     file_id = int(file_id)
 
@@ -104,12 +113,16 @@ def _file_inquiry(file_id, root_path=""):
 
     try:
         file_entry = session.query(File).where(File.file_id == file_id).one()
-        print("found")
+
+        # Visualize image
         fits_path = os.path.join(file_entry.directory("/home/marcus.hughes/running_test"), file_entry.filename())
         data = PUNCHData.from_fits(fits_path)
         fig, ax = plt.subplots()
-        ax.imshow(data.data)
-        return dp.View("Hooray", dp.Plot(fig))
+        ax.imshow(data.data, origin="lower")
+
+        # Make table
+        info_markdown = row2table(file_entry)
+        return dp.View(f"# FileID={file_id}", info_markdown, dp.Plot(fig))
     except MultipleResultsFound as e:
         return dp.View(f"Multiple files with file_id={file_id} found.")
     except NoResultFound as e:
