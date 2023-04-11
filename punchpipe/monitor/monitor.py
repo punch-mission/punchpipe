@@ -37,7 +37,7 @@ def _process_level(start_date, end_date, level):
         written_count = len(file_df[file_df['state'] == 'created']) + len(file_df[file_df['state'] == 'progressed'])
         failed_file_count = len(file_df[file_df['state'] == 'failed'])
 
-        plot = px.histogram(completed, x='duration', nbins=100)
+        plot = px.histogram(completed, x='duration')
         blocks = [f"## Level {level}: {start_date.strftime('%Y/%m/%d %H:%M')} to {end_date.strftime('%Y/%m/%d %H:%M')}",
                   dp.Group(
                       dp.BigNumber(heading="Average Duration [sec]", value=f"{average_duration:.1f}"),
@@ -49,10 +49,8 @@ def _process_level(start_date, end_date, level):
                       columns=3
                   ),
                   dp.Plot(plot),
-                  "Flow table",
-                  dp.DataTable(flow_df, label='label'),
-                  "File table",
-                  dp.DataTable(file_df, caption='caption')
+                  dp.DataTable(flow_df, label='Flow database'),
+                  dp.DataTable(file_df, caption='File database')
                   ]
         stats = []
     else:
