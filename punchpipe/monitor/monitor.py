@@ -96,7 +96,7 @@ def _process_level(start_date, end_date, level):
 
 def row2table(row):
     """converts a sqlalchemy result row to a string table in markdown """
-    table = "| Attribute | Value |\n| --- | --- |"
+    table = "| Attribute | Value |\n| --- | --- |\n"
     for column in row.__table__.columns:
         value = str(getattr(row, column.name))
         table += f"| {column} | {value} |\n"
