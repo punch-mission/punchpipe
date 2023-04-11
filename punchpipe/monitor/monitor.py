@@ -1,5 +1,5 @@
 from datetime import timedelta, datetime
-from functools import partial
+import os
 
 import pandas as pd
 import datapane as dp
@@ -11,6 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from astropy.io import fits
 import matplotlib.pyplot as plt
+from punchbowl.data import PUNCHData
 
 from punchpipe.controlsegment.db import MySQLCredentials
 from punchpipe.controlsegment.util import get_database_session
@@ -92,7 +93,8 @@ def _process_level(start_date, end_date, level):
         stats = []
     return blocks
 
-def _file_inquiry(file_id):
+
+def _file_inquiry(file_id, root_path=""):
     file_id = int(file_id)
 
     credentials = MySQLCredentials.load("mysql-cred")
@@ -103,12 +105,15 @@ def _file_inquiry(file_id):
     try:
         file_entry = session.query(File).where(File.file_id == file_id).one()
         print("found")
+        fits_path = os.path.join(file_entry.directory("/home/marcus.hughes/running_test"), file_entry.filename())
+        data = PUNCHData.from_fits(fits_path)
+        fig, ax = plt.subplots()
+        ax.imshow(data)
+        return dp.View("Hooray", dp.Plot(fig))
     except MultipleResultsFound as e:
-        print("hi")
+        return dp.View(f"Multiple files with file_id={file_id} found.")
     except NoResultFound as e:
-        print('bye')
-
-    return dp.View(f"{file_id}")
+        return dp.View(f"No file with file_id={file_id} found.")
 
 
 def _create_alert_blocks(start_date, end_date):
@@ -134,18 +139,10 @@ def serve_monitoring_pages():
     start_date = datetime.now() - timedelta(days=1)
     end_date = datetime.now()
 
-    level0_blocks = _process_level(start_date, end_date, 0)
-    level1_blocks = _process_level(start_date, end_date, 1)
-    level2_blocks = _process_level(start_date, end_date, 2)
-    level3_blocks = _process_level(start_date, end_date, 3)
-
     # embed into a Datapane app
     app = dp.App(
         dp.Page(title="Overall", blocks=_create_overall_blocks(start_date, end_date)),
         dp.Page(title="Alerts", blocks=_create_alert_blocks(start_date, end_date)),
-        dp.Page(title="Level 0", blocks=level0_blocks),
-        dp.Page(title="Level 1", blocks=level1_blocks),
-        dp.Page(title="Level 3", blocks=level3_blocks),
         dp.Page(title="Level Overview", blocks=level_overview_page()),
         dp.Page(title="File Inquiry", blocks=file_inquiry_page())
         )
