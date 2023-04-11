@@ -6,8 +6,11 @@ import datapane as dp
 import plotly.express as px
 import numpy as np
 from sqlalchemy import and_, or_
+from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from astropy.io import fits
+import matplotlib.pyplot as plt
 
 from punchpipe.controlsegment.db import MySQLCredentials
 from punchpipe.controlsegment.util import get_database_session
@@ -91,6 +94,20 @@ def _process_level(start_date, end_date, level):
 
 def _file_inquiry(file_id):
     file_id = int(file_id)
+
+    credentials = MySQLCredentials.load("mysql-cred")
+    engine = create_engine(
+        f'mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe')
+    session = Session(engine)
+
+    try:
+        file_entry = session.query(File).where(File.file_id == file_id).one()
+        print("found")
+    except MultipleResultsFound as e:
+        print("hi")
+    except NoResultFound as e:
+        print('bye')
+
     return dp.View(f"{file_id}")
 
 
@@ -101,11 +118,12 @@ def _create_alert_blocks(start_date, end_date):
 def level_overview_page():
     return dp.View(
             dp.Form(on_submit=_process_level,
-                    controls=dp.Controls(start_date=dp.DateTime(label="Start", initial=datetime.now()-timedelta(days=1)),
-                                         end_date=dp.DateTime(label="End", initial=datetime.now()),
-                                         level=dp.Choice(options=["0", "1", "2", "3"])),
-                    label="Options:"),
-        )
+                    controls=dp.Controls(start_date=dp.DateTime(label="Start datetime", initial=datetime.now()-timedelta(days=1)),
+                                         end_date=dp.DateTime(label="End datetime", initial=datetime.now()),
+                                         level=dp.Choice(options=["0", "1", "2", "3"])
+                                         ),
+                    )
+    )
 
 def file_inquiry_page():
     return dp.View(dp.Form(on_submit=_file_inquiry,
