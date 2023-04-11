@@ -64,6 +64,7 @@ def _process_level(start_date, end_date, level):
 
         plot = px.histogram(completed, x='duration [sec]')
         blocks = [f"## Level {level}: {start_date.strftime('%Y/%m/%d %H:%M')} to {end_date.strftime('%Y/%m/%d %H:%M')}",
+                  f"Ran on {datetime.now().strftime('%Y/%m/%d %H:%M')}",
                   dp.Group(
                       dp.BigNumber(heading="Average Duration [sec]",
                                    value=f"{average_duration:.1f}",
@@ -95,12 +96,11 @@ def _create_alert_blocks(start_date, end_date):
 
 def level_overview_page():
     return dp.View(
-            dp.Text("Welcome to my app"),
             dp.Form(on_submit=_process_level,
                     controls=dp.Controls(start_date=dp.DateTime(label="Start", initial=datetime.now()-timedelta(days=1)),
                                          end_date=dp.DateTime(label="End", initial=datetime.now()),
                                          level=dp.Choice(options=["0", "1", "2", "3"])),
-                    label="Hmm:"),
+                    label="Options:"),
         )
 
 
