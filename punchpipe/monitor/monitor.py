@@ -97,7 +97,7 @@ def level_overview_page():
             dp.Form(on_submit=_process_level,
                     controls=dp.Controls(start_date=dp.DateTime(label="Start", initial=datetime.now()-timedelta(days=1)),
                                          end_date=dp.DateTime(label="End", initial=datetime.now()),
-                                         level=dp.Choice([0, 1, 2, 3])),
+                                         level=dp.Choice(options=[0, 1, 2, 3])),
                     label="Hmm:"),
         )
 
