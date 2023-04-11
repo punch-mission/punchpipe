@@ -34,10 +34,10 @@ def _process_level(start_date, end_date, level):
         planned_count = len(flow_df[flow_df['state'] == 'planned'])
         running_flow_count = len(flow_df[(flow_df['state'] == "running") * (flow_df['start_time'] > start_date)])
 
-        written_count = len(file_df[file_df['state'] == 'created'])
+        written_count = len(file_df[file_df['state'] == 'created']) + len(file_df[file_df['state'] == 'progressed'])
         failed_file_count = len(file_df[file_df['state'] == 'failed'])
 
-        plot = px.histogram(completed, x='duration')
+        plot = px.histogram(completed, x='duration', nbins=100)
         blocks = [f"## Level {level}: {start_date.strftime('%Y/%m/%d %H:%M')} to {end_date.strftime('%Y/%m/%d %H:%M')}",
                   dp.Group(
                       dp.BigNumber(heading="Average Duration [sec]", value=f"{average_duration:.1f}"),
