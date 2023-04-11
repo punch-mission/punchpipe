@@ -107,7 +107,7 @@ def row2table(row):
     return table
 
 
-def _file_inquiry(file_id, root_path=""):
+def _file_inquiry(file_id):
     file_id = int(file_id)
 
     credentials = MySQLCredentials.load("mysql-cred")
@@ -119,6 +119,7 @@ def _file_inquiry(file_id, root_path=""):
         file_entry = session.query(File).where(File.file_id == file_id).one()
 
         # Visualize image
+        # TODO: make route path not be hard coded
         fits_path = os.path.join(file_entry.directory("/home/marcus.hughes/running_test"), file_entry.filename())
         data = PUNCHData.from_fits(fits_path)
         fig, ax = plt.subplots()
@@ -131,6 +132,26 @@ def _file_inquiry(file_id, root_path=""):
         return dp.View(f"Multiple files with file_id={file_id} found.")
     except NoResultFound as e:
         return dp.View(f"No file with file_id={file_id} found.")
+
+
+def _flow_inquiry(flow_id):
+    flow_id = int(flow_id)
+
+    credentials = MySQLCredentials.load("mysql-cred")
+    engine = create_engine(
+        f'mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe')
+    session = Session(engine)
+
+    try:
+        flow_entry = session.query(Flow).where(Flow.flow_id == flow_id).one()
+
+        # Make table
+        info_markdown = row2table(flow_entry)
+        return dp.View(f"# FlowID={flow_id}", dp.Text(info_markdown))
+    except MultipleResultsFound as e:
+        return dp.View(f"Multiple files with file_id={flow_id} found.")
+    except NoResultFound as e:
+        return dp.View(f"No file with file_id={flow_id} found.")
 
 
 def _create_alert_blocks(start_date, end_date):
@@ -147,9 +168,15 @@ def level_overview_page():
                     )
     )
 
+
 def file_inquiry_page():
     return dp.View(dp.Form(on_submit=_file_inquiry,
                            controls=dp.Controls(file_id=dp.NumberBox(label="File ID", initial=0))))
+
+
+def flow_inquiry_page():
+    return dp.View(dp.Form(on_submit=_flow_inquiry,
+                           controls=dp.Controls(flow_id=dp.NumberBox(label="Flow ID", initial=0))))
 
 
 def serve_monitoring_pages():
@@ -161,7 +188,8 @@ def serve_monitoring_pages():
         dp.Page(title="Overall", blocks=_create_overall_blocks(start_date, end_date)),
         dp.Page(title="Alerts", blocks=_create_alert_blocks(start_date, end_date)),
         dp.Page(title="Level Overview", blocks=level_overview_page()),
-        dp.Page(title="File Inquiry", blocks=file_inquiry_page())
+        dp.Page(title="File Inquiry", blocks=file_inquiry_page()),
+        dp.Page(title="Flow Inquiry", blocks=flow_inquiry_page())
         )
     dp.serve_app(app)
 
