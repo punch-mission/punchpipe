@@ -129,7 +129,7 @@ def serve_monitoring_pages():
         dp.Page(title="Level 1", blocks=level1_blocks),
         dp.Page(title="Level 3", blocks=level3_blocks),
         dp.Page(title="Level Overview", blocks=level_overview_page()),
-        dp.Page(title="File Inquiry", block=file_inquiry_page())
+        dp.Page(title="File Inquiry", blocks=file_inquiry_page())
         )
     dp.serve_app(app)
 
