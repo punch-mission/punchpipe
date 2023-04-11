@@ -15,7 +15,7 @@ from punchbowl.data import PUNCHData
 
 from punchpipe.controlsegment.db import MySQLCredentials
 from punchpipe.controlsegment.util import get_database_session
-from punchpipe.controlsegment.db import Flow, File
+from punchpipe.controlsegment.db import Flow, File, FileRelationship
 
 
 def _create_overall_blocks(start_date, end_date):
@@ -128,12 +128,18 @@ def _file_inquiry(file_id):
         # TODO: make route path not be hard coded
         fits_path = os.path.join(file_entry.directory("/home/marcus.hughes/running_test"), file_entry.filename())
         data = PUNCHData.from_fits(fits_path)
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(4, 4))
         ax.imshow(data.data, origin="lower")
 
         # Make table
         info_markdown = row2table(file_entry)
-        return dp.View(f"# FileID={file_id}", dp.Text(info_markdown), dp.Plot(fig))
+
+        # Provenance
+        children_ids = [e.child for e in session.query(FileRelationship).where(FileRelationship.parent == file_id).all()]
+        parent_ids = [e.parent for e in session.query(FileRelationship).where(FileRelationship.child == file_id).all()]
+        provenance = f"""**Children FileIDs: {children_ids} \n **Parent FileIDs: {parent_ids}"""
+
+        return dp.View(f"# FileID={file_id}", dp.Text(info_markdown), dp.Plot(fig), fp.Text(provenance))
     except MultipleResultsFound as e:
         return dp.View(f"Multiple files with file_id={file_id} found.")
     except NoResultFound as e:
