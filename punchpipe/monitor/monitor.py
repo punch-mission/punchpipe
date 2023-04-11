@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from punchpipe.controlsegment.db import MySQLCredentials
 from punchpipe.controlsegment.util import get_database_session
-from punchpipe.controlsegment.db import Flow
+from punchpipe.controlsegment.db import Flow, File
 
 
 def _create_overall_blocks(start_date, end_date):
@@ -21,32 +21,33 @@ def _process_level(start_date, end_date, level):
     credentials = MySQLCredentials.load("mysql-cred")
     engine = create_engine(f'mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe')
     session = Session(engine)
-    query = session.query(Flow).where(or_(and_(Flow.start_time > start_date, Flow.end_time < end_date, Flow.flow_level == level, Flow.state == 'completed'), and_(Flow.flow_level == level, Flow.state == 'running', Flow.start_time > start_date))).statement
+    flow_query = session.query(Flow).where(or_(and_(Flow.start_time > start_date, Flow.end_time < end_date, Flow.flow_level == level, Flow.state == 'completed'), and_(Flow.flow_level == level, Flow.state == 'running', Flow.start_time > start_date))).statement
+    file_query = session.query(File).where(and_(File.date_obs > start_date, File.date_obs < end_date, File.level == level)).statement
+    flow_df = pd.read_sql_query(sql=flow_query, con=engine)
+    file_df = pd.read_sql_query(sql=file_query, con=engine)
 
-    df = pd.read_sql_query(sql=query, con=engine)
-
-    # filtered_df = df[((df['start_time'] > start_date) * (df['end_time'] < end_date) * (df['flow_type'] == f"Level {level}") * (df['state'] == "completed")) | ((df['state'] == "running") * (df['start_time'] > start_date))]
-    # filtered_df.set_index("flow_id")
-    if len(df):
-        completed = df[(df['start_time'] > start_date) * (df['end_time'] < end_date) * (df['flow_level'] == level) * (df['state'] == "completed")]
+    if len(flow_df):
+        completed = flow_df[flow_df['state'] == "completed"]
         completed['duration'] = (completed['end_time'] - completed['start_time']).map(timedelta.total_seconds)
         average_duration = np.nanmean(completed['duration'])
-        print(average_duration)
         stddev_duration = np.nanstd(completed['duration'])
-        running_flow_count = len(df[(df['state'] == "running") * (df['start_time'] > start_date)])
+        planned_count = len(flow_df[flow_df['state'] == 'planned'])
+        running_flow_count = len(flow_df[(flow_df['state'] == "running") * (flow_df['start_time'] > start_date)])
+
+        written_count = len(file_df[file_df['state'] == 'created'])
 
         plot = px.histogram(completed, x='duration')
         blocks = [f"## Level {level}: {start_date.strftime('%Y/%m/%d %H:%M')} to {end_date.strftime('%Y/%m/%d %H:%M')}",
                   dp.Group(
-                      dp.BigNumber(heading="Average Duration [sec]", value=f"{average_duration:.1f}", change=3.01, is_upward_change=True, is_positive_intent=False),
-                      dp.BigNumber(heading='Stddev Duration [sec]', value=f"{stddev_duration: .1f}", prev_value=f"{stddev_duration-1: .1f}"),
-                      dp.BigNumber(heading="Number of files written", value=512, prev_value=510),
+                      dp.BigNumber(heading="Average Duration [sec]", value=f"{average_duration:.1f}"),
+                      dp.BigNumber(heading='Stddev Duration [sec]', value=f"{stddev_duration: .1f}"),
+                      dp.BigNumber(heading="Number of files written", value=written_count),
                       dp.BigNumber(heading="Running flow count", value=running_flow_count),
-                      dp.BigNumber(heading="Queued flow count", value=0),
+                      dp.BigNumber(heading="Planned flow count", value=planned_count),
                       columns=3
                   ),
                   dp.Plot(plot),
-                  dp.DataTable(df)
+                  dp.DataTable(flow_df)
                   ]
         stats = []
     else:
