@@ -1,4 +1,5 @@
 from datetime import timedelta, datetime
+from functools import partial
 
 import pandas as pd
 import datapane as dp
@@ -83,30 +84,21 @@ def _process_level(start_date, end_date, level):
         blocks = [f"## Level {level}: {start_date.strftime('%Y/%m/%d %H:%M')} to {end_date.strftime('%Y/%m/%d %H:%M')}",
                   "No data"]
         stats = []
-    return blocks, stats
+    return blocks
 
 
 def _create_alert_blocks(start_date, end_date):
     return [f"## Alerts: {start_date.strftime('%Y/%m/%d %H:%M')} to {end_date.strftime('%Y/%m/%d %H:%M')}"]
 
 
-def generate_monitoring_pages(start_date=datetime.now()-timedelta(days=3), end_date=datetime.now()):
-    level0_blocks, level0_stats = _process_level(start_date, end_date, 0)
-    level1_blocks, level1_stats = _process_level(start_date, end_date, 1)
-    level2_blocks, level2_stats = _process_level(start_date, end_date, 2)
-    level3_blocks, level3_stats = _process_level(start_date, end_date, 3)
-
-    # embed into a Datapane app
-    app = dp.App(
-        dp.Page(title="Overall", blocks=_create_overall_blocks(start_date, end_date)),
-        dp.Page(title="Alerts", blocks=_create_alert_blocks(start_date, end_date)),
-        dp.Page(title="Level 0", blocks=level0_blocks),
-        dp.Page(title="Level 1", blocks=level1_blocks),
-        dp.Page(title="Level 2", blocks=level2_blocks),
-        dp.Page(title="Level 3", blocks=level3_blocks)
-    )
-
-    app.save("monitor.html")
+def level2_page():
+    return dp.View(
+            dp.Text("Welcome to my app"),
+            dp.Form(on_submit=partial(_process_level, level=2),
+                    controls=dp.Controls(start_date=dp.DateTime(label="Start", initial=datetime.now()-timedelta(days=1)),
+                                         end_date=dp.DateTime(label="End", initial=datetime.now())),
+                    label="Hmm:"),
+        )
 
 
 def serve_monitoring_pages():
@@ -124,7 +116,7 @@ def serve_monitoring_pages():
         dp.Page(title="Alerts", blocks=_create_alert_blocks(start_date, end_date)),
         dp.Page(title="Level 0", blocks=level0_blocks),
         dp.Page(title="Level 1", blocks=level1_blocks),
-        dp.Page(title="Level 2", blocks=level2_blocks),
+        dp.Page(title="Level 2", blocks=level2_page()),
         dp.Page(title="Level 3", blocks=level3_blocks)
     )
     dp.serve_app(app)
