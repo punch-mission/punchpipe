@@ -110,7 +110,7 @@ def generate_monitoring_pages(start_date=datetime.now()-timedelta(days=3), end_d
 
 
 def serve_monitoring_pages():
-    start_date = datetime.now() - timedelta(days=3)
+    start_date = datetime.now() - timedelta(days=1)
     end_date = datetime.now()
 
     level0_blocks, level0_stats = _process_level(start_date, end_date, 0)
