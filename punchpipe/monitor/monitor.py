@@ -122,7 +122,7 @@ def _file_inquiry(file_id, root_path=""):
 
         # Make table
         info_markdown = row2table(file_entry)
-        return dp.View(f"# FileID={file_id}", info_markdown, dp.Plot(fig))
+        return dp.View(f"# FileID={file_id}", dp.Text(info_markdown), dp.Plot(fig))
     except MultipleResultsFound as e:
         return dp.View(f"Multiple files with file_id={file_id} found.")
     except NoResultFound as e:
