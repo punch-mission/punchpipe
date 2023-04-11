@@ -80,5 +80,27 @@ def generate_monitoring_pages(start_date=datetime.now()-timedelta(days=3), end_d
     app.save("monitor.html")
 
 
+def serve_monitoring_pages():
+    start_date = datetime.now() - timedelta(days=3)
+    end_date = datetime.now()
+
+    level0_blocks, level0_stats = _process_level(start_date, end_date, 0)
+    level1_blocks, level1_stats = _process_level(start_date, end_date, 1)
+    level2_blocks, level2_stats = _process_level(start_date, end_date, 2)
+    level3_blocks, level3_stats = _process_level(start_date, end_date, 3)
+
+    # embed into a Datapane app
+    app = dp.App(
+        dp.Page(title="Overall", blocks=_create_overall_blocks(start_date, end_date)),
+        dp.Page(title="Alerts", blocks=_create_alert_blocks(start_date, end_date)),
+        dp.Page(title="Level 0", blocks=level0_blocks),
+        dp.Page(title="Level 1", blocks=level1_blocks),
+        dp.Page(title="Level 2", blocks=level2_blocks),
+        dp.Page(title="Level 3", blocks=level3_blocks)
+    )
+    dp.serve_app(app)
+
+
 if __name__ == "__main__":
-    generate_monitoring_pages(start_date=datetime(2022, 12, 1), end_date=datetime.now())
+    #generate_monitoring_pages(start_date=datetime(2022, 12, 1), end_date=datetime.now())
+    serve_monitoring_pages()
