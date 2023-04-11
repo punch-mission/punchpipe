@@ -105,10 +105,10 @@ def serve_monitoring_pages():
     start_date = datetime.now() - timedelta(days=1)
     end_date = datetime.now()
 
-    level0_blocks, level0_stats = _process_level(start_date, end_date, 0)
-    level1_blocks, level1_stats = _process_level(start_date, end_date, 1)
-    level2_blocks, level2_stats = _process_level(start_date, end_date, 2)
-    level3_blocks, level3_stats = _process_level(start_date, end_date, 3)
+    level0_blocks = _process_level(start_date, end_date, 0)
+    level1_blocks = _process_level(start_date, end_date, 1)
+    level2_blocks = _process_level(start_date, end_date, 2)
+    level3_blocks = _process_level(start_date, end_date, 3)
 
     # embed into a Datapane app
     app = dp.App(
