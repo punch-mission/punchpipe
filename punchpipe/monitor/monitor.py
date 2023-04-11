@@ -42,13 +42,13 @@ def _process_level(start_date, end_date, level):
         and_(File.date_obs > previous_interval_start, File.date_obs < previous_interval_end, File.level == level)).statement
 
     flow_df = pd.read_sql_query(sql=flow_query, con=engine)
-    flow_df['duration [sec]'] = (flow_df['end_time'] - flow_df['start_time']).dt.total_seconds()
-    flow_df['delay [sec]'] = (flow_df['start_time'] - flow_df['creation_time']).dt.total_seconds()
+    flow_df['duration'] = (flow_df['end_time'] - flow_df['start_time']).dt.total_seconds()
+    flow_df['delay'] = (flow_df['start_time'] - flow_df['creation_time']).dt.total_seconds()
     file_df = pd.read_sql_query(sql=file_query, con=engine)
 
     previous_flow_df = pd.read_sql_query(sql=previous_flow_query, con=engine)
-    previous_flow_df['duration [sec]'] = (previous_flow_df['end_time'] - previous_flow_df['start_time']).dt.total_seconds()
-    previous_flow_df['delay [sec]'] = (previous_flow_df['start_time'] - previous_flow_df['creation_time']).dt.total_seconds()
+    previous_flow_df['duration'] = (previous_flow_df['end_time'] - previous_flow_df['start_time']).dt.total_seconds()
+    previous_flow_df['delay'] = (previous_flow_df['start_time'] - previous_flow_df['creation_time']).dt.total_seconds()
     previous_file_df = pd.read_sql_query(sql=previous_file_query, con=engine)
 
     if len(flow_df):
@@ -58,11 +58,11 @@ def _process_level(start_date, end_date, level):
         # completed['duration [sec]'] = (completed['end_time'] - completed['start_time']).map(timedelta.total_seconds)
         # previous_completed['duration [sec]'] = (previous_completed['end_time'] - previous_completed['start_time']).map(timedelta.total_seconds)
 
-        average_duration = np.nanmean(completed['duration [sec]'])
-        stddev_duration = np.nanstd(completed['duration [sec]'])
+        average_duration = np.nanmean(completed['duration'])
+        stddev_duration = np.nanstd(completed['duration'])
 
-        previous_average_duration = np.nanmean(previous_completed['duration [sec]'])
-        previous_stddev_duration = np.nanstd(previous_completed['duration [sec]'])
+        previous_average_duration = np.nanmean(previous_completed['duration'])
+        previous_stddev_duration = np.nanstd(previous_completed['duration'])
 
         planned_count = len(flow_df[flow_df['state'] == 'planned'])
         running_flow_count = len(flow_df[(flow_df['state'] == "running") * (flow_df['start_time'] > start_date)])
@@ -70,8 +70,14 @@ def _process_level(start_date, end_date, level):
         written_count = len(file_df[file_df['state'] == 'created']) + len(file_df[file_df['state'] == 'progressed'])
         failed_file_count = len(file_df[file_df['state'] == 'failed'])
 
-        duration_plot = px.histogram(completed, x='duration [sec]', title='Histogram of completed flow duration')
-        delay_plot = px.histogram(completed, x='delay [sec]', title='Histogram of completed flow delay to start')
+        duration_plot = px.histogram(completed,
+                                     x='duration',
+                                     labels={'duration': 'duration [sec]'},
+                                     title='Histogram of completed flow duration')
+        delay_plot = px.histogram(completed,
+                                  x='delay',
+                                  labels={'delay': 'delay [sec]'},
+                                  title='Histogram of completed flow delay to start')
         blocks = [f"## Level {level}: {start_date.strftime('%Y/%m/%d %H:%M')} to {end_date.strftime('%Y/%m/%d %H:%M')}",
                   f"Ran on {datetime.now().strftime('%Y/%m/%d %H:%M')}",
                   dp.Group(
