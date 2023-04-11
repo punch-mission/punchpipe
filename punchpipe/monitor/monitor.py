@@ -28,12 +28,11 @@ def _process_level(start_date, end_date, level):
     # filtered_df = df[((df['start_time'] > start_date) * (df['end_time'] < end_date) * (df['flow_type'] == f"Level {level}") * (df['state'] == "completed")) | ((df['state'] == "running") * (df['start_time'] > start_date))]
     # filtered_df.set_index("flow_id")
     if len(df):
-        completed = df[
-            (df['start_time'] > start_date) * (df['end_time'] < end_date) * (df['flow_type'] == f"Level {level}") * (
-                        df['state'] == "completed")]
+        completed = df[(df['start_time'] > start_date) * (df['end_time'] < end_date) * (df['flow_level'] == level) * (df['state'] == "completed")]
         completed['duration'] = (completed['end_time'] - completed['start_time']).map(timedelta.total_seconds)
-        average_duration = np.mean(completed['duration'])
-        stddev_duration = np.std(completed['duration'])
+        average_duration = np.nanmean(completed['duration'])
+        print(average_duration)
+        stddev_duration = np.nanstd(completed['duration'])
         running_flow_count = len(df[(df['state'] == "running") * (df['start_time'] > start_date)])
 
         plot = px.histogram(completed, x='duration')
