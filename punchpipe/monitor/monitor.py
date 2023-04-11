@@ -99,7 +99,7 @@ def row2table(row):
     table = "| Attribute | Value |\n| --- | --- |"
     for column in row.__table__.columns:
         value = str(getattr(row, column.name))
-        table += f"| {column} | {value} |"
+        table += f"| {column} | {value} |\n"
     return table
 
 
