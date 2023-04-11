@@ -89,6 +89,10 @@ def _process_level(start_date, end_date, level):
         stats = []
     return blocks
 
+def _file_inquiry(file_id):
+    file_id = int(file_id)
+    return dp.View(f"{file_id}")
+
 
 def _create_alert_blocks(start_date, end_date):
     return [f"## Alerts: {start_date.strftime('%Y/%m/%d %H:%M')} to {end_date.strftime('%Y/%m/%d %H:%M')}"]
@@ -102,6 +106,10 @@ def level_overview_page():
                                          level=dp.Choice(options=["0", "1", "2", "3"])),
                     label="Options:"),
         )
+
+def file_inquiry_page():
+    return dp.View(dp.Form(on_submit=_file_inquiry,
+                           controls=dp.Controls(file_id=dp.NumberBox(label="File ID", initial=0))))
 
 
 def serve_monitoring_pages():
@@ -121,6 +129,7 @@ def serve_monitoring_pages():
         dp.Page(title="Level 1", blocks=level1_blocks),
         dp.Page(title="Level 3", blocks=level3_blocks),
         dp.Page(title="Level Overview", blocks=level_overview_page()),
+        dp.Page(title="File Inquiry", block=file_inquiry_page())
         )
     dp.serve_app(app)
 
