@@ -91,12 +91,13 @@ def _create_alert_blocks(start_date, end_date):
     return [f"## Alerts: {start_date.strftime('%Y/%m/%d %H:%M')} to {end_date.strftime('%Y/%m/%d %H:%M')}"]
 
 
-def level2_page():
+def level_overview_page():
     return dp.View(
             dp.Text("Welcome to my app"),
-            dp.Form(on_submit=partial(_process_level, level=2),
+            dp.Form(on_submit=_process_level,
                     controls=dp.Controls(start_date=dp.DateTime(label="Start", initial=datetime.now()-timedelta(days=1)),
-                                         end_date=dp.DateTime(label="End", initial=datetime.now())),
+                                         end_date=dp.DateTime(label="End", initial=datetime.now()),
+                                         level=dp.Choice([0, 1, 2, 3])),
                     label="Hmm:"),
         )
 
@@ -116,9 +117,9 @@ def serve_monitoring_pages():
         dp.Page(title="Alerts", blocks=_create_alert_blocks(start_date, end_date)),
         dp.Page(title="Level 0", blocks=level0_blocks),
         dp.Page(title="Level 1", blocks=level1_blocks),
-        dp.Page(title="Level 2", blocks=level2_page()),
-        dp.Page(title="Level 3", blocks=level3_blocks)
-    )
+        dp.Page(title="Level 3", blocks=level3_blocks),
+        dp.Page(title="Level Overview", blocks=level_overview_page()),
+        )
     dp.serve_app(app)
 
 
