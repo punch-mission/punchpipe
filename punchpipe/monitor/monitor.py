@@ -28,7 +28,7 @@ def _process_level(start_date, end_date, level):
     credentials = MySQLCredentials.load("mysql-cred")
     engine = create_engine(f'mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe')
     session = Session(engine)
-    flow_query = session.query(Flow).where(or_(and_(Flow.start_time > start_date, Flow.end_time < end_date, Flow.flow_level == level, Flow.state == 'completed'), and_(Flow.flow_level == level, Flow.state == 'running', Flow.start_time > start_date))).statement
+    flow_query = session.query(Flow).where(or_(and_(Flow.start_time > start_date, Flow.end_time < end_date, Flow.flow_level == level), and_(Flow.flow_level == level, Flow.state == 'running', Flow.start_time > start_date))).statement
     file_query = session.query(File).where(and_(File.date_obs > start_date, File.date_obs < end_date, File.level == level)).statement
     query_duration = end_date - start_date
     previous_interval_start = start_date - query_duration
@@ -55,7 +55,7 @@ def _process_level(start_date, end_date, level):
         completed = flow_df[flow_df['state'] == "completed"]
         previous_completed = previous_flow_df[previous_flow_df['state'] == 'completed']
 
-        failed_count = len(flow_df[flow_df['state'] == 'failed'])
+        failed_flow_count = len(flow_df[flow_df['state'] == 'failed'])
 
         # completed['duration [sec]'] = (completed['end_time'] - completed['start_time']).map(timedelta.total_seconds)
         # previous_completed['duration [sec]'] = (previous_completed['end_time'] - previous_completed['start_time']).map(timedelta.total_seconds)
@@ -91,7 +91,7 @@ def _process_level(start_date, end_date, level):
                                    prev_value=f"{previous_stddev_duration:.1f}"),
                       dp.BigNumber(heading="Number of files written", value=written_count),
                       dp.BigNumber(heading="Number of failed files", value=failed_file_count),
-                      dp.BigNumber(heading="Number of failed flows", value=failed_count),
+                      dp.BigNumber(heading="Number of failed flows", value=failed_flow_count),
                       dp.BigNumber(heading="Running flow count", value=running_flow_count),
                       columns=3
                   ),
