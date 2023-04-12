@@ -55,6 +55,8 @@ def _process_level(start_date, end_date, level):
         completed = flow_df[flow_df['state'] == "completed"]
         previous_completed = previous_flow_df[previous_flow_df['state'] == 'completed']
 
+        failed_count = len(flow_df[flow_df['state'] == 'failed'])
+
         # completed['duration [sec]'] = (completed['end_time'] - completed['start_time']).map(timedelta.total_seconds)
         # previous_completed['duration [sec]'] = (previous_completed['end_time'] - previous_completed['start_time']).map(timedelta.total_seconds)
 
@@ -89,8 +91,8 @@ def _process_level(start_date, end_date, level):
                                    prev_value=f"{previous_stddev_duration:.1f}"),
                       dp.BigNumber(heading="Number of files written", value=written_count),
                       dp.BigNumber(heading="Number of failed files", value=failed_file_count),
+                      dp.BigNumber(heading="Number of failed flows", value=failed_count),
                       dp.BigNumber(heading="Running flow count", value=running_flow_count),
-                      dp.BigNumber(heading="Planned flow count", value=planned_count),
                       columns=3
                   ),
                   dp.Select(blocks=[dp.Plot(duration_plot, label='Duration plot'),
@@ -137,7 +139,7 @@ def _file_inquiry(file_id):
         # Provenance
         children_ids = [e.child for e in session.query(FileRelationship).where(FileRelationship.parent == file_id).all()]
         parent_ids = [e.parent for e in session.query(FileRelationship).where(FileRelationship.child == file_id).all()]
-        provenance = f"""**Children FileIDs: {children_ids} \n **Parent FileIDs: {parent_ids}"""
+        provenance = f"""**Children FileIDs**: {children_ids} \n **Parent FileIDs**: {parent_ids}"""
 
         return dp.View(f"# FileID={file_id}", dp.Text(info_markdown), dp.Plot(fig), dp.Text(provenance))
     except MultipleResultsFound as e:
