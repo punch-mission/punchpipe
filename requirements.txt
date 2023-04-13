@@ -1,0 +1,12 @@
+punchbowl
+prefect
+pydantic
+pymysql
+sqlalchemy
+pyyaml
+dash
+pandas
+plotly
+numpy
+coolname
+datapane
