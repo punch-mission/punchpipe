@@ -49,7 +49,7 @@ def match_data_with_file_db_entry(data: PUNCHData, file_db_entry_list):
     matching_entries = [file_db_entry for file_db_entry in file_db_entry_list
                         if file_db_entry.filename() == data.filename_base + ".fits"]
     if len(matching_entries) == 0:
-        raise RuntimeError("There did not exist a file_db_entry for this result.")
+        raise RuntimeError(f"There did not exist a file_db_entry for this result: result={data.filename_base}.")
     elif len(matching_entries) > 1:
         raise RuntimeError("There were many database entries matching this result. There should only be one.")
     else:

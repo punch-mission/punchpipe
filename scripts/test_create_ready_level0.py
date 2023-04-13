@@ -1,12 +1,14 @@
 from datetime import datetime
 import json
+import os
 
 import numpy as np
-import astropy.wcs
+from astropy.nddata import StdDevUncertainty
+from astropy.wcs import WCS
 from prefect import flow, task
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from punchbowl.data import PUNCHData
+from punchbowl.data import PUNCHData, NormalizedMetadata, PUNCH_REQUIRED_META_FIELDS
 
 from punchpipe.controlsegment.db import Flow, File, MySQLCredentials
 
@@ -15,7 +17,7 @@ from punchpipe.controlsegment.db import Flow, File, MySQLCredentials
 def construct_fake_entries():
     fake_file = File(level=0,
                      file_type="XX",
-                     observatory="X",
+                     observatory="Y",
                      file_version="0",
                      software_version="0",
                      date_created=datetime.now(),
@@ -54,25 +56,36 @@ def insert_into_table(fake_flow, fake_file):
     fake_file.processing_flow = fake_flow.flow_id
     session.commit()
 
-def generate_fake_level0_data():
-    data = np.random.rand(2048, 2048)
-    wcs = astropy.wcs.WCS(naxis=3)
-    wcs.wcs.ctype = "WAVE", "HPLT-TAN", "HPLN-TAN"
-    wcs.wcs.cunit = "Angstrom", "deg", "deg"
-    wcs.wcs.cdelt = 0.2, 0.5, 0.4
-    wcs.wcs.crpix = 0, 2, 2
-    wcs.wcs.crval = 10, 0.5, 1
-    wcs.wcs.cname = "wavelength", "HPC lat", "HPC lon"
 
-    meta = {"LEVEL": 0}
-    data = PUNCHData(data=data, wcs=wcs, meta=meta, uncertainty=np.zeros_like(data))
-    return data
+def generate_fake_level0_data(date_obs):
+    shape = (2048, 2048)
+    data = np.random.random(shape)
+    uncertainty = StdDevUncertainty(np.sqrt(np.abs(data)))
+    wcs = WCS(naxis=2)
+    wcs.wcs.ctype = "HPLN-ARC", "HPLT-ARC"
+    wcs.wcs.cunit = "deg", "deg"
+    wcs.wcs.cdelt = 0.1, 0.1
+    wcs.wcs.crpix = 0, 0
+    wcs.wcs.crval = 1, 1
+    wcs.wcs.cname = "HPC lon", "HPC lat"
+
+    meta = NormalizedMetadata({"LEVEL": str(0),
+                               'OBSRVTRY': 'Y',
+                               'TYPECODE': 'XX',
+                               'DATE-OBS': str(date_obs)},
+                              required_fields=PUNCH_REQUIRED_META_FIELDS)
+    return PUNCHData(data=data, uncertainty=uncertainty, wcs=wcs, meta=meta)
+
 
 @flow
 def create_fake_level0():
     fake_flow, fake_file = construct_fake_entries()
-    fake_data = generate_fake_level0_data()
-    fake_data.write(fake_file.filename())
+    fake_data = generate_fake_level0_data(fake_file.date_obs)
+    output_directory = fake_file.directory("/home/marcus.hughes/running_test/")
+    if not os.path.isdir(output_directory):
+        os.makedirs(output_directory)
+    output_path = os.path.join(output_directory, fake_file.filename())
+    fake_data.write(output_path)
     insert_into_table(fake_flow, fake_file)
 
 

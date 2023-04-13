@@ -1,4 +1,4 @@
-root: "/here/is/the/root/path/"
+root: "./test_results/"
 
 launcher:
   max_seconds_waiting: 100
@@ -18,6 +18,11 @@ priority:
     initial: 7
     seconds: [30, 120, 600 ]
     escalation: [ 12, 22, 32 ]
+
+scheduler:
+  level2_process_flow:
+    latency: 3
+    window_duration: 3
 
 process_options:
   pointing:

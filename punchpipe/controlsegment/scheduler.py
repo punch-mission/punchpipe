@@ -15,7 +15,7 @@ def generic_scheduler_flow_logic(query_ready_files_func,
         session = get_database_session()
 
     # find all files that are ready to run
-    ready_file_ids = query_ready_files_func(session)
+    ready_file_ids = query_ready_files_func(session, pipeline_config)
     for file_id in ready_file_ids:
         # mark the file as progressed so that there aren't duplicate processing flows
         update_file_state(session, file_id, "progressed")

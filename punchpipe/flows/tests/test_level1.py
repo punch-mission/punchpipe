@@ -36,7 +36,8 @@ db = create_mysql_fixture(Base, session_fn, session=True)
 
 
 def test_query_ready_files(db):
-    ready_file_ids = level1_query_ready_files.fn(db)
+    pipeline_config = {}
+    ready_file_ids = level1_query_ready_files.fn(db, pipeline_config)
     assert len(ready_file_ids) == 1
 
 

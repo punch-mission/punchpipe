@@ -14,7 +14,7 @@ from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 
 
 @task
-def level1_query_ready_files(session):
+def level1_query_ready_files(session, pipeline_config: dict):
     return [f.file_id for f in session.query(File).where(and_(File.state == "created", File.level == 0)).all()]
 
 
@@ -24,7 +24,7 @@ def level1_construct_flow_info(level0_file: File, level1_file: File, pipeline_co
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config['priority']['level1_process_flow']['initial']
-    call_data = json.dumps({"input_filename": os.path.join(level0_file.directory(pipeline_config['root']),
+    call_data = json.dumps({"input_data": os.path.join(level0_file.directory(pipeline_config['root']),
                                                            level0_file.filename()),
                             "output_filename": os.path.join(level1_file.directory(pipeline_config['root']),
                                                             level1_file.filename())})
