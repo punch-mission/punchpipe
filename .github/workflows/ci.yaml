@@ -28,7 +28,7 @@ jobs:
         eval `ssh-agent -s`
         ssh-add - <<< '${{ secrets.PRIVATE_SSH_KEY }}'
         python -m pip install --upgrade pip
-        python -m pip install flake8 pytest pytest-cov hypothesis
+        python -m pip install flake8 pytest pytest-cov hypothesis coverage freezegun pytest-mock-resources[mysql]
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Lint with flake8
       run: |
