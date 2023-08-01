@@ -1,4 +1,4 @@
-punchbowl
+git+ssh://git@github.com/punch-mission/punchbowl.git#egg=punchbowl
 prefect
 pydantic
 pymysql
