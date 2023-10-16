@@ -20,7 +20,7 @@ setup(
     install_requires=[
         'prefect',
         'pymysql',
-        'pydantic',
+        'pydantic==1.10.12',
         'sqlalchemy',
         'punchbowl',
         'datapane',
