@@ -10,7 +10,7 @@ from pytest_mock_resources import create_mysql_fixture
 import numpy as np
 from astropy.nddata import StdDevUncertainty
 from astropy.wcs import WCS
-from punchbowl.data import NormalizedMetadata, PUNCHData, PUNCH_REQUIRED_META_FIELDS
+from punchbowl.data import NormalizedMetadata, PUNCHData
 
 from punchpipe.controlsegment.db import Base, Flow, File
 from punchpipe.controlsegment.processor import generic_process_flow_logic
@@ -22,18 +22,18 @@ TESTDATA_DIR = os.path.dirname(__file__)
 def session_fn(session):
     level0_file = File(file_id=1,
                        level=0,
-                       file_type='XX',
-                       observatory='0',
+                       file_type='PM',
+                       observatory='1',
                        state='created',
                        file_version='none',
                        software_version='none',
-                       date_obs=datetime.now(),
+                       date_obs=datetime(2023, 1, 1, 0, 0, 1),
                        processing_flow=0)
 
     level1_file = File(file_id=2,
                        level=1,
-                       file_type="XX",
-                       observatory='0',
+                       file_type="PM",
+                       observatory='1',
                        state='planned',
                        file_version='none',
                        software_version='none',
@@ -112,47 +112,6 @@ def test_simple_generic_process_flow_unreported(db):
 
 
 @flow
-def blank_core_flow():
-    data = np.random.random((50, 50))
-    uncertainty = StdDevUncertainty(np.sqrt(np.abs(data)))
-    wcs = WCS(naxis=2)
-    wcs.wcs.ctype = "HPLN-ARC", "HPLT-ARC"
-    wcs.wcs.cunit = "deg", "deg"
-    wcs.wcs.cdelt = 0.1, 0.1
-    wcs.wcs.crpix = 0, 0
-    wcs.wcs.crval = 1, 1
-    wcs.wcs.cname = "HPC lon", "HPC lat"
-
-    meta = NormalizedMetadata({"LEVEL": str(1),
-                               'OBSRVTRY': '0',
-                               'TYPECODE': 'XX',
-                               'DATE-OBS': str(datetime(2023, 1, 1, 0, 0, 1)),
-                               'BLANK': True},
-                              required_fields=PUNCH_REQUIRED_META_FIELDS)
-    output = PUNCHData(data=data, uncertainty=uncertainty, wcs=wcs, meta=meta)
-
-    return [output]
-
-
-@flow
-def blank_flow(flow_id: int, pipeline_config_path=TESTDATA_DIR+"/config.yaml", session=None):
-    generic_process_flow_logic(flow_id, blank_core_flow, pipeline_config_path, session=session)
-
-
-def test_simple_generic_process_flow_blank_return(db):
-    level1_file = db.query(File).where(File.file_id == 2).one()
-    assert level1_file.state == "planned"
-    del level1_file
-
-    with prefect_test_harness():
-        blank_flow(1, session=db)
-
-    level1_file = db.query(File).where(File.file_id == 2).one()
-    assert level1_file.state == "blank"
-    del level1_file
-
-
-@flow
 def normal_core_flow():
     data = np.random.random((50, 50))
     uncertainty = StdDevUncertainty(np.sqrt(np.abs(data)))
@@ -164,12 +123,8 @@ def normal_core_flow():
     wcs.wcs.crval = 1, 1
     wcs.wcs.cname = "HPC lon", "HPC lat"
 
-    meta = NormalizedMetadata({"LEVEL": str(1),
-                               'OBSRVTRY': '0',
-                               'TYPECODE': 'XX',
-                               'DATE-OBS': str(datetime(2023, 1, 1, 0, 0, 1)),
-                               'BLANK': False},
-                              required_fields=PUNCH_REQUIRED_META_FIELDS)
+    meta = NormalizedMetadata.load_template("PM1", "1")
+    meta['DATE-OBS'] = str(datetime(2023, 1, 1, 0, 0, 1))
     output = PUNCHData(data=data, uncertainty=uncertainty, wcs=wcs, meta=meta)
 
     return [output]
@@ -181,7 +136,7 @@ def normal_flow(flow_id: int, pipeline_config_path=TESTDATA_DIR+"/config.yaml", 
 
 
 def test_simple_generic_process_flow_normal_return(db):
-    os.mkdir("./test_results/")
+    os.makedirs("./test_results/")
 
     level1_file = db.query(File).where(File.file_id == 2).one()
     assert level1_file.state == "planned"

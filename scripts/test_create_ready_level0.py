@@ -8,7 +8,7 @@ from astropy.wcs import WCS
 from prefect import flow, task
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from punchbowl.data import PUNCHData, NormalizedMetadata, PUNCH_REQUIRED_META_FIELDS
+from punchbowl.data import PUNCHData, NormalizedMetadata
 
 from punchpipe.controlsegment.db import Flow, File, MySQLCredentials
 
@@ -69,11 +69,7 @@ def generate_fake_level0_data(date_obs):
     wcs.wcs.crval = 1, 1
     wcs.wcs.cname = "HPC lon", "HPC lat"
 
-    meta = NormalizedMetadata({"LEVEL": str(0),
-                               'OBSRVTRY': 'Y',
-                               'TYPECODE': 'XX',
-                               'DATE-OBS': str(date_obs)},
-                              required_fields=PUNCH_REQUIRED_META_FIELDS)
+    meta = NormalizedMetadata.load_template("PM1", "0")
     return PUNCHData(data=data, uncertainty=uncertainty, wcs=wcs, meta=meta)
 
 
