@@ -1,1 +1,4 @@
 scripts/credentials.py
+/docs/build/
+/venv/
+/venv-docs/
