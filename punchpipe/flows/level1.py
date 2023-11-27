@@ -1,6 +1,7 @@
 from datetime import datetime
 import json
 import os
+import typing as t
 
 from sqlalchemy import and_
 from prefect import flow, task
@@ -19,15 +20,15 @@ def level1_query_ready_files(session, pipeline_config: dict):
 
 
 @task
-def level1_construct_flow_info(level0_file: File, level1_file: File, pipeline_config: dict):
+def level1_construct_flow_info(level0_files: File, level1_files: File, pipeline_config: dict):
     flow_type = "level1_process_flow"
     state = "planned"
     creation_time = datetime.now()
-    priority = pipeline_config['priority']['level1_process_flow']['initial']
-    call_data = json.dumps({"input_data": os.path.join(level0_file.directory(pipeline_config['root']),
-                                                           level0_file.filename()),
-                            "output_filename": os.path.join(level1_file.directory(pipeline_config['root']),
-                                                            level1_file.filename())})
+    priority = pipeline_config['levels'][flow_type]['priority']['initial']
+    call_data = json.dumps({"input_data": [os.path.join(level0_file.directory(pipeline_config['root']),
+                                                           level0_file.filename()) for level0_file in level0_files],
+                            "output_filename": [os.path.join(level1_file.directory(pipeline_config['root']),
+                                                            level1_file.filename()) for level1_file in level1_files]})
     return Flow(flow_type=flow_type,
                 flow_level=1,
                 state=state,
@@ -37,15 +38,16 @@ def level1_construct_flow_info(level0_file: File, level1_file: File, pipeline_co
 
 
 @task
-def level1_construct_file_info(level0_file: File):
-    return File(level=1,
-                file_type=level0_file.file_type,
-                observatory=level0_file.observatory,
-                file_version="0",  # TODO: decide how to implement this
+def level1_construct_file_info(level0_files: t.List[File],
+                               pipeline_config: dict) -> t.List[File]:
+    return [File(level=1,
+                file_type=level0_files[0].file_type,
+                observatory=level0_files[0].observatory,
+                file_version=pipeline_config['file_version'],
                 software_version=__version__,
-                date_obs=level0_file.date_obs,
-                polarization=level0_file.polarization,
-                state="planned")
+                date_obs=level0_files[0].date_obs,
+                polarization=level0_files[0].polarization,
+                state="planned")]
 
 
 @flow

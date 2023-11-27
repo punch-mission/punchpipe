@@ -1,0 +1,28 @@
+root: "/home/marcus.hughes/running_test/"
+
+launcher:
+  max_seconds_waiting: 100
+  max_flows_running: 30
+
+priority:
+  level0_process_flow:
+    initial: 5
+    seconds: [30, 120, 600]
+    escalation: [10, 20, 30]
+  level1_process_flow:
+    initial: 6
+    seconds: [ 30, 120, 600 ]
+    escalation: [ 11, 21, 31]
+  level2_process_flow:
+    initial: 7
+    seconds: [30, 120, 600 ]
+    escalation: [ 12, 22, 32 ]
+
+scheduler:
+  level2_process_flow:
+    latency: 3
+    window_duration: 3
+
+process_options:
+  pointing:
+    num_quads: 100

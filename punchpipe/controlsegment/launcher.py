@@ -22,9 +22,9 @@ def count_running_flows(session):
 
 @task
 def escalate_long_waiting_flows(session, pipeline_config):
-    for flow_type in pipeline_config['priority']:
-        for max_seconds_waiting, escalated_priority in zip(pipeline_config['priority'][flow_type]['seconds'],
-                                                           pipeline_config['priority'][flow_type]['escalation']):
+    for flow_type in pipeline_config['levels']:
+        for max_seconds_waiting, escalated_priority in zip(pipeline_config['levels'][flow_type]['priority']['seconds'],
+                                                           pipeline_config['levels'][flow_type]['priority']['escalation']):
             since = datetime.now() - timedelta(seconds=max_seconds_waiting)
             session.query(Flow).where(and_(Flow.state == "planned",
                                            Flow.creation_time < since,
