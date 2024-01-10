@@ -1,3 +1,5 @@
+import itertools
+
 from punchpipe.controlsegment.db import File, FileRelationship
 from punchpipe.controlsegment.util import get_database_session, update_file_state, load_pipeline_configuration
 
@@ -15,25 +17,30 @@ def generic_scheduler_flow_logic(query_ready_files_func,
         session = get_database_session()
 
     # find all files that are ready to run
+    parent_files = []
     ready_file_ids = query_ready_files_func(session, pipeline_config)
-    for file_id in ready_file_ids:
-        # mark the file as progressed so that there aren't duplicate processing flows
-        update_file_state(session, file_id, "progressed")
+    if ready_file_ids:
+        for file_id in ready_file_ids:
+            # mark the file as progressed so that there aren't duplicate processing flows
+            update_file_state(session, file_id, "progressed")
 
-        # get the level0 file's information
-        parent_file = session.query(File).where(File.file_id == file_id).one()
+            # get the prior level file's information
+            parent_files += session.query(File).where(File.file_id == file_id).all()
 
         # prepare the new level flow and file
-        child_file = construct_child_file_info(parent_file)
-        database_flow_info = construct_child_flow_info(parent_file, child_file, pipeline_config)
-        session.add(child_file)
+        children_files = construct_child_file_info(parent_files, pipeline_config)
+        database_flow_info = construct_child_flow_info(parent_files, children_files, pipeline_config)
+        session.add(*children_files)
         session.add(database_flow_info)
         session.commit()
 
-        # set the processing flow now that we know the flow_id after committing thea flow info
-        child_file.processing_flow = database_flow_info.flow_id
+        # set the processing flow now that we know the flow_id after committing the flow info
+        for child_file in children_files:
+            child_file.processing_flow = database_flow_info.flow_id
         session.commit()
 
-        # create a file relationship between the level 0 and level 1
-        session.add(FileRelationship(parent=parent_file.file_id, child=child_file.file_id))
+        # create a file relationship between the prior and next levels
+        for parent_file in parent_files:
+            for child_file in children_files:
+                session.add(FileRelationship(parent=parent_file.file_id, child=child_file.file_id))
         session.commit()

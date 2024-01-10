@@ -34,7 +34,8 @@ release = '0.0.1'
 extensions = ['autoapi.extension',
               'sphinx.ext.autodoc',
               'sphinx.ext.napoleon',
-              'sphinx_favicon']
+              'sphinx_favicon',
+              'sphinxcontrib.mermaid']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -71,13 +72,19 @@ html_theme_options = {
         "image_dark": "_static/logo.png",
     }
 }
+
+mermaid_params = ['--backgroundColor', 'red']
+mermaid_verbose = True
+
 html_context = {
     # "github_url": "https://github.com", # or your GitHub Enterprise site
     "github_user": "punch-mission",
     "github_repo": "punchpipe",
     "github_version": "main",
     "doc_path": "docs/source/",
+
 }
+
 
 
 autoapi_dirs = ['../../punchpipe']

@@ -136,7 +136,7 @@ def normal_flow(flow_id: int, pipeline_config_path=TESTDATA_DIR+"/config.yaml", 
 
 
 def test_simple_generic_process_flow_normal_return(db):
-    os.makedirs("./test_results/")
+    os.makedirs("./test_results/", exist_ok=True)
 
     level1_file = db.query(File).where(File.file_id == 2).one()
     assert level1_file.state == "planned"
