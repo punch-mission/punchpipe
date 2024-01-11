@@ -10,7 +10,9 @@ plotly
 numpy
 coolname
 datapane
+
 pytest
 coverage
 pytest-mock-resources[mysql]
 freezegun
+pre-commit

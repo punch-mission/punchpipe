@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import json
 import os
+import typing as t
 
 from sqlalchemy import and_
 from prefect import flow, task
@@ -14,8 +15,8 @@ from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 
 @task
 def level2_query_ready_files(session, pipeline_config: dict):
-    latency = pipeline_config['scheduler']['level2_process_flow']['latency']
-    window_duration = pipeline_config['scheduler']['level2_process_flow']['window_duration']
+    latency = pipeline_config['levels']['level2_process_flow']['schedule']['latency']
+    window_duration = pipeline_config['levels']['level2_process_flow']['schedule']['window_duration_seconds']
     start_time = datetime.now() - timedelta(minutes=latency+window_duration)
     end_time = datetime.now() - timedelta(minutes=latency)
     return [f.file_id for f in session.query(File).where(and_(File.state == "created",
@@ -25,13 +26,13 @@ def level2_query_ready_files(session, pipeline_config: dict):
 
 
 @task
-def level2_construct_flow_info(level1_file: File, level2_file: File, pipeline_config: dict):
+def level2_construct_flow_info(level1_files: File, level2_file: File, pipeline_config: dict):
     flow_type = "level2_process_flow"
     state = "planned"
     creation_time = datetime.now()
-    priority = pipeline_config['priority']['level2_process_flow']['initial']
+    priority = pipeline_config['levels'][flow_type]['priority']['initial']
     call_data = json.dumps({"data_list": [os.path.join(level1_file.directory(pipeline_config['root']),
-                                                           level1_file.filename())]})
+                                                           level1_file.filename()) for level1_file in level1_files]})
     return Flow(flow_type=flow_type,
                 state=state,
                 flow_level=2,
@@ -41,15 +42,20 @@ def level2_construct_flow_info(level1_file: File, level2_file: File, pipeline_co
 
 
 @task
-def level2_construct_file_info(level1_file: File):
-    return File(level=2,
-                file_type=level1_file.file_type,
-                observatory=level1_file.observatory,
-                file_version="0",  # TODO: decide how to implement this
-                software_version=__version__,
-                date_obs=level1_file.date_obs,
-                polarization=level1_file.polarization,
-                state="planned")
+def level2_construct_file_info(level1_files: t.List[File],
+                               pipeline_config: dict) -> t.List[File]:
+    # TODO: make realistic to level 2 products
+    out_files = []
+    for level1_file in level1_files:
+        out_files.append(File(level=2,
+                              file_type=level1_file.file_type,
+                              observatory=level1_file.observatory,
+                              file_version=pipeline_config['file_version'],
+                              software_version=__version__,
+                              date_obs=level1_file.date_obs,
+                              polarization=level1_file.polarization,
+                              state="planned"))
+    return out_files
 
 
 @flow

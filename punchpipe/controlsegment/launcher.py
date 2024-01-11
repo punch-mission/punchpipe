@@ -22,9 +22,9 @@ def count_running_flows(session):
 
 @task
 def escalate_long_waiting_flows(session, pipeline_config):
-    for flow_type in pipeline_config['priority']:
-        for max_seconds_waiting, escalated_priority in zip(pipeline_config['priority'][flow_type]['seconds'],
-                                                           pipeline_config['priority'][flow_type]['escalation']):
+    for flow_type in pipeline_config['levels']:
+        for max_seconds_waiting, escalated_priority in zip(pipeline_config['levels'][flow_type]['priority']['seconds'],
+                                                           pipeline_config['levels'][flow_type]['priority']['escalation']):
             since = datetime.now() - timedelta(seconds=max_seconds_waiting)
             session.query(Flow).where(and_(Flow.state == "planned",
                                            Flow.creation_time < since,
@@ -49,7 +49,7 @@ def filter_for_launchable_flows(planned_flows, running_flow_count, max_flows_run
 
 
 @task
-async def launch_ready_flows(session: Session, flow_ids: List[int]):
+async def launch_ready_flows(session: Session, flow_ids: List[int]) -> List:
     """Given a list of ready-to-launch flow_ids, this task creates flow runs in Prefect for them.
     These flow runs are automatically marked as scheduled in Prefect and will be picked up by a work queue and
     agent as soon as possible.
@@ -96,10 +96,8 @@ def launcher_flow(pipeline_configuration_path="config.yaml"):
     """
     logger = get_run_logger()
 
-    # load pipeline configuration
     pipeline_config = load_pipeline_configuration(pipeline_configuration_path)
 
-    # Get database credentials and establish a connection
     logger.info("Establishing database connection")
     session = get_database_session()
 

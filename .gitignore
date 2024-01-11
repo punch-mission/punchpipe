@@ -1,1 +1,7 @@
 scripts/credentials.py
+/docs/build/
+/venv/
+/venv-docs/
+build/
+punchpipe.egg-info
+.idea
