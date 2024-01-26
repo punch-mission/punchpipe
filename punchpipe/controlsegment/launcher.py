@@ -1,13 +1,14 @@
-from typing import List
 from datetime import datetime, timedelta
+from typing import List
 
-from prefect import task, flow, get_run_logger
+from prefect import flow, get_run_logger, task
 from prefect.client import get_client
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from punchpipe.controlsegment.db import Flow
-from punchpipe.controlsegment.util import get_database_session, load_pipeline_configuration
+from punchpipe.controlsegment.util import (get_database_session,
+                                           load_pipeline_configuration)
 
 
 @task

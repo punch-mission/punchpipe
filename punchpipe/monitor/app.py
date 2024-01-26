@@ -1,13 +1,13 @@
 # Run this app with `python app.py` and
 # visit http://127.0.0.1:8050/ in your web browser.
 
-from dash import Dash, dcc, html, Input, Output, State, dash_table
-import plotly.express as px
-import pandas as pd
-import numpy as np
-from datetime import timedelta, date
-from dash.exceptions import PreventUpdate
 import json
+from datetime import date, timedelta
+
+import pandas as pd
+import plotly.express as px
+from dash import Dash, Input, Output, dash_table, dcc, html
+from dash.exceptions import PreventUpdate
 
 app = Dash(__name__)
 

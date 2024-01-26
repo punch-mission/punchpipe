@@ -1,10 +1,10 @@
-from typing import Optional
 import os
+from typing import Optional
 
 from prefect.blocks.core import Block
 from pydantic import SecretStr
-from sqlalchemy import Column, ForeignKey, Integer, String, create_engine, DateTime, Float, TEXT
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy import TEXT, Column, DateTime, Integer, String
+from sqlalchemy.orm import declarative_base
 
 
 class MySQLCredentials(Block):
@@ -84,4 +84,3 @@ class FileRelationship(Base):
     relationship_id = Column(Integer, primary_key=True)
     parent = Column(Integer, nullable=False)
     child = Column(Integer, nullable=False)
-
