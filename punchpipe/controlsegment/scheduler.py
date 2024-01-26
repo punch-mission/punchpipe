@@ -1,7 +1,8 @@
-import itertools
 
 from punchpipe.controlsegment.db import File, FileRelationship
-from punchpipe.controlsegment.util import get_database_session, update_file_state, load_pipeline_configuration
+from punchpipe.controlsegment.util import (get_database_session,
+                                           load_pipeline_configuration,
+                                           update_file_state)
 
 
 def generic_scheduler_flow_logic(query_ready_files_func,

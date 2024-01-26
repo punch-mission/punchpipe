@@ -1,15 +1,14 @@
-from datetime import datetime
 import json
 import os
 import typing as t
+from datetime import datetime
 
-from sqlalchemy import and_
 from prefect import flow, task
-from prefect.context import get_run_context
 from punchbowl.level1.flow import level1_core_flow
+from sqlalchemy import and_
 
 from punchpipe import __version__
-from punchpipe.controlsegment.db import Flow, File
+from punchpipe.controlsegment.db import File, Flow
 from punchpipe.controlsegment.processor import generic_process_flow_logic
 from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 

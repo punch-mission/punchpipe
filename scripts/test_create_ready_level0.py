@@ -1,16 +1,16 @@
-from datetime import datetime
 import json
 import os
+from datetime import datetime
 
 import numpy as np
 from astropy.nddata import StdDevUncertainty
 from astropy.wcs import WCS
 from prefect import flow, task
+from punchbowl.data import NormalizedMetadata, PUNCHData
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from punchbowl.data import PUNCHData, NormalizedMetadata
 
-from punchpipe.controlsegment.db import Flow, File, MySQLCredentials
+from punchpipe.controlsegment.db import File, Flow, MySQLCredentials
 
 
 @task

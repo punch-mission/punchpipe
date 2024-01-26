@@ -1,20 +1,19 @@
-from datetime import datetime
 import json
 import os
 import shutil
+from datetime import datetime
 
-import pytest
-from prefect import flow, task
-from prefect.testing.utilities import prefect_test_harness
-from pytest_mock_resources import create_mysql_fixture
 import numpy as np
+import pytest
 from astropy.nddata import StdDevUncertainty
 from astropy.wcs import WCS
+from prefect import flow
+from prefect.testing.utilities import prefect_test_harness
 from punchbowl.data import NormalizedMetadata, PUNCHData
+from pytest_mock_resources import create_mysql_fixture
 
-from punchpipe.controlsegment.db import Base, Flow, File
+from punchpipe.controlsegment.db import Base, File, Flow
 from punchpipe.controlsegment.processor import generic_process_flow_logic
-from punchpipe.controlsegment.util import match_data_with_file_db_entry
 
 TESTDATA_DIR = os.path.dirname(__file__)
 

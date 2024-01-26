@@ -1,14 +1,13 @@
 import os
 
+import yaml
+from prefect import task
+from punchbowl.data import PUNCHData
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from prefect import task
-import yaml
 from yaml.loader import FullLoader
-from punchbowl.data import PUNCHData
 
-from punchpipe.controlsegment.db import MySQLCredentials
-from punchpipe.controlsegment.db import Flow, File, FileRelationship
+from punchpipe.controlsegment.db import File, MySQLCredentials
 
 
 def get_database_session():

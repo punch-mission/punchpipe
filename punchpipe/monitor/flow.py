@@ -1,10 +1,10 @@
 from typing import List
 
-from sqlalchemy import and_, create_engine
-from sqlalchemy.orm import Session
 from prefect import flow, task
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
-from punchpipe.controlsegment.db import Flow, MySQLCredentials, File, FileRelationship
+from punchpipe.controlsegment.db import Flow, MySQLCredentials
 
 
 @task
