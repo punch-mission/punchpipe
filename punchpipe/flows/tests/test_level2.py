@@ -1,14 +1,17 @@
-from datetime import datetime
 import os
+from datetime import datetime
 
-from pytest_mock_resources import create_mysql_fixture
-from prefect.testing.utilities import prefect_test_harness
 from freezegun import freeze_time
+from prefect.testing.utilities import prefect_test_harness
+from pytest_mock_resources import create_mysql_fixture
 
 from punchpipe import __version__
-from punchpipe.controlsegment.db import Base, Flow, File
+from punchpipe.controlsegment.db import Base, File, Flow
 from punchpipe.controlsegment.util import load_pipeline_configuration
-from punchpipe.flows.level2 import level2_query_ready_files, level2_construct_file_info, level2_construct_flow_info, level2_scheduler_flow
+from punchpipe.flows.level2 import (level2_construct_file_info,
+                                    level2_construct_flow_info,
+                                    level2_query_ready_files,
+                                    level2_scheduler_flow)
 
 TEST_DIR = os.path.dirname(__file__)
 
@@ -38,7 +41,7 @@ db = create_mysql_fixture(Base, session_fn, session=True)
 
 
 def test_level2_query_ready_files(db):
-    with freeze_time(datetime(2023, 1, 1, 0, 5, 0)) as frozen_datatime:
+    with freeze_time(datetime(2023, 1, 1, 0, 5, 0)) as frozen_datatime:  # noqa: F841
         pipeline_config = {'levels': {'level2_process_flow': {'schedule': {'latency': 3, 'window_duration_seconds': 3}}}}
         ready_file_ids = level2_query_ready_files.fn(db, pipeline_config)
         assert len(ready_file_ids) == 1
@@ -88,7 +91,7 @@ def test_level2_construct_flow_info():
 def test_level2_scheduler_flow(db):
     pipeline_config_path = os.path.join(TEST_DIR, "config.yaml")
     with prefect_test_harness():
-        outcome = level2_scheduler_flow(pipeline_config_path, db)
+        level2_scheduler_flow(pipeline_config_path, db)
     results = db.query(Flow).where(Flow.state == 'planned').all()
     assert len(results) == 0
 

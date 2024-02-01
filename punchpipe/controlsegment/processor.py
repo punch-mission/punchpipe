@@ -1,14 +1,13 @@
-from datetime import datetime
 import json
-import os
+from datetime import datetime
 
 from prefect.context import get_run_context
 
-from punchpipe.controlsegment.db import Flow, File
+from punchpipe.controlsegment.db import File, Flow
 from punchpipe.controlsegment.util import (get_database_session,
                                            load_pipeline_configuration,
-                                           write_file,
-                                           match_data_with_file_db_entry)
+                                           match_data_with_file_db_entry,
+                                           write_file)
 
 
 def generic_process_flow_logic(flow_id: int, core_flow_to_launch,

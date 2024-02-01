@@ -1,21 +1,18 @@
-from datetime import timedelta, datetime
 import os
+from datetime import datetime, timedelta
 
-import pandas as pd
 import datapane as dp
-import plotly.express as px
-import numpy as np
-from sqlalchemy import and_, or_
-from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
-from astropy.io import fits
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import plotly.express as px
 from punchbowl.data import PUNCHData
+from sqlalchemy import and_, create_engine, or_
+from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 
-from punchpipe.controlsegment.db import MySQLCredentials
-from punchpipe.controlsegment.util import get_database_session
-from punchpipe.controlsegment.db import Flow, File, FileRelationship
+from punchpipe.controlsegment.db import (File, FileRelationship, Flow,
+                                         MySQLCredentials)
 
 
 def _create_overall_blocks(start_date, end_date):
@@ -38,8 +35,8 @@ def _process_level(start_date, end_date, level):
         or_(and_(Flow.start_time > previous_interval_start, Flow.end_time < previous_interval_end, Flow.flow_level == level,
                  Flow.state == 'completed'),
             and_(Flow.flow_level == level, Flow.state == 'running', Flow.start_time > start_date))).statement
-    previous_file_query = session.query(File).where(
-        and_(File.date_obs > previous_interval_start, File.date_obs < previous_interval_end, File.level == level)).statement
+    # previous_file_query = session.query(File).where(
+    #     and_(File.date_obs > previous_interval_start, File.date_obs < previous_interval_end, File.level == level)).statement
 
     flow_df = pd.read_sql_query(sql=flow_query, con=engine)
     flow_df['duration'] = (flow_df['end_time'] - flow_df['start_time']).dt.total_seconds()
@@ -49,7 +46,7 @@ def _process_level(start_date, end_date, level):
     previous_flow_df = pd.read_sql_query(sql=previous_flow_query, con=engine)
     previous_flow_df['duration'] = (previous_flow_df['end_time'] - previous_flow_df['start_time']).dt.total_seconds()
     previous_flow_df['delay'] = (previous_flow_df['start_time'] - previous_flow_df['creation_time']).dt.total_seconds()
-    previous_file_df = pd.read_sql_query(sql=previous_file_query, con=engine)
+    # previous_file_df = pd.read_sql_query(sql=previous_file_query, con=engine)
 
     if len(flow_df):
         completed = flow_df[flow_df['state'] == "completed"]
@@ -66,7 +63,7 @@ def _process_level(start_date, end_date, level):
         previous_average_duration = np.nanmean(previous_completed['duration'])
         previous_stddev_duration = np.nanstd(previous_completed['duration'])
 
-        planned_count = len(flow_df[flow_df['state'] == 'planned'])
+        # planned_count = len(flow_df[flow_df['state'] == 'planned'])
         running_flow_count = len(flow_df[(flow_df['state'] == "running") * (flow_df['start_time'] > start_date)])
 
         written_count = len(file_df[file_df['state'] == 'created']) + len(file_df[file_df['state'] == 'progressed'])
@@ -142,9 +139,9 @@ def _file_inquiry(file_id):
         provenance = f"""**Children FileIDs**: {children_ids} \n **Parent FileIDs**: {parent_ids}"""
 
         return dp.View(f"# FileID={file_id}", dp.Text(info_markdown), dp.Plot(fig), dp.Text(provenance))
-    except MultipleResultsFound as e:
+    except MultipleResultsFound:
         return dp.View(f"Multiple files with file_id={file_id} found.")
-    except NoResultFound as e:
+    except NoResultFound:
         return dp.View(f"No file with file_id={file_id} found.")
 
 
@@ -162,9 +159,9 @@ def _flow_inquiry(flow_id):
         # Make table
         info_markdown = row2table(flow_entry)
         return dp.View(f"# FlowID={flow_id}", dp.Text(info_markdown))
-    except MultipleResultsFound as e:
+    except MultipleResultsFound:
         return dp.View(f"Multiple files with file_id={flow_id} found.")
-    except NoResultFound as e:
+    except NoResultFound:
         return dp.View(f"No file with file_id={flow_id} found.")
 
 

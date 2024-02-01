@@ -1,14 +1,14 @@
-from datetime import datetime, timedelta
 import json
 import os
 import typing as t
+from datetime import datetime, timedelta
 
-from sqlalchemy import and_
 from prefect import flow, task
 from punchbowl.level2.flow import level2_core_flow
+from sqlalchemy import and_
 
 from punchpipe import __version__
-from punchpipe.controlsegment.db import Flow, File
+from punchpipe.controlsegment.db import File, Flow
 from punchpipe.controlsegment.processor import generic_process_flow_logic
 from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 

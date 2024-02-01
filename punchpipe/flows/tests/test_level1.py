@@ -1,13 +1,16 @@
-from datetime import datetime
 import os
+from datetime import datetime
 
-from pytest_mock_resources import create_mysql_fixture
 from prefect.testing.utilities import prefect_test_harness
+from pytest_mock_resources import create_mysql_fixture
 
 from punchpipe import __version__
-from punchpipe.controlsegment.db import Base, Flow, File
+from punchpipe.controlsegment.db import Base, File, Flow
 from punchpipe.controlsegment.util import load_pipeline_configuration
-from punchpipe.flows.level1 import level1_query_ready_files, level1_construct_file_info, level1_construct_flow_info, level1_scheduler_flow
+from punchpipe.flows.level1 import (level1_construct_file_info,
+                                    level1_construct_flow_info,
+                                    level1_query_ready_files,
+                                    level1_scheduler_flow)
 
 TEST_DIR = os.path.dirname(__file__)
 
@@ -84,7 +87,7 @@ def test_level1_construct_flow_info():
 def test_level1_scheduler_flow(db):
     pipeline_config_path = os.path.join(TEST_DIR, "config.yaml")
     with prefect_test_harness():
-        outcome = level1_scheduler_flow(pipeline_config_path, db)
+        level1_scheduler_flow(pipeline_config_path, db)
     results = db.query(Flow).where(Flow.state == 'planned').all()
     assert len(results) == 1
 
