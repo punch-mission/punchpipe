@@ -23,7 +23,7 @@ setup(
         'prefect',
         'pymysql',
         'pandas',
-        'pydantic==1.10.12',
+        'pydantic==2.6.4',
         'sqlalchemy',
         'dash',
         'coolname',
