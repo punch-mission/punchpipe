@@ -19,7 +19,7 @@ setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     install_requires=[
-        'git+ssh://git@github.com/punch-mission/punchbowl.git#egg=punchbowl',
+        'punchbowl @ git+ssh://git@github.com/punch-mission/punchbowl@main',
         'prefect',
         'pymysql',
         'pandas',
