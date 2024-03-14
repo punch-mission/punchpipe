@@ -32,8 +32,7 @@ jobs:
         eval `ssh-agent -s`
         ssh-add - <<< '${{ secrets.PRIVATE_SSH_KEY }}'
         python -m pip install --upgrade pip
-        python -m pip install flake8 pytest pytest-cov hypothesis coverage freezegun pytest-mock-resources[mysql]
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install ".[dev]"
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
@@ -42,7 +41,7 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        pip install .
+        pip install "."
         pytest --cov
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
