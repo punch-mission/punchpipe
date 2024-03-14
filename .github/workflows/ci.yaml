@@ -41,7 +41,9 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        pip install "."
+        eval `ssh-agent -s`
+        ssh-add - <<< '${{ secrets.PRIVATE_SSH_KEY }}'
+        pip install .
         pytest --cov
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
