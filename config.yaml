@@ -1,4 +1,5 @@
 root: "/home/marcus.hughes/running_test/"
+input_drop: "dropzone/"
 file_version: "0.0.1"
 
 launcher:
