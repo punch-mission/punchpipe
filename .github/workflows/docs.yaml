@@ -23,7 +23,7 @@ jobs:
       run: |
         eval `ssh-agent -s`
         ssh-add - <<< '${{ secrets.PRIVATE_SSH_KEY }}'
-        pip install -r ".[docs]"
+        pip install ".[docs]"
 
     # Build the book
     - name: Sphinx build
