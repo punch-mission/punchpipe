@@ -1,13 +1,34 @@
 import io
+import os
 
-from ccsdspy import (
-    PacketArray,
-    PacketField,
-    VariableLength,
-    FixedLength
-)
+import ccsdspy
 from ccsdspy.utils import split_by_apid
-import pandas as pd
+
+PACKET_NAME2APID = {"ENG_LZ": 0x60,
+                    "ENG_BOOT": 0x61,
+                    "ENG_EVT": 0x62,
+                    "ENG_DNLD": 0x63,
+                    "ENG_FDC": 0x64,
+                    "ENG_SEQ": 0x65,
+                    "ENG_HI": 0x66,
+                    "ENG_LO": 0x67,
+                    "ENG_SSV": 0x68,
+                    "ENG_XACT": 0x69,
+                    "ENG_HYD": 0x6a,
+                    "ENG_XTS": 0x6b,
+                    "ENG_CEB": 0x6c,
+                    "ENG_PFW": 0x6d,
+                    "ENG_LED": 0x6e,
+                    "ENG_STM_ECHO": 0x75,
+                    "ENG_STM_HK": 0x76,
+                    "ENG_STM_DUMP": 0x77,
+                    "ENG_STM_LOG": 0x78,
+                    "ENG_STM_DIAG": 0x79,
+                    "SCI_XFI": 0x20,
+                    "ENG_COMSEC": 0x70,
+                    "ENG_FILL": 0x71}
+
+PACKET_APID2NAME = {v: k for k, v in PACKET_NAME2APID.items()}
 
 
 def open_and_split_packet_file(path: str) -> dict[int, io.BytesIO]:
@@ -16,95 +37,23 @@ def open_and_split_packet_file(path: str) -> dict[int, io.BytesIO]:
     return stream_by_apid
 
 
-def load_packet_def(packet_name, definition_path: str = 'packets/2024-02-09/PUNCH_TLM.xls'):
+def load_packet_def(packet_name) -> ccsdspy.VariableLength | ccsdspy.FixedLength:
     if packet_name == "SCI_XFI":
-        return _load_science_packet_def(packet_name, definition_path)
+        return ccsdspy.VariableLength.from_file(os.path.join("./defs", f"{packet_name}.csv"))
     else:
-        return _load_engineering_packet_def(packet_name, definition_path)
-
-
-def _load_engineering_packet_def(packet_name, definition_path="packets/2024-02-09/PUNCH_TLM.xls"):
-    contents = pd.read_excel(definition_path, sheet_name=packet_name)
-
-    definition = []
-    for row in contents.iterrows():
-        name = row[1].iloc[0]
-        kind = row[1].iloc[2]
-        kind = 'uint' if name not in("FILL_VALUE", "FSW_MEM_DUMP_DATA") else "fill"
-        start_byte = row[1].iloc[6]
-        start_bit = row[1].iloc[7]
-        size = row[1].iloc[8]
-        definition.append(PacketField(name=name, data_type=kind, bit_length=size))
-    return FixedLength(definition)
-
-
-def _load_science_packet_def(packet_name, definition_path="packets/2024-02-09/PUNCH_TLM.xls"):
-    sci_pkt = VariableLength([
-        PacketField(
-            name='SCI_XFI_HDR_SCID',
-            data_type='uint',
-            bit_length=8
-        ),
-        PacketField(
-            name='SCI_XFI_FILL_1',
-            data_type='fill',
-            bit_length=1
-        ),
-        PacketField(
-            name='SCI_XFI_FLASH_ADDR',
-            data_type='uint',
-            bit_length=15
-        ),
-        PacketField(
-            name='SCI_XFI_FILL_2',
-            data_type='fill',
-            bit_length=2,
-        ),
-        PacketField(
-            name='SCI_XFI_TIME_QUAL',
-            data_type='uint',
-            bit_length=2
-        ),
-        PacketField(
-            name='SCI_XFI_GPS_TIME_MS',
-            data_type='uint',
-            bit_length=20,
-        ),
-        PacketField(
-            name='SCI_XFI_GPS_TIME_S',
-            data_type='uint',
-            bit_length=32,
-        ),
-        PacketField(
-            name='SCI_XFI_HDR_GRP',
-            data_type='uint',
-            bit_length=8,
-        ),
-        PacketField(
-            name='SCI_XFI_ACQ_SET',
-            data_type='uint',
-            bit_length=32,
-        ),
-        PacketField(
-            name='SCI_XFI_COM_SET',
-            data_type='uint',
-            bit_length=16,
-        ),
-        PacketField(
-            name='SCI_XFI_FILL_3',
-            data_type='fill',
-            bit_length=8,
-        ),
-        PacketArray(
-            name='SCI_XFI_IMG_DATA',
-            data_type='uint',
-            bit_length=8,
-            array_shape='expand'
-        )
-    ])
-
-    return sci_pkt
+        return ccsdspy.FixedLength.from_file(os.path.join("./defs", f"{packet_name}.csv"))
 
 
 def process_telemetry_file(telemetry_file_path):
     apid_separated_tlm = open_and_split_packet_file(telemetry_file_path)
+    parsed_data = {}
+    for apid, stream in apid_separated_tlm.items():
+        definition = load_packet_def(PACKET_APID2NAME[apid])
+        parsed_data[apid] = definition.load(stream, include_primary_header=True)
+    return parsed_data
+
+
+if __name__ == "__main__":
+    path = "/Users/jhughes/Desktop/sdf/punchbowl/Level0/packets/2024-02-09/PUNCH_NFI00_RAW_2024_040_21_32_V01.tlm"
+    parsed = process_telemetry_file(path)
+    print(parsed[0x20])

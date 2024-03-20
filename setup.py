@@ -19,17 +19,20 @@ setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     install_requires=[
+        'ccsdspy @ git+ssh://git@github.com/CCSDSPy/ccsdspy@main'
         'punchbowl @ git+ssh://git@github.com/punch-mission/punchbowl@main',
         'prefect',
         'pymysql',
         'pandas',
+        'xlrd',
         'pydantic==1.10.12',
         'sqlalchemy',
         'dash',
         'coolname',
         'numpy',
         'plotly',
-        'pyyaml'],
+        'pyyaml',
+        'click'],
     extras_require={
             'dev': ["flake8",
                     'pre-commit',
