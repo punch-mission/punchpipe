@@ -1,10 +1,4 @@
 name,data_type,bit_length
-SCI_XFI_HDR_VER,uint,3
-SCI_XFI_HDR_TYPE,uint,1
-SCI_XFI_HDR_SHDR,uint,1
-SCI_XFI_HDR_APID,uint,11
-SCI_XFI_HDR_SEQ_US,uint,2
-SCI_XFI_HDR_SEQ,uint,14
 SCI_XFI_HDR_LEN,uint,16
 SCI_XFI_HDR_SCID,uint,8
 SCI_XFI_HDR_FILL_1,uint,1
@@ -17,4 +11,4 @@ SCI_XFI_HDR_GRP,uint,8
 SCI_XFI_ACQ_SET,uint,32
 SCI_XFI_COM_SET,uint,16
 SCI_XFI_FILL_3,uint,8
-SCI_XFI_IMG_DATA,"uint(expand)",8
+SCI_XFI_IMG_DATA,uint(expand),8

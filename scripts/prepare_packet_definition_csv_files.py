@@ -12,7 +12,7 @@ def _prepare_packet_definition(contents):
         kind = 'uint' if name not in ("FILL_VALUE", "FSW_MEM_DUMP_DATA") else "fill"
         size = row[1].iloc[8]
         definition.append(dict(name=name, data_type=kind, bit_length=size))
-    return definition
+    return definition[6:]
 
 
 def convert_eng_packet(tlm_path, output_dir, packet_name):
