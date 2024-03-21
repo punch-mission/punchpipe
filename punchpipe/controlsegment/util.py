@@ -14,7 +14,8 @@ def get_database_session():
     """Sets up a session to connect to the MariaDB punchpipe database"""
     credentials = MySQLCredentials.load("mysql-cred")
     engine = create_engine(
-        f'mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe')
+        f"mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe"
+    )
     session = Session(engine)
     return session
 
@@ -34,8 +35,9 @@ def load_pipeline_configuration(path: str) -> dict:
 
 
 def write_file(data: PUNCHData, corresponding_file_db_entry, pipeline_config) -> None:
-    output_filename = os.path.join(corresponding_file_db_entry.directory(pipeline_config['root']),
-                                   corresponding_file_db_entry.filename())
+    output_filename = os.path.join(
+        corresponding_file_db_entry.directory(pipeline_config["root"]), corresponding_file_db_entry.filename()
+    )
     output_dir = os.path.dirname(output_filename)
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
@@ -45,8 +47,11 @@ def write_file(data: PUNCHData, corresponding_file_db_entry, pipeline_config) ->
 
 def match_data_with_file_db_entry(data: PUNCHData, file_db_entry_list):
     # figure out which file_db_entry this corresponds to
-    matching_entries = [file_db_entry for file_db_entry in file_db_entry_list
-                        if file_db_entry.filename() == data.filename_base + ".fits"]
+    matching_entries = [
+        file_db_entry
+        for file_db_entry in file_db_entry_list
+        if file_db_entry.filename() == data.filename_base + ".fits"
+    ]
     if len(matching_entries) == 0:
         raise RuntimeError(f"There did not exist a file_db_entry for this result: result={data.filename_base}.")
     elif len(matching_entries) > 1:

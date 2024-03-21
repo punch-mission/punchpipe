@@ -58,10 +58,7 @@ class File(Base):
         str
             the place to write the file
         """
-        return os.path.join(root,
-                            str(self.level),
-                            self.file_type,
-                            self.date_obs.strftime("%Y/%m/%d"))
+        return os.path.join(root, str(self.level), self.file_type, self.date_obs.strftime("%Y/%m/%d"))
 
 
 class Flow(Base):
