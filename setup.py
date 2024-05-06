@@ -36,7 +36,6 @@ setup(
     ],
     extras_require={
         "dev": [
-            "flake8",
             "pre-commit",
             "hypothesis",
             "pytest",
@@ -44,6 +43,7 @@ setup(
             "pytest-cov",
             "pytest-mock-resources[mysql]",
             "freezegun",
+            "ruff"
         ],
         "docs": [
             "sphinx",
