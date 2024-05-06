@@ -10,7 +10,7 @@ setup(
     version="0.0.1",
     # package_dir={"": "punchpipe"},
     packages=find_packages(),
-    python_requires=">=3.7, <4",
+    python_requires=">=3.10",
     url="",
     license="",
     author="PUNCH SOC",
