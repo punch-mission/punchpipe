@@ -5,3 +5,4 @@ scripts/credentials.py
 build/
 punchpipe.egg-info
 .idea
+/punchpipe/level0/decoding_tables/

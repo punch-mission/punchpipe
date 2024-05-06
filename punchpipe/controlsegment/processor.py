@@ -4,15 +4,15 @@ from datetime import datetime
 from prefect.context import get_run_context
 
 from punchpipe.controlsegment.db import File, Flow
-from punchpipe.controlsegment.util import (get_database_session,
-                                           load_pipeline_configuration,
-                                           match_data_with_file_db_entry,
-                                           write_file)
+from punchpipe.controlsegment.util import (
+    get_database_session,
+    load_pipeline_configuration,
+    match_data_with_file_db_entry,
+    write_file,
+)
 
 
-def generic_process_flow_logic(flow_id: int, core_flow_to_launch,
-                               pipeline_config_path: str,
-                               session=None):
+def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_config_path: str, session=None):
     if session is None:
         session = get_database_session()
 

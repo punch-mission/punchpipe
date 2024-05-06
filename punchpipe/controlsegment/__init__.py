@@ -33,31 +33,36 @@ def test_match_data_with_file_db_entry_fails_on_empty_list(sample_punchdata):
 
 
 def test_match_data_with_file_db_entry(sample_punchdata):
-    file_db_entry_list = [File(level=1,
-                               file_type='XX',
-                               observatory='Y',
-                               file_version='0',
-                               software_version='0',
-                               date_created=datetime.now(),
-                               date_obs=datetime.now(),
-                               date_beg=datetime.now(),
-                               date_end=datetime.now(),
-                               polarization='ZZ',
-                               state='created',
-                               processing_flow=0),
-                          File(level=100,
-                               file_type='XX',
-                               observatory='Y',
-                               file_version='0',
-                               software_version='0',
-                               date_created=datetime.now(),
-                               date_obs=datetime.now(),
-                               date_beg=datetime.now(),
-                               date_end=datetime.now(),
-                               polarization='ZZ',
-                               state='created',
-                               processing_flow=0)
-                          ]
+    file_db_entry_list = [
+        File(
+            level=1,
+            file_type="XX",
+            observatory="Y",
+            file_version="0",
+            software_version="0",
+            date_created=datetime.now(),
+            date_obs=datetime.now(),
+            date_beg=datetime.now(),
+            date_end=datetime.now(),
+            polarization="ZZ",
+            state="created",
+            processing_flow=0,
+        ),
+        File(
+            level=100,
+            file_type="XX",
+            observatory="Y",
+            file_version="0",
+            software_version="0",
+            date_created=datetime.now(),
+            date_obs=datetime.now(),
+            date_beg=datetime.now(),
+            date_end=datetime.now(),
+            polarization="ZZ",
+            state="created",
+            processing_flow=0,
+        ),
+    ]
     output = match_data_with_file_db_entry(sample_punchdata, file_db_entry_list)
     assert len(output) == 1
     assert output == file_db_entry_list[0]

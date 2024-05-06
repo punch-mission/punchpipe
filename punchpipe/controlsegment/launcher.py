@@ -7,8 +7,7 @@ from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from punchpipe.controlsegment.db import Flow
-from punchpipe.controlsegment.util import (get_database_session,
-                                           load_pipeline_configuration)
+from punchpipe.controlsegment.util import get_database_session, load_pipeline_configuration
 
 
 @task
@@ -23,13 +22,15 @@ def count_running_flows(session):
 
 @task
 def escalate_long_waiting_flows(session, pipeline_config):
-    for flow_type in pipeline_config['levels']:
-        for max_seconds_waiting, escalated_priority in zip(pipeline_config['levels'][flow_type]['priority']['seconds'],
-                                                           pipeline_config['levels'][flow_type]['priority']['escalation']):
+    for flow_type in pipeline_config["levels"]:
+        for max_seconds_waiting, escalated_priority in zip(
+            pipeline_config["levels"][flow_type]["priority"]["seconds"],
+            pipeline_config["levels"][flow_type]["priority"]["escalation"],
+        ):
             since = datetime.now() - timedelta(seconds=max_seconds_waiting)
-            session.query(Flow).where(and_(Flow.state == "planned",
-                                           Flow.creation_time < since,
-                                           Flow.flow_type == flow_type)).update({'priority': escalated_priority})
+            session.query(Flow).where(
+                and_(Flow.state == "planned", Flow.creation_time < since, Flow.flow_type == flow_type)
+            ).update({"priority": escalated_priority})
             session.commit()
 
 
@@ -78,8 +79,9 @@ async def launch_ready_flows(session: Session, flow_ids: List[int]) -> List:
         # for every flow launch it and store the response
         for this_flow in flow_info:
             this_deployment_id = deployment_ids[this_flow.flow_type]
-            response = await client.create_flow_run_from_deployment(this_deployment_id,
-                                                                    parameters={'flow_id': this_flow.flow_id})
+            response = await client.create_flow_run_from_deployment(
+                this_deployment_id, parameters={"flow_id": this_flow.flow_id}
+            )
             responses.append(response)
     return responses
 
@@ -108,8 +110,9 @@ def launcher_flow(pipeline_configuration_path="config.yaml"):
     escalate_long_waiting_flows(session, pipeline_config)
     queued_flows = gather_planned_flows(session)
     logger.info(f"There are {len(queued_flows)} planned flows right now.")
-    flows_to_launch = filter_for_launchable_flows(queued_flows, num_running_flows,
-                                                  pipeline_config['launcher']['max_flows_running'])
+    flows_to_launch = filter_for_launchable_flows(
+        queued_flows, num_running_flows, pipeline_config["launcher"]["max_flows_running"]
+    )
     logger.info(f"Flows with IDs of {flows_to_launch} will be launched.")
     launch_ready_flows(session, flows_to_launch)
     logger.info("Launcher flow exit.")

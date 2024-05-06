@@ -10,13 +10,14 @@ TABLE_PATH = os.path.dirname(__file__) + "/decoding_tables/"
 
 
 def decode_sqrt(
-        data: Union[np.ndarray, float],
-        from_bits: int = 16,
-        to_bits: int = 12,
-        ccd_gain: float = 1 / 4.3,
-        ccd_offset: float = 100,
-        ccd_read_noise: float = 17,
-        overwrite_table: bool = False) -> np.ndarray:
+    data: Union[np.ndarray, float],
+    from_bits: int = 16,
+    to_bits: int = 12,
+    ccd_gain: float = 1 / 4.3,
+    ccd_offset: float = 100,
+    ccd_read_noise: float = 17,
+    overwrite_table: bool = False,
+) -> np.ndarray:
     """
     Square root decode between specified bitrate values
 
@@ -45,24 +46,23 @@ def decode_sqrt(
     """
 
     table_name = (
-            TABLE_PATH
-            + "tab_fb"
-            + str(from_bits)
-            + "_tb"
-            + str(to_bits)
-            + "_g"
-            + str(1 / ccd_gain)
-            + "_b"
-            + str(ccd_offset)
-            + "_r"
-            + str(ccd_read_noise)
-            + ".npy"
+        TABLE_PATH
+        + "tab_fb"
+        + str(from_bits)
+        + "_tb"
+        + str(to_bits)
+        + "_g"
+        + str(1 / ccd_gain)
+        + "_b"
+        + str(ccd_offset)
+        + "_r"
+        + str(ccd_read_noise)
+        + ".npy"
     )
 
     # Check for an existing table, otherwise generate one
     if not os.path.isfile(table_name) or overwrite_table:
-        table = generate_decode_sqrt_table(from_bits, to_bits, ccd_gain,
-                                           ccd_offset, ccd_read_noise)
+        table = generate_decode_sqrt_table(from_bits, to_bits, ccd_gain, ccd_offset, ccd_read_noise)
 
         # Make the directory if it doesn't exist
         if not os.path.isdir(TABLE_PATH):
@@ -129,12 +129,13 @@ def decode_sqrt_simple(data: Union[np.ndarray, float], from_bits: int = 16, to_b
 
 
 def noise_pdf(
-        data_value: Union[np.ndarray, float],
-        ccd_gain: float = 1 / 4.3,
-        ccd_offset: float = 100,
-        ccd_read_noise: float = 17,
-        n_sigma: int = 5,
-        n_steps: int = 10000) -> Tuple:
+    data_value: Union[np.ndarray, float],
+    ccd_gain: float = 1 / 4.3,
+    ccd_offset: float = 100,
+    ccd_read_noise: float = 17,
+    n_sigma: int = 5,
+    n_steps: int = 10000,
+) -> Tuple:
     """
     Generates a probability distribution function (pdf) from an input data value
 
@@ -170,7 +171,7 @@ def noise_pdf(
     poisson_sigma = np.sqrt(electrons) * ccd_gain
 
     # Total sigma is quadrature sum of fixed & shot
-    sigma = np.sqrt(poisson_sigma ** 2 + ccd_read_noise ** 2)
+    sigma = np.sqrt(poisson_sigma**2 + ccd_read_noise**2)
 
     dn_steps = np.arange(-n_sigma * sigma, n_sigma * sigma, sigma * n_sigma * 2 / n_steps)
 
@@ -184,12 +185,13 @@ def noise_pdf(
 
 
 def mean_b_offset(
-        data_value: float,
-        from_bits: int = 16,
-        to_bits: int = 12,
-        ccd_gain: float = 1 / 4.3,
-        ccd_offset: float = 100,
-        ccd_read_noise: float = 17) -> float:
+    data_value: float,
+    from_bits: int = 16,
+    to_bits: int = 12,
+    ccd_gain: float = 1 / 4.3,
+    ccd_offset: float = 100,
+    ccd_read_noise: float = 17,
+) -> float:
     """
     Compute an offset from the naive and robust decoding processes
 
@@ -241,12 +243,13 @@ def mean_b_offset(
 
 
 def decode_sqrt_corrected(
-        data_value: float,
-        from_bits: int = 16,
-        to_bits: int = 12,
-        ccd_gain: float = 1 / 4.3,
-        ccd_offset: float = 100,
-        ccd_read_noise: float = 17) -> float:
+    data_value: float,
+    from_bits: int = 16,
+    to_bits: int = 12,
+    ccd_gain: float = 1 / 4.3,
+    ccd_offset: float = 100,
+    ccd_read_noise: float = 17,
+) -> float:
     """
     Compute an individual decoding value for an input data value
 
@@ -277,7 +280,7 @@ def decode_sqrt_corrected(
 
     width = (s1p - s1n) / 4
 
-    fixed_sigma = np.sqrt(ccd_read_noise ** 2 + width ** 2)
+    fixed_sigma = np.sqrt(ccd_read_noise**2 + width**2)
 
     of = mean_b_offset(data_value, from_bits, to_bits, ccd_gain, ccd_offset, fixed_sigma)
 
@@ -285,11 +288,12 @@ def decode_sqrt_corrected(
 
 
 def generate_decode_sqrt_table(
-        from_bits: int = 16,
-        to_bits: int = 12,
-        ccd_gain: float = 1 / 4.3,
-        ccd_offset: float = 100,
-        ccd_read_noise: float = 17) -> np.ndarray:
+    from_bits: int = 16,
+    to_bits: int = 12,
+    ccd_gain: float = 1 / 4.3,
+    ccd_offset: float = 100,
+    ccd_read_noise: float = 17,
+) -> np.ndarray:
     """
     Generates a square root decode table between specified bitrate values and CCD parameters
 
@@ -313,9 +317,9 @@ def generate_decode_sqrt_table(
 
     """
 
-    table = np.zeros(2 ** to_bits)
+    table = np.zeros(2**to_bits)
 
-    for i in range(2 ** to_bits):
+    for i in range(2**to_bits):
         table[i] = decode_sqrt_corrected(i, from_bits, to_bits, ccd_gain, ccd_offset, ccd_read_noise)
 
     return table
@@ -373,13 +377,15 @@ def decode_sqrt_data(data_object: PUNCHData, overwrite_table: bool = False) -> P
     ccd_offset = data_object.meta["OFFSET"].value
     ccd_read_noise = 17  # DN
 
-    decoded_data = decode_sqrt(data,
-                               from_bits=from_bits,
-                               to_bits=to_bits,
-                               ccd_gain=ccd_gain,
-                               ccd_offset=ccd_offset,
-                               ccd_read_noise=ccd_read_noise,
-                               overwrite_table=overwrite_table)
+    decoded_data = decode_sqrt(
+        data,
+        from_bits=from_bits,
+        to_bits=to_bits,
+        ccd_gain=ccd_gain,
+        ccd_offset=ccd_offset,
+        ccd_read_noise=ccd_read_noise,
+        overwrite_table=overwrite_table,
+    )
 
     data_object = data_object.duplicate_with_updates(data=decoded_data)
 

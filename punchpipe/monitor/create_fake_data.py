@@ -30,16 +30,17 @@ def generate_completed_level0():
     priority = 1
     call_data = ""
 
-    return {"flow_id": flow_id,
-            "flow_type": flow_type,
-            "flow_run": flow_run,
-            "state": state,
-            "creation_time": creation_time,
-            "start_time": start_time,
-            "end_time": end_time,
-            "priority": priority,
-            "call_data": call_data
-            }
+    return {
+        "flow_id": flow_id,
+        "flow_type": flow_type,
+        "flow_run": flow_run,
+        "state": state,
+        "creation_time": creation_time,
+        "start_time": start_time,
+        "end_time": end_time,
+        "priority": priority,
+        "call_data": call_data,
+    }
 
 
 def generate_running_level0():
@@ -53,16 +54,17 @@ def generate_running_level0():
     priority = 1
     call_data = ""
 
-    return {"flow_id": flow_id,
-            "flow_type": flow_type,
-            "flow_run": flow_run,
-            "state": state,
-            "creation_time": creation_time,
-            "start_time": start_time,
-            "end_time": end_time,
-            "priority": priority,
-            "call_data": call_data
-            }
+    return {
+        "flow_id": flow_id,
+        "flow_type": flow_type,
+        "flow_run": flow_run,
+        "state": state,
+        "creation_time": creation_time,
+        "start_time": start_time,
+        "end_time": end_time,
+        "priority": priority,
+        "call_data": call_data,
+    }
 
 
 if __name__ == "__main__":

@@ -21,11 +21,13 @@ def determine_zombie_flows(session) -> List[Flow]:
 def format_pdf(active_flow_count, zombie_flow_list):
     pass
 
+
 @flow
 def monitoring_flow():
     credentials = MySQLCredentials.load("mysql-cred")
     engine = create_engine(
-        f'mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe')
+        f"mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe"
+    )
     session = Session(engine)
 
     num_active_flows = count_active_flows(session)
