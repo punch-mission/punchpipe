@@ -29,7 +29,7 @@ setup(
         "sqlalchemy",
         "dash",
         "coolname",
-        "numpy",
+        "numpy<2",
         "plotly",
         "pyyaml",
         "click",
