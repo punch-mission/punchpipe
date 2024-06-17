@@ -25,7 +25,7 @@ setup(
         "pymysql",
         "pandas",
         "xlrd",
-        "pydantic==1.10.12",
+        "pydantic==2.7.4",
         "sqlalchemy",
         "dash",
         "coolname",
