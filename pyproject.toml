@@ -1,3 +1,78 @@
+[build-system]
+
+requires = ["setuptools",
+            "wheel"]
+
+[project]
+name = "punchpipe"
+version = "0.0.1"
+dependencies = [
+    "click",
+    "ccsdspy",
+    "punchbowl @ git+ssh://git@github.com/punch-mission/punchbowl@main",
+    "prefect",
+    "pymysql",
+    "pandas",
+    "xlrd",
+    "pydantic",
+    "sqlalchemy",
+    "dash",
+    "dash-bootstrap-components",
+    "coolname",
+    "numpy",
+    "plotly",
+    "pyyaml",
+    "click",
+    "waitress"
+]
+requires-python = ">=3.10"
+authors = [
+    {name = "J. Marcus Hughes", email = "hughes.jmb@gmail.com"},
+]
+maintainers = [
+  {name = "J. Marcus Hughes", email = "hughes.jmb@gmail.com"}
+]
+description = "PUNCH mission's data reduction pipeline"
+readme = "README.md"
+license = {file = "LICENSE"}
+keywords = ["TODO"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python"
+]
+
+[project.optional-dependencies]
+test = ["pre-commit",
+        "hypothesis",
+        "pytest",
+        "coverage",
+        "pytest-cov",
+        "pytest-mock-resources[mysql]",
+        "freezegun",
+        "ruff"]
+docs = ["sphinx",
+        "pydata-sphinx-theme",
+        "sphinx-autoapi",
+        "sphinx-favicon",
+        "sphinxcontrib-mermaid",
+        "sphinx-automodapi"]
+
+[project.scripts]
+punchpipe = "punchpipe.cli:run"
+
+[project.urls]
+#Homepage = "https://example.com"
+#Documentation = "https://readthedocs.org"
+Repository = "https://github.com/punch-mission/punchpipe.git"
+"Bug Tracker" = "https://github.com/punch-mission/punchpipe/issues"
+#Changelog = "https://github.com/punch-mission/thuban/blob/main/CHANGELOG.md"
+
+[tool.setuptools]
+packages = ["punchpipe"]
+
+[tool.codespell]
+skip = "*.fts,*.fits,venv,*.pro,*.asdf,*.ipynb"
+
 [tool.ruff]
 target-version = 'py310'
 exclude = ['tests', 'scripts', 'docs']

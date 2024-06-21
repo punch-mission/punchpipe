@@ -7,9 +7,12 @@ from datetime import date, timedelta
 import pandas as pd
 import plotly.express as px
 from dash import Dash, Input, Output, dash_table, dcc, html
+import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
 
-app = Dash(__name__)
+app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+server = app.server
+app.config['suppress_callback_exceptions'] = True
 
 df = pd.read_csv(
     "/Users/jhughes/Desktop/repos/punchpipe/punchpipe/monitor/sample.csv",
@@ -20,28 +23,31 @@ df["duration"] = (df["end_time"] - df["start_time"]).map(timedelta.total_seconds
 
 fig = px.histogram(df, x="duration")
 
-app.layout = html.Div(
-    [
-        dcc.DatePickerRange(
-            id="date_picker_range",
-            min_date_allowed=date(2022, 1, 1),
-            max_date_allowed=date.today(),
-            initial_visible_month=date(2022, 1, 1),
-            start_date=date.today() - timedelta(days=1),
-            end_date=date.today(),
-        ),
-        dcc.Graph(id="duration", figure=fig),
-        dash_table.DataTable(
-            id="flow_table",
-            data=df.to_dict("records"),
-            columns=[{"name": i, "id": i} for i in df.columns],
-            page_action="none",
-            style_table={"height": "300px", "overflowY": "auto"},
-            sort_action="native",
-        ),
-        html.Pre(id="relayout-data"),
-    ]
-)
+app.layout = dbc.Tabs([
+        dbc.Tab(html.Div(
+        [
+            dcc.DatePickerRange(
+                id="date_picker_range",
+                min_date_allowed=date(2022, 1, 1),
+                max_date_allowed=date.today(),
+                initial_visible_month=date(2022, 1, 1),
+                start_date=date.today() - timedelta(days=1),
+                end_date=date.today(),
+            ),
+            dcc.Graph(id="duration", figure=fig),
+            dash_table.DataTable(
+                id="flow_table",
+                data=df.to_dict("records"),
+                columns=[{"name": i, "id": i} for i in df.columns],
+                page_action="none",
+                style_table={"height": "300px", "overflowY": "auto"},
+                sort_action="native",
+            ),
+            html.Pre(id="relayout-data"),
+            ]
+        ), label='Existing'),
+        dbc.Tab(html.Div(), label='Empty')
+    ])
 
 
 @app.callback(
