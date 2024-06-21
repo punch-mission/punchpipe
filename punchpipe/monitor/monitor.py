@@ -7,12 +7,12 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 from punchbowl.data import PUNCHData
-from sqlalchemy import and_, create_engine, or_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 from prefect_sqlalchemy.credentials import DatabaseCredentials
 
-from punchpipe.controlsegment.db import File, FileRelationship, Flow, MySQLCredentials
+from punchpipe.controlsegment.db import File, FileRelationship, Flow
 
 
 def _create_overall_blocks(start_date, end_date):

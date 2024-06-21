@@ -1,11 +1,7 @@
 import os
-from typing import Optional
 
-from prefect.blocks.core import Block
-from pydantic import SecretStr
 from sqlalchemy import TEXT, Column, DateTime, Integer, String
 from sqlalchemy.orm import declarative_base
-from prefect_sqlalchemy.credentials import DatabaseCredentials
 
 Base = declarative_base()
 

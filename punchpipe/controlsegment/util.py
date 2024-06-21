@@ -3,7 +3,6 @@ import os
 import yaml
 from prefect import task
 from punchbowl.data import PUNCHData
-from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from yaml.loader import FullLoader
 from prefect_sqlalchemy.credentials import DatabaseCredentials
