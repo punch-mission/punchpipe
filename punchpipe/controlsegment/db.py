@@ -5,15 +5,7 @@ from prefect.blocks.core import Block
 from pydantic import SecretStr
 from sqlalchemy import TEXT, Column, DateTime, Integer, String
 from sqlalchemy.orm import declarative_base
-
-
-class MySQLCredentials(Block):
-    user: Optional[str] = "localhost"
-    password: Optional[SecretStr] = None
-
-    class Config:
-        arbitrary_types_allowed = True
-
+from prefect_sqlalchemy.credentials import DatabaseCredentials
 
 Base = declarative_base()
 

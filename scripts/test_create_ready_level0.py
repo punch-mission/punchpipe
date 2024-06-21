@@ -7,10 +7,11 @@ from astropy.nddata import StdDevUncertainty
 from astropy.wcs import WCS
 from prefect import flow, task
 from punchbowl.data import NormalizedMetadata, PUNCHData
-from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from prefect_sqlalchemy.credentials import DatabaseCredentials
 
-from punchpipe.controlsegment.db import File, Flow, MySQLCredentials
+from punchpipe.controlsegment.db import File, Flow
+
 
 
 @task
@@ -42,9 +43,8 @@ def construct_fake_entries():
 
 @task
 def insert_into_table(fake_flow, fake_file):
-    credentials = MySQLCredentials.load("mysql-cred")
-    engine = create_engine(
-        f'mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe')
+    credentials = DatabaseCredentials.load("mariadb-creds")
+    engine = credentials.get_engine()
     session = Session(engine)
 
     session.add(fake_flow)

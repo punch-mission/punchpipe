@@ -10,6 +10,7 @@ from punchbowl.data import PUNCHData
 from sqlalchemy import and_, create_engine, or_
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
+from prefect_sqlalchemy.credentials import DatabaseCredentials
 
 from punchpipe.controlsegment.db import File, FileRelationship, Flow, MySQLCredentials
 
@@ -20,11 +21,8 @@ def _create_overall_blocks(start_date, end_date):
 
 def _process_level(start_date, end_date, level):
     level = int(level)
-
-    credentials = MySQLCredentials.load("mysql-cred")
-    engine = create_engine(
-        f"mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe"
-    )
+    credentials = DatabaseCredentials.load("mariadb-creds")
+    engine = credentials.get_engine()
     session = Session(engine)
     flow_query = (
         session.query(Flow)
@@ -143,11 +141,8 @@ def row2table(row):
 
 def _file_inquiry(file_id):
     file_id = int(file_id)
-
-    credentials = MySQLCredentials.load("mysql-cred")
-    engine = create_engine(
-        f"mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe"
-    )
+    credentials = DatabaseCredentials.load("mariadb-creds")
+    engine = credentials.get_engine()
     session = Session(engine)
 
     try:
@@ -180,10 +175,8 @@ def _file_inquiry(file_id):
 def _flow_inquiry(flow_id):
     flow_id = int(flow_id)
 
-    credentials = MySQLCredentials.load("mysql-cred")
-    engine = create_engine(
-        f"mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe"
-    )
+    credentials = DatabaseCredentials.load("mariadb-creds")
+    engine = credentials.get_engine()
     session = Session(engine)
 
     try:
