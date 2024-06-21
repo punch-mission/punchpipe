@@ -11,6 +11,9 @@ class MySQLCredentials(Block):
     user: Optional[str] = "localhost"
     password: Optional[SecretStr] = None
 
+    class Config:
+        arbitrary_types_allowed = True
+
 
 Base = declarative_base()
 
