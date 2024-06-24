@@ -32,7 +32,7 @@ jobs:
         eval `ssh-agent -s`
         ssh-add - <<< '${{ secrets.PRIVATE_SSH_KEY }}'
         python -m pip install --upgrade pip
-        pip install ".[dev]"
+        pip install ".[test]"
     - name: Lint with flake8
       run: |
         ruff check .

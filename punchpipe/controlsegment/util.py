@@ -3,19 +3,17 @@ import os
 import yaml
 from prefect import task
 from punchbowl.data import PUNCHData
-from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from yaml.loader import FullLoader
+from prefect_sqlalchemy.credentials import DatabaseCredentials
 
-from punchpipe.controlsegment.db import File, MySQLCredentials
+from punchpipe.controlsegment.db import File
 
 
 def get_database_session():
     """Sets up a session to connect to the MariaDB punchpipe database"""
-    credentials = MySQLCredentials.load("mysql-cred")
-    engine = create_engine(
-        f"mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe"
-    )
+    credentials = DatabaseCredentials.load("mariadb-creds")
+    engine = credentials.get_engine()
     session = Session(engine)
     return session
 
