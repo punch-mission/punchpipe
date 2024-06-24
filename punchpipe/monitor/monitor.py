@@ -1,7 +1,6 @@
 import os
 from datetime import datetime, timedelta
 
-import datapane as dp
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
