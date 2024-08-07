@@ -9,7 +9,8 @@ from astropy.nddata import StdDevUncertainty
 from astropy.wcs import WCS
 from prefect import flow
 from prefect.testing.utilities import prefect_test_harness
-from punchbowl.data import NormalizedMetadata, PUNCHData
+from punchbowl.data import NormalizedMetadata
+from ndcube import NDCube
 from pytest_mock_resources import create_mysql_fixture
 
 from punchpipe.controlsegment.db import Base, File, Flow
@@ -24,7 +25,7 @@ def session_fn(session):
                        file_type='PM',
                        observatory='1',
                        state='created',
-                       file_version='none',
+                       file_version='1',
                        software_version='none',
                        date_obs=datetime(2023, 1, 1, 0, 0, 1),
                        processing_flow=0)
@@ -34,7 +35,7 @@ def session_fn(session):
                        file_type="PM",
                        observatory='1',
                        state='planned',
-                       file_version='none',
+                       file_version='1',
                        software_version='none',
                        date_obs=datetime(2023, 1, 1, 0, 0, 1),
                        processing_flow=1)
@@ -124,7 +125,7 @@ def normal_core_flow():
 
     meta = NormalizedMetadata.load_template("PM1", "1")
     meta['DATE-OBS'] = str(datetime(2023, 1, 1, 0, 0, 1))
-    output = PUNCHData(data=data, uncertainty=uncertainty, wcs=wcs, meta=meta)
+    output = NDCube(data=data, uncertainty=uncertainty, wcs=wcs, meta=meta)
 
     return [output]
 

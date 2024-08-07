@@ -3,8 +3,8 @@ from typing import Tuple, Union
 
 import numpy as np
 from prefect import get_run_logger, task
+from ndcube import NDCube
 
-from punchbowl.data import PUNCHData
 
 TABLE_PATH = os.path.dirname(__file__) + "/decoding_tables/"
 
@@ -349,19 +349,19 @@ def decode_sqrt_by_table(data: Union[np.ndarray, float], table: np.ndarray) -> n
 
 
 @task
-def decode_sqrt_data(data_object: PUNCHData, overwrite_table: bool = False) -> PUNCHData:
+def decode_sqrt_data(data_object: NDCube, overwrite_table: bool = False) -> NDCube:
     """Prefect task in the pipeline to decode square root encoded data
 
     Parameters
     ----------
-    data_object : PUNCHData
+    data_object : NDCube
         the object you wish to decode
     overwrite_table
         Toggle to regenerate and overwrite existing decoding table
 
     Returns
     -------
-    PUNCHData
+    NDCube
         a modified version of the input with the data square root decoded
     """
 
@@ -386,8 +386,7 @@ def decode_sqrt_data(data_object: PUNCHData, overwrite_table: bool = False) -> P
         ccd_read_noise=ccd_read_noise,
         overwrite_table=overwrite_table,
     )
-
-    data_object = data_object.duplicate_with_updates(data=decoded_data)
+    data_object.data[...] = decoded_data[...]
 
     logger.info("square root decoding finished")
     data_object.meta.history.add_now("LEVEL0-decode-sqrt", "image square root decoded")

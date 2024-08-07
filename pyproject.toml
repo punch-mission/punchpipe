@@ -57,6 +57,7 @@ docs = ["sphinx",
         "sphinx-favicon",
         "sphinxcontrib-mermaid",
         "sphinx-automodapi"]
+dev = ["punchpipe[test,docs]", "pre-commit"]
 
 [project.scripts]
 punchpipe = "punchpipe.cli:run"

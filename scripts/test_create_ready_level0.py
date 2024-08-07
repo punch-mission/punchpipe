@@ -6,7 +6,8 @@ import numpy as np
 from astropy.nddata import StdDevUncertainty
 from astropy.wcs import WCS
 from prefect import flow, task
-from punchbowl.data import NormalizedMetadata, PUNCHData
+from punchbowl.data import NormalizedMetadata
+from ndcube import NDCube
 from sqlalchemy.orm import Session
 from prefect_sqlalchemy.credentials import DatabaseCredentials
 
@@ -70,7 +71,7 @@ def generate_fake_level0_data(date_obs):
     wcs.wcs.cname = "HPC lon", "HPC lat"
 
     meta = NormalizedMetadata.load_template("PM1", "0")
-    return PUNCHData(data=data, uncertainty=uncertainty, wcs=wcs, meta=meta)
+    return NDCube(data=data, uncertainty=uncertainty, wcs=wcs, meta=meta)
 
 
 @flow
