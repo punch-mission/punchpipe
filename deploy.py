@@ -23,15 +23,16 @@ level2_scheduler_deployment = level2_scheduler_flow.to_deployment(name="level2-s
 level2_process_deployment = level2_process_flow.to_deployment(name="level2_process_flow",
                                                               description="Process files from Level 1 to Level 2.")
 
-level3_scheduler_deployment = level3_scheduler_flow.to_deployment(name="level3-scheduler-deployment",
-                    description="Schedule a Level 3 flow.",
-                    cron="* * * * *",
-                    )
-level3_process_deployment = level3_process_flow.to_deployment(name="level3_process_flow",
-                                                              description="Process files from Level 2 to Level 3.")
+# level3_scheduler_deployment = level3_scheduler_flow.to_deployment(name="level3-scheduler-deployment",
+#                     description="Schedule a Level 3 flow.",
+#                     cron="* * * * *",
+#                     )
+# level3_process_deployment = level3_process_flow.to_deployment(name="level3_process_flow",
+#                                                               description="Process files from Level 2 to Level 3.")
 
 
 serve(launcher_deployment,
       level1_scheduler_deployment, level1_process_deployment,
       level2_scheduler_deployment, level2_process_deployment,
-      level3_scheduler_deployment, level3_process_deployment)
+      # level3_scheduler_deployment, level3_process_deployment
+      )

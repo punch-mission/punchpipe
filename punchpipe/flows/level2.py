@@ -3,7 +3,7 @@ import os
 import typing as t
 from datetime import datetime, timedelta
 
-from prefect import flow, task
+from prefect import flow, task, get_run_logger
 from punchbowl.level2.flow import level2_core_flow
 from sqlalchemy import and_
 
@@ -15,20 +15,20 @@ from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 
 @task
 def level2_query_ready_files(session, pipeline_config: dict):
-    latency = pipeline_config["levels"]["level2_process_flow"]["schedule"]["latency"]
-    window_duration = pipeline_config["levels"]["level2_process_flow"]["schedule"]["window_duration_seconds"]
-    start_time = datetime.now() - timedelta(minutes=latency + window_duration)
-    end_time = datetime.now() - timedelta(minutes=latency)
-    return [
-        f.file_id
-        for f in session.query(File)
-        .where(and_(File.state == "created", File.level == 1, File.date_obs > start_time, File.date_obs < end_time))
-        .all()
-    ]
+    logger = get_run_logger()
+    all_ready_files = session.query(File).where(and_(File.state == "created", File.level == 1)).all()
+    logger.info(f"{len(all_ready_files)} ready files")
+    unique_times = set(f.date_obs for f in all_ready_files)
+    logger.info(f"{len(unique_times)} unique times: {unique_times}")
+    grouped_ready_files = [[f.file_id for f in all_ready_files if f.date_obs == time] for time in unique_times]
+    logger.info(f"{len(grouped_ready_files)} grouped ready files")
+    out = [g for g in grouped_ready_files if len(g) == 12]
+    logger.info(f"{len(out)} groups heading out")
+    return out
 
 
 @task
-def level2_construct_flow_info(level1_files: File, level2_file: File, pipeline_config: dict):
+def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipeline_config: dict):
     flow_type = "level2_process_flow"
     state = "planned"
     creation_time = datetime.now()
@@ -54,21 +54,15 @@ def level2_construct_flow_info(level1_files: File, level2_file: File, pipeline_c
 @task
 def level2_construct_file_info(level1_files: t.List[File], pipeline_config: dict) -> t.List[File]:
     # TODO: make realistic to level 2 products
-    out_files = []
-    for level1_file in level1_files:
-        out_files.append(
-            File(
+    return [File(
                 level=2,
-                file_type=level1_file.file_type,
-                observatory=level1_file.observatory,
+                file_type="PT",
+                observatory="M",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
-                date_obs=level1_file.date_obs,
-                polarization=level1_file.polarization,
+                date_obs=level1_files[0].date_obs,
                 state="planned",
-            )
-        )
-    return out_files
+            )]
 
 
 @flow

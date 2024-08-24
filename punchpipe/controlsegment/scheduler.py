@@ -15,14 +15,14 @@ def generic_scheduler_flow_logic(
     # find all files that are ready to run
     ready_file_ids = query_ready_files_func(session, pipeline_config)
     if ready_file_ids:
-        for file_id in ready_file_ids:
+        for group in ready_file_ids:
             parent_files = []
+            for file_id in group:
+                # mark the file as progressed so that there aren't duplicate processing flows
+                update_file_state(session, file_id, "progressed")
 
-            # mark the file as progressed so that there aren't duplicate processing flows
-            update_file_state(session, file_id, "progressed")
-
-            # get the prior level file's information
-            parent_files += session.query(File).where(File.file_id == file_id).all()
+                # get the prior level file's information
+                parent_files += session.query(File).where(File.file_id == file_id).all()
 
             # prepare the new level flow and file
             children_files = construct_child_file_info(parent_files, pipeline_config)
