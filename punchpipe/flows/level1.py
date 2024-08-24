@@ -30,10 +30,10 @@ def level1_construct_flow_info(level0_files: File, level1_files: File, pipeline_
                 os.path.join(level0_file.directory(pipeline_config["root"]), level0_file.filename())
                 for level0_file in level0_files
             ],
-            "output_filename": [
-                os.path.join(level1_file.directory(pipeline_config["root"]), level1_file.filename())
-                for level1_file in level1_files
-            ],
+            # "output_filename": [
+            #     os.path.join(level1_file.directory(pipeline_config["root"]), level1_file.filename())
+            #     for level1_file in level1_files
+            # ],
         }
     )
     return Flow(
