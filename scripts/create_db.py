@@ -5,8 +5,6 @@ from prefect_sqlalchemy.credentials import DatabaseCredentials
 
 
 if __name__ == "__main__":
-    # Base = declarative_base()
-    credentials = DatabaseCredentials.load("mysql-cred")
-    engine = create_engine(
-        f'mysql+pymysql://{credentials.user}:{credentials.password.get_secret_value()}@localhost/punchpipe')
+    credentials = DatabaseCredentials.load("mariadb-creds")
+    engine = credentials.get_engine()
     Base.metadata.create_all(engine)

@@ -2,6 +2,7 @@ import json
 import os
 import typing as t
 from datetime import datetime
+from pathlib import Path
 
 from prefect import flow, task
 from punchbowl.level1.flow import level1_core_flow
@@ -15,11 +16,28 @@ from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 
 @task
 def level1_query_ready_files(session, pipeline_config: dict):
-    return [f.file_id for f in session.query(File).where(and_(File.state == "created", File.level == 0)).all()]
+    return [[f.file_id] for f in session.query(File).where(and_(File.state == "created", File.level == 0)).all()]
+
+
+# TODO handle more robustly
+@task
+def get_vignetting_function(level0_file):
+    observatory = int(level0_file.observatory)
+    if observatory < 4:
+        vignetting_function_path = "/Users/jhughes/Desktop/repos/simpunch/PUNCH_L1_GM1_20240817174727_v2.fits"
+    else:
+        vignetting_function_path = "/Users/jhughes/Desktop/repos/simpunch/PUNCH_L1_GM4_20240819045110_v1.fits"
+    return vignetting_function_path
+
+
+# TODO handle more robustly
+@task
+def get_psf_model_path(level0_file):
+    return "/Users/jhughes/Desktop/repos/punchbowl/test_run/synthetic_forward_psf.h5"
 
 
 @task
-def level1_construct_flow_info(level0_files: File, level1_files: File, pipeline_config: dict):
+def level1_construct_flow_info(level0_files: list[File], level1_files: File, pipeline_config: dict):
     flow_type = "level1_process_flow"
     state = "planned"
     creation_time = datetime.now()
@@ -30,10 +48,8 @@ def level1_construct_flow_info(level0_files: File, level1_files: File, pipeline_
                 os.path.join(level0_file.directory(pipeline_config["root"]), level0_file.filename())
                 for level0_file in level0_files
             ],
-            "output_filename": [
-                os.path.join(level1_file.directory(pipeline_config["root"]), level1_file.filename())
-                for level1_file in level1_files
-            ],
+            "vignetting_function_path": get_vignetting_function(level0_files[0]),
+            "psf_model_path": get_psf_model_path(level0_files[0]),
         }
     )
     return Flow(

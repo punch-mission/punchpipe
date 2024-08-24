@@ -1,6 +1,7 @@
 import json
 from datetime import datetime
 
+from prefect import get_run_logger
 from prefect.context import get_run_context
 
 from punchpipe.controlsegment.db import File, Flow
@@ -15,12 +16,14 @@ from punchpipe.controlsegment.util import (
 def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_config_path: str, session=None):
     if session is None:
         session = get_database_session()
+    logger = get_run_logger()
 
     # load pipeline configuration
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
 
     # fetch the appropriate flow db entry
     flow_db_entry = session.query(Flow).where(Flow.flow_id == flow_id).one()
+    logger.info(f"Running on flow db entry with id={flow_db_entry.flow_id}.")
 
     # update the processing flow name with the flow run name from Prefect
     flow_run_context = get_run_context()
@@ -43,10 +46,12 @@ def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_confi
     flow_call_data = json.loads(flow_db_entry.call_data)
     output_file_ids = set()
     expected_file_ids = {entry.file_id for entry in file_db_entry_list}
+    logger.info(f"Expecting to output files with ids={expected_file_ids}.")
     try:
         results = core_flow_to_launch(**flow_call_data)
         for result in results:
             file_db_entry = match_data_with_file_db_entry(result, file_db_entry_list)
+            logger.info(f"Preparing to write {file_db_entry.file_id}.")
             output_file_ids.add(file_db_entry.file_id)
             write_file(result, file_db_entry, pipeline_config)
 
