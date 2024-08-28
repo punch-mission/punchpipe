@@ -2,7 +2,7 @@ from prefect import serve
 from punchpipe.controlsegment.launcher import launcher_flow
 from punchpipe.flows.level1 import level1_process_flow, level1_scheduler_flow
 from punchpipe.flows.level2 import level2_process_flow, level2_scheduler_flow
-from punchpipe.flows.level3 import level3_process_flow, level3_scheduler_flow
+from punchpipe.flows.level3 import level3_PTM_process_flow, level3_PTM_scheduler_flow
 
 launcher_deployment = launcher_flow.to_deployment(name="launcher-deployment",
                                                     description="Launch a pipeline segment.",
@@ -23,16 +23,17 @@ level2_scheduler_deployment = level2_scheduler_flow.to_deployment(name="level2-s
 level2_process_deployment = level2_process_flow.to_deployment(name="level2_process_flow",
                                                               description="Process files from Level 1 to Level 2.")
 
-# level3_scheduler_deployment = level3_scheduler_flow.to_deployment(name="level3-scheduler-deployment",
-#                     description="Schedule a Level 3 flow.",
-#                     cron="* * * * *",
-#                     )
-# level3_process_deployment = level3_process_flow.to_deployment(name="level3_process_flow",
-#                                                               description="Process files from Level 2 to Level 3.")
+level3_PTM_scheduler_deployment = level3_PTM_scheduler_flow.to_deployment(name="level3-PTM-scheduler-deployment",
+                    description="Schedule a Level 3 flow to make PTM.",
+                    cron="* * * * *",
+                    )
+level3_PTM_process_deployment = level3_PTM_process_flow.to_deployment(name="level3_PTM_process_flow",
+                                                              description="Process PTM files from Level 2 to Level 3.")
 
 
 serve(launcher_deployment,
       level1_scheduler_deployment, level1_process_deployment,
       level2_scheduler_deployment, level2_process_deployment,
-      # level3_scheduler_deployment, level3_process_deployment
+      level3_PTM_scheduler_deployment, level3_PTM_process_deployment,
+      limit=100  # TODO: remove arbitrary limit
       )

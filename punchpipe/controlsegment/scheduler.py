@@ -7,13 +7,14 @@ def generic_scheduler_flow_logic(
 ):
     # load pipeline configuration
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
+    max_start = pipeline_config['scheduler']['max_start']
 
     # get database connection
     if session is None:
         session = get_database_session()
 
     # find all files that are ready to run
-    ready_file_ids = query_ready_files_func(session, pipeline_config)
+    ready_file_ids = query_ready_files_func(session, pipeline_config)[:max_start]
     if ready_file_ids:
         for group in ready_file_ids:
             parent_files = []

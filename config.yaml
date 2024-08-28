@@ -1,11 +1,12 @@
-root: "/home/marcus.hughes/running_test/"
+root: "/Users/jhughes/Desktop/d0/"
 input_drop: "dropzone/"
-file_version: "0.0.1"
+file_version: "1"
+
+scheduler:
+  max_start: 10
 
 launcher:
-  max_seconds_waiting: 100
-  escalated_priority: 100
-  max_flows_running: 30
+  max_flows_running: 5
 
 levels:
   level0_process_flow:
@@ -14,9 +15,6 @@ levels:
       seconds: [ 30, 120, 600 ]
       escalation: [ 10, 20, 30 ]
     schedule:
-      latency: 3
-      window_duration_seconds: 3
-      cron_rule: "******"
     options:
       num_quads: 100
 
@@ -26,18 +24,20 @@ levels:
       seconds: [ 30, 120, 600 ]
       escalation: [ 11, 21, 31 ]
     schedule:
-      latency: 3
-      window_duration_seconds: 3
-      cron_rule: "******"
     options:
 
   level2_process_flow:
     priority:
-      initial: 7
-      seconds: [ 30, 120, 600 ]
-      escalation: [ 12, 22, 32 ]
+      initial: 1000
+      seconds: [ 3000, 12000, 60000 ]
+      escalation: [ 1000, 1000, 1000 ]
     schedule:
-      latency: 3
-      window_duration_seconds: 3
-      cron_rule: "******"
+    options:
+
+  level3_PTM_process_flow:
+    priority:
+      initial: 10000
+      seconds: [1]
+      escalation: [10000]
+    schedule:
     options:
