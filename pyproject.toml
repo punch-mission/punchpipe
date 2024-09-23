@@ -10,7 +10,7 @@ dependencies = [
     "click",
     "ccsdspy",
     "punchbowl @ git+ssh://git@github.com/punch-mission/punchbowl@main",
-    "prefect",
+    "prefect[sqlalchemy]",
     "pymysql",
     "pandas",
     "xlrd",
@@ -24,7 +24,6 @@ dependencies = [
     "pyyaml",
     "click",
     "waitress",
-    "prefect-sqlalchemy",
     "pylibjpeg[libjpeg]"
 ]
 requires-python = ">=3.11"

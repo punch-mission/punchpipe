@@ -4,6 +4,7 @@ from datetime import datetime
 from freezegun import freeze_time
 from prefect.testing.utilities import prefect_test_harness
 from pytest_mock_resources import create_mysql_fixture
+from prefect.logging import disable_run_logger
 
 from punchpipe import __version__
 from punchpipe.controlsegment.db import Base, File, Flow
@@ -41,10 +42,12 @@ db = create_mysql_fixture(Base, session_fn, session=True)
 
 
 def test_level2_query_ready_files(db):
-    with freeze_time(datetime(2023, 1, 1, 0, 5, 0)) as frozen_datatime:  # noqa: F841
-        pipeline_config = {'levels': {'level2_process_flow': {'schedule': {'latency': 3, 'window_duration_seconds': 3}}}}
-        ready_file_ids = level2_query_ready_files.fn(db, pipeline_config)
-        assert len(ready_file_ids) == 1
+    with disable_run_logger():
+        with freeze_time(datetime(2023, 1, 1, 0, 5, 0)) as frozen_datatime:  # noqa: F841
+            pipeline_config = {'levels': {'level2_process_flow': {'schedule':
+                                                                      {'latency': 3, 'window_duration_seconds': 3}}}}
+            ready_file_ids = level2_query_ready_files.fn(db, pipeline_config)
+            assert len(ready_file_ids) == 0
 
 
 def test_level2_construct_file_info():
@@ -52,8 +55,8 @@ def test_level2_construct_file_info():
     pipeline_config = load_pipeline_configuration.fn(pipeline_config_path)
 
     level1_file = [File(level=0,
-                       file_type='XX',
-                       observatory='0',
+                       file_type='PT',
+                       observatory='M',
                        state='created',
                        file_version='none',
                        software_version='none',

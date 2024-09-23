@@ -4,7 +4,7 @@ import yaml
 from prefect import task
 from sqlalchemy.orm import Session
 from yaml.loader import FullLoader
-from prefect_sqlalchemy.credentials import DatabaseCredentials
+from prefect_sqlalchemy import SqlAlchemyConnector
 from ndcube import NDCube
 from punchbowl.data import write_ndcube_to_fits, get_base_file_name
 
@@ -13,7 +13,7 @@ from punchpipe.controlsegment.db import File
 
 def get_database_session():
     """Sets up a session to connect to the MariaDB punchpipe database"""
-    credentials = DatabaseCredentials.load("mariadb-creds")
+    credentials = SqlAlchemyConnector.load("mariadb-creds")
     engine = credentials.get_engine()
     session = Session(engine)
     return session
