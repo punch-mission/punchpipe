@@ -1,9 +1,10 @@
 root: "./test_results/"
 file_version: "0.0.1"
 
+scheduler:
+  max_start: 10
+
 launcher:
-  max_seconds_waiting: 100
-  escalated_priority: 100
   max_flows_running: 30
 
 levels:
@@ -13,9 +14,6 @@ levels:
       seconds: [ 30, 120, 600 ]
       escalation: [ 10, 20, 30 ]
     schedule:
-      latency: 3
-      window_duration_seconds: 3
-      cron_rule: "******"
     options:
       num_quads: 100
 
@@ -25,9 +23,6 @@ levels:
       seconds: [ 30, 120, 600 ]
       escalation: [ 11, 21, 31 ]
     schedule:
-      latency: 3
-      window_duration_seconds: 3
-      cron_rule: "******"
     options:
 
   level2_process_flow:
@@ -36,7 +31,4 @@ levels:
       seconds: [ 30, 120, 600 ]
       escalation: [ 12, 22, 32 ]
     schedule:
-      latency: 3
-      window_duration_seconds: 3
-      cron_rule: "******"
     options:

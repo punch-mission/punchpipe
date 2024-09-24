@@ -9,7 +9,7 @@ from prefect import flow, task
 from punchbowl.data import NormalizedMetadata
 from ndcube import NDCube
 from sqlalchemy.orm import Session
-from prefect_sqlalchemy.credentials import DatabaseCredentials
+from prefect_sqlalchemy import SqlAlchemyConnector
 
 from punchpipe.controlsegment.db import File, Flow
 
@@ -44,7 +44,7 @@ def construct_fake_entries():
 
 @task
 def insert_into_table(fake_flow, fake_file):
-    credentials = DatabaseCredentials.load("mariadb-creds")
+    credentials = SqlAlchemyConnector.load("mariadb-creds")
     engine = credentials.get_engine()
     session = Session(engine)
 

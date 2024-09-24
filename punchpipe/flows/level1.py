@@ -2,7 +2,6 @@ import json
 import os
 import typing as t
 from datetime import datetime
-from pathlib import Path
 
 from prefect import flow, task
 from punchbowl.level1.flow import level1_core_flow

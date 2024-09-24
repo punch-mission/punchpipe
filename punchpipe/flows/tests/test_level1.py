@@ -3,6 +3,7 @@ from datetime import datetime
 
 from prefect.testing.utilities import prefect_test_harness
 from pytest_mock_resources import create_mysql_fixture
+import pytest
 
 from punchpipe import __version__
 from punchpipe.controlsegment.db import Base, File, Flow
@@ -14,6 +15,10 @@ from punchpipe.flows.level1 import (level1_construct_file_info,
 
 TEST_DIR = os.path.dirname(__file__)
 
+@pytest.fixture(autouse=True, scope="session")
+def prefect_test_fixture():
+    with prefect_test_harness():
+        yield
 
 def session_fn(session):
     level0_file = File(level=0,
