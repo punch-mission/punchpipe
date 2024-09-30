@@ -9,10 +9,23 @@ def _prepare_packet_definition(contents):
     definition = []
     for row in contents.iterrows():
         name = row[1].iloc[0]
-        kind = 'uint' if name not in ("FILL_VALUE", "FSW_MEM_DUMP_DATA") else "fill"
         size = row[1].iloc[8]
+
+        if "FILL" in name or "MEM_DUMP_DATA" in name:
+            kind = "fill"
+        elif size > 64:
+            kind = "str"
+        else:
+            if row[1].iloc[2][0] == "U":
+                kind = "uint"
+            elif row[1].iloc[2][0] == "F":
+                kind = "float"
+            else:
+                kind = "fill"
+
+        # if "CKSUM" not in name:
         definition.append(dict(name=name, data_type=kind, bit_length=size))
-    return definition[6:]
+    return definition[7:]
 
 
 def convert_eng_packet(tlm_path, output_dir, packet_name):
