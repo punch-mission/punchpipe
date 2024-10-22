@@ -87,7 +87,7 @@ async def launch_ready_flows(session: Session, flow_ids: List[int]) -> List:
 
 
 @flow
-def launcher_flow(pipeline_configuration_path="config.yaml"):
+async def launcher_flow(pipeline_configuration_path="config.yaml"):
     """The main launcher flow for Prefect, responsible for identifying flows, based on priority,
         that are ready to run and creating flow runs for them. It also escalates long-waiting flows' priorities.
 
@@ -114,5 +114,5 @@ def launcher_flow(pipeline_configuration_path="config.yaml"):
         queued_flows, num_running_flows, pipeline_config["launcher"]["max_flows_running"]
     )
     logger.info(f"Flows with IDs of {flows_to_launch} will be launched.")
-    launch_ready_flows(session, flows_to_launch)
+    await launch_ready_flows(session, flows_to_launch)
     logger.info("Launcher flow exit.")
