@@ -13,7 +13,7 @@ from punchpipe.controlsegment.db import File
 
 def get_database_session():
     """Sets up a session to connect to the MariaDB punchpipe database"""
-    credentials = SqlAlchemyConnector.load("mariadb-creds")
+    credentials = SqlAlchemyConnector.load("mariadb-creds", _sync=True)
     engine = credentials.get_engine()
     session = Session(engine)
     return session
