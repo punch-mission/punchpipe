@@ -18,7 +18,7 @@ def level2_query_ready_files(session, pipeline_config: dict):
     logger = get_run_logger()
     all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(File.level == "1")
-                       .filter(File.file_type.in_['PP', 'PZ', 'PM']).all())
+                       .filter(File.file_type.in_(['PP', 'PZ', 'PM'])).all())
     logger.info(f"{len(all_ready_files)} ready files")
     unique_times = set(f.date_obs for f in all_ready_files)
     logger.info(f"{len(unique_times)} unique times: {unique_times}")
