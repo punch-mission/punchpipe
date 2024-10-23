@@ -52,7 +52,7 @@ def test_query_ready_files(db):
 def test_level1_construct_file_info():
     pipeline_config_path = os.path.join(TEST_DIR, "config.yaml")
     pipeline_config = load_pipeline_configuration.fn(pipeline_config_path)
-    level0_file = [File(level=0,
+    level0_file = [File(level="0",
                        file_type='XX',
                        observatory='0',
                        state='created',
@@ -60,7 +60,7 @@ def test_level1_construct_file_info():
                        software_version='none',
                        date_obs=datetime.now())]
     constructed_file_info = level1_construct_file_info.fn(level0_file, pipeline_config)[0]
-    assert constructed_file_info.level == 1
+    assert constructed_file_info.level == "1"
     assert constructed_file_info.file_type == level0_file[0].file_type
     assert constructed_file_info.observatory == level0_file[0].observatory
     assert constructed_file_info.file_version == "0.0.1"
@@ -73,7 +73,7 @@ def test_level1_construct_file_info():
 def test_level1_construct_flow_info():
     pipeline_config_path = os.path.join(TEST_DIR, "config.yaml")
     pipeline_config = load_pipeline_configuration.fn(pipeline_config_path)
-    level0_file = [File(level=0,
+    level0_file = [File(level="0",
                        file_type='XX',
                        observatory='0',
                        state='created',

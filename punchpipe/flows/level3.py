@@ -16,7 +16,7 @@ from punchpipe.controlsegment.util import get_database_session
 
 def get_valid_starfields(session, f: File, timedelta_window: timedelta):
     valid_star_start, valid_star_end = f.date_obs - timedelta_window, f.date_obs + timedelta_window
-    return (session.query(File).filter(File.state == "created").filter(File.level == 2)
+    return (session.query(File).filter(File.state == "created").filter(File.level == "2")
                         .filter(File.file_type == 'PS').filter(File.observatory == 'M')
                         .filter(and_(f.date_obs >= valid_star_start,
                                      f.date_obs <= valid_star_end)).all())
@@ -38,7 +38,7 @@ def get_closest_file(f_target: File, f_others: list[File]) -> File:
 def level3_PTM_query_ready_files(session, pipeline_config: dict):
     logger = get_run_logger()
     all_ready_files = session.query(File).where(and_(and_(File.state == "created",
-                                                          File.level == 2),
+                                                          File.level == "2"),
                                                      File.file_type == "PT")).all()
     logger.info(f"{len(all_ready_files)} Level 3 PTM files need to be processed.")
 
@@ -86,7 +86,7 @@ def level3_PTM_construct_flow_info(level2_files: File, level3_file: File, pipeli
     return Flow(
         flow_type=flow_type,
         state=state,
-        flow_level=3,
+        flow_level="3",
         creation_time=creation_time,
         priority=priority,
         call_data=call_data,
@@ -96,7 +96,7 @@ def level3_PTM_construct_flow_info(level2_files: File, level3_file: File, pipeli
 @task
 def level3_PTM_construct_file_info(level2_files: t.List[File], pipeline_config: dict) -> t.List[File]:
     return [File(
-                level=3,
+                level="3",
                 file_type="PT",
                 observatory="M",
                 file_version=pipeline_config["file_version"],

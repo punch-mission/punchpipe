@@ -15,7 +15,7 @@ from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 
 @task
 def level1_query_ready_files(session, pipeline_config: dict):
-    return [[f.file_id] for f in session.query(File).where(and_(File.state == "created", File.level == 0)).all()]
+    return [[f.file_id] for f in session.query(File).where(and_(File.state == "created", File.level == "0")).all()]
 
 
 # TODO handle more robustly
@@ -65,7 +65,7 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File, pip
 def level1_construct_file_info(level0_files: t.List[File], pipeline_config: dict) -> t.List[File]:
     return [
         File(
-            level=1,
+            level="1",
             file_type=level0_files[0].file_type,
             observatory=level0_files[0].observatory,
             file_version=pipeline_config["file_version"],

@@ -75,7 +75,7 @@ def test_level2_construct_file_info():
 def test_level2_construct_flow_info():
     pipeline_config_path = os.path.join(TEST_DIR, "config.yaml")
     pipeline_config = load_pipeline_configuration.fn(pipeline_config_path)
-    level1_file = [File(level=1,
+    level1_file = [File(level="1",
                        file_type='XX',
                        observatory='0',
                        state='created',
@@ -87,7 +87,7 @@ def test_level2_construct_flow_info():
 
     assert flow_info.flow_type == 'level2_process_flow'
     assert flow_info.state == "planned"
-    assert flow_info.flow_level == 2
+    assert flow_info.flow_level == "2"
     assert flow_info.priority == 7
 
 

@@ -16,7 +16,7 @@ from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 @task
 def level2_query_ready_files(session, pipeline_config: dict):
     logger = get_run_logger()
-    all_ready_files = session.query(File).where(and_(File.state == "created", File.level == 1)).all()
+    all_ready_files = session.query(File).where(and_(File.state == "created", File.level == "1")).all()
     logger.info(f"{len(all_ready_files)} ready files")
     unique_times = set(f.date_obs for f in all_ready_files)
     logger.info(f"{len(unique_times)} unique times: {unique_times}")
@@ -44,7 +44,7 @@ def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipe
     return Flow(
         flow_type=flow_type,
         state=state,
-        flow_level=2,
+        flow_level="2",
         creation_time=creation_time,
         priority=priority,
         call_data=call_data,
@@ -53,7 +53,6 @@ def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipe
 
 @task
 def level2_construct_file_info(level1_files: t.List[File], pipeline_config: dict) -> t.List[File]:
-    # TODO: make realistic to level 2 products
     return [File(
                 level=2,
                 file_type="PT",
