@@ -34,6 +34,14 @@ levels:
     schedule:
     options:
 
+  levelq_process_flow:
+    priority:
+      initial: 1000
+      seconds: [ 3000, 12000, 60000 ]
+      escalation: [ 1000, 1000, 1000 ]
+    schedule:
+    options:
+
   level3_PTM_process_flow:
     priority:
       initial: 10000

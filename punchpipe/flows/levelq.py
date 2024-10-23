@@ -4,7 +4,7 @@ import typing as t
 from datetime import datetime
 
 from prefect import flow, task, get_run_logger
-from punchbowl.level2.flow import level2_core_flow
+from punchbowl.level2.flow import level2_core_flow, levelq_core_flow
 from sqlalchemy import and_
 
 from punchpipe import __version__
@@ -14,24 +14,24 @@ from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 
 
 @task
-def level2_query_ready_files(session, pipeline_config: dict):
+def levelq_query_ready_files(session, pipeline_config: dict):
     logger = get_run_logger()
     all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(File.level == "1")
-                       .filter(File.file_type in ['PP', 'PZ', 'PM']).all())
+                       .filter(File.file_type == "CR").all())
     logger.info(f"{len(all_ready_files)} ready files")
     unique_times = set(f.date_obs for f in all_ready_files)
     logger.info(f"{len(unique_times)} unique times: {unique_times}")
     grouped_ready_files = [[f.file_id for f in all_ready_files if f.date_obs == time] for time in unique_times]
     logger.info(f"{len(grouped_ready_files)} grouped ready files")
-    out = [g for g in grouped_ready_files if len(g) == 12]
+    out = [g for g in grouped_ready_files if len(g) == 4]
     logger.info(f"{len(out)} groups heading out")
     return out
 
 
 @task
-def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipeline_config: dict):
-    flow_type = "level2_process_flow"
+def levelq_construct_flow_info(level1_files: list[File], levelq_file: File, pipeline_config: dict):
+    flow_type = "levelq_process_flow"
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["levels"][flow_type]["priority"]["initial"]
@@ -46,7 +46,7 @@ def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipe
     return Flow(
         flow_type=flow_type,
         state=state,
-        flow_level="2",
+        flow_level="Q",
         creation_time=creation_time,
         priority=priority,
         call_data=call_data,
@@ -54,29 +54,39 @@ def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipe
 
 
 @task
-def level2_construct_file_info(level1_files: t.List[File], pipeline_config: dict) -> t.List[File]:
+def levelq_construct_file_info(level1_files: t.List[File], pipeline_config: dict) -> t.List[File]:
     return [File(
-                level=2,
-                file_type="PT",
+                level="Q",
+                file_type="CT",
                 observatory="M",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
                 date_obs=level1_files[0].date_obs,
                 state="planned",
-            )]
+            ),
+            File(
+                level="Q",
+                file_type="CN",
+                observatory="N",
+                file_version=pipeline_config["file_version"],
+                software_version=__version__,
+                date_obs=level1_files[0].date_obs,
+                state="planned",
+            )
+    ]
 
 
 @flow
-def level2_scheduler_flow(pipeline_config_path="config.yaml", session=None):
+def levelq_scheduler_flow(pipeline_config_path="config.yaml", session=None):
     generic_scheduler_flow_logic(
-        level2_query_ready_files,
-        level2_construct_file_info,
-        level2_construct_flow_info,
+        levelq_query_ready_files,
+        levelq_construct_file_info,
+        levelq_construct_flow_info,
         pipeline_config_path,
         session=session,
     )
 
 
 @flow
-def level2_process_flow(flow_id: int, pipeline_config_path="config.yaml", session=None):
-    generic_process_flow_logic(flow_id, level2_core_flow, pipeline_config_path, session=session)
+def levelq_process_flow(flow_id: int, pipeline_config_path="config.yaml", session=None):
+    generic_process_flow_logic(flow_id, levelq_core_flow, pipeline_config_path, session=session)

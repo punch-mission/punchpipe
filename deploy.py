@@ -3,6 +3,7 @@ from punchpipe.controlsegment.launcher import launcher_flow
 from punchpipe.flows.level1 import level1_process_flow, level1_scheduler_flow
 from punchpipe.flows.level2 import level2_process_flow, level2_scheduler_flow
 from punchpipe.flows.level3 import level3_PTM_process_flow, level3_PTM_scheduler_flow
+from punchpipe.flows.levelq import levelq_process_flow, levelq_scheduler_flow
 from punchpipe.deliver import create_noaa_delivery
 
 launcher_deployment = launcher_flow.to_deployment(name="launcher-deployment",
@@ -24,6 +25,13 @@ level2_scheduler_deployment = level2_scheduler_flow.to_deployment(name="level2-s
 level2_process_deployment = level2_process_flow.to_deployment(name="level2_process_flow",
                                                               description="Process files from Level 1 to Level 2.")
 
+levelq_scheduler_deployment = levelq_scheduler_flow.to_deployment(name="levelq-scheduler-deployment",
+                    description="Schedule a Level Q flow.",
+                    cron="* * * * *",
+                    )
+levelq_process_deployment = levelq_process_flow.to_deployment(name="levelq_process_flow",
+                                                              description="Process files from Level 1 to Level Q.")
+
 level3_PTM_scheduler_deployment = level3_PTM_scheduler_flow.to_deployment(name="level3-PTM-scheduler-deployment",
                     description="Schedule a Level 3 flow to make PTM.",
                     cron="* * * * *",
@@ -37,6 +45,7 @@ noaa_deployment = create_noaa_delivery.to_deployment(name="noaa-deployment",
 serve(launcher_deployment,
       level1_scheduler_deployment, level1_process_deployment,
       level2_scheduler_deployment, level2_process_deployment,
+      levelq_scheduler_deployment, levelq_process_deployment,
       level3_PTM_scheduler_deployment, level3_PTM_process_deployment,
       noaa_deployment,
       limit=100  # TODO: remove arbitrary limit
