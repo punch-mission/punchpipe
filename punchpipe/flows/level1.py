@@ -23,16 +23,16 @@ def level1_query_ready_files(session, pipeline_config: dict):
 def get_vignetting_function(level0_file):
     observatory = int(level0_file.observatory)
     if observatory < 4:
-        vignetting_function_path = "/Users/jhughes/Desktop/repos/simpunch/PUNCH_L1_GM1_20240817174727_v2.fits"
+        vignetting_function_path = "/home/marcus.hughes/build4/simpunch/build_3_review_files/PUNCH_L1_GM1_20240817174727_v2.fits"
     else:
-        vignetting_function_path = "/Users/jhughes/Desktop/repos/simpunch/PUNCH_L1_GM4_20240819045110_v1.fits"
+        vignetting_function_path = "/home/marcus.hughes/build4/simpunch/build_3_review_files/PUNCH_L1_GM4_20240819045110_v1.fits"
     return vignetting_function_path
 
 
 # TODO handle more robustly
 @task
 def get_psf_model_path(level0_file):
-    return "/Users/jhughes/Desktop/repos/punchbowl/test_run/synthetic_forward_psf.h5"
+    return "/home/marcus.hughes/build4/simpunch/build_3_review_files/synthetic_forward_psf.h5"
 
 
 @task
