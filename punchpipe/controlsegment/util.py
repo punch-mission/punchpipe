@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 import yaml
 from prefect import task
@@ -7,6 +8,7 @@ from yaml.loader import FullLoader
 from prefect_sqlalchemy import SqlAlchemyConnector
 from ndcube import NDCube
 from punchbowl.data import write_ndcube_to_fits, get_base_file_name
+from sqlalchemy import and_, or_
 
 from punchpipe.controlsegment.db import File
 
@@ -57,3 +59,20 @@ def match_data_with_file_db_entry(data: NDCube, file_db_entry_list):
         raise RuntimeError("There were many database entries matching this result. There should only be one.")
     else:
         return matching_entries[0]
+
+
+def get_files_in_time_window(level: str,
+                             file_type: str,
+                             obs_code: str,
+                             start_time: datetime,
+                             end_time: datetime,
+                             session: Session | None) -> [File]:
+    if session is None:
+        get_database_session()
+
+    return (((((session.query(File).filter(or_(File.state == "created", File.state == "progressed"))
+            .filter(File.level == level))
+            .filter(File.file_type == file_type))
+            .filter(File.observatory == obs_code))
+            .filter(File.date_obs > start_time))
+            .filter(File.date_obs <= end_time).all())

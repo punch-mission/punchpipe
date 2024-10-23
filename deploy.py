@@ -3,6 +3,7 @@ from punchpipe.controlsegment.launcher import launcher_flow
 from punchpipe.flows.level1 import level1_process_flow, level1_scheduler_flow
 from punchpipe.flows.level2 import level2_process_flow, level2_scheduler_flow
 from punchpipe.flows.level3 import level3_PTM_process_flow, level3_PTM_scheduler_flow
+from punchpipe.deliver import create_noaa_delivery
 
 launcher_deployment = launcher_flow.to_deployment(name="launcher-deployment",
                                                     description="Launch a pipeline segment.",
@@ -30,10 +31,13 @@ level3_PTM_scheduler_deployment = level3_PTM_scheduler_flow.to_deployment(name="
 level3_PTM_process_deployment = level3_PTM_process_flow.to_deployment(name="level3_PTM_process_flow",
                                                               description="Process PTM files from Level 2 to Level 3.")
 
+noaa_deployment = create_noaa_delivery.to_deployment(name="noaa-deployment",
+                                                     description="Create a Noaa delivery.")
 
 serve(launcher_deployment,
       level1_scheduler_deployment, level1_process_deployment,
       level2_scheduler_deployment, level2_process_deployment,
       level3_PTM_scheduler_deployment, level3_PTM_process_deployment,
+      noaa_deployment,
       limit=100  # TODO: remove arbitrary limit
       )
