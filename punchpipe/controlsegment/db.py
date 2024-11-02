@@ -1,6 +1,6 @@
 import os
 
-from sqlalchemy import TEXT, Column, DateTime, Integer, String, Boolean, JSON
+from sqlalchemy import TEXT, Column, DateTime, Integer, String, Boolean
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()

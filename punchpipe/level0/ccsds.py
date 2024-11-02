@@ -2,7 +2,10 @@ import io
 import os
 
 import ccsdspy
+import numpy as np
 from ccsdspy.utils import split_by_apid
+from matplotlib import pyplot as plt
+import pylibjpeg
 
 PACKET_NAME2APID = {
     "ENG_LZ": 0x60,
@@ -50,12 +53,79 @@ def process_telemetry_file(telemetry_file_path):
     apid_separated_tlm = open_and_split_packet_file(telemetry_file_path)
     parsed_data = {}
     for apid, stream in apid_separated_tlm.items():
-        definition = load_packet_def(PACKET_APID2NAME[apid])
-        parsed_data[apid] = definition.load(stream, include_primary_header=True)
+        if apid not in PACKET_APID2NAME or apid in [96]:
+            print(f"skipping {apid}")
+        else:
+            print(apid, PACKET_APID2NAME[apid])
+            definition = load_packet_def(PACKET_APID2NAME[apid])
+            parsed_data[apid] = definition.load(stream, include_primary_header=True)
     return parsed_data
 
 
+def parse_compression_settings(values):
+    # return [{'test': bool(v & 1), 'jpeg': bool(v & 2), 'sqrt': bool(v & 4)} for v in values]
+    return [{'test': bool(v & 0b1000000000000000),
+             'jpeg': bool(v & 0b0100000000000000),
+             'sqrt': bool(v & 0b0010000000000000)} for v in values]
+
+
+def unpack_compression_settings(com_set_val: "bytes|int"):
+    """Unpack image compression control register value.
+
+    See `SciPacket.COMPRESSION_REG` for details."""
+
+    if isinstance(com_set_val, bytes):
+        assert len(com_set_val) == 2, f"Compression settings should be a 2-byte field, got {len(com_set_val)} bytes"
+        compress_config = int.from_bytes(com_set_val, "big")
+    elif isinstance(com_set_val, (int, np.integer)):
+        assert com_set_val <= 0xFFFF, f"Compression settings should fit within 2 bytes, got \\x{com_set_val:X}"
+        compress_config = int(com_set_val)
+    else:
+        raise TypeError
+    settings_dict = {"SCALE": compress_config >> 8,
+                     "RSVD": (compress_config >> 7) & 0b1,
+                     "PMB_INIT": (compress_config >> 6) & 0b1,
+                     "CMP_BYP": (compress_config >> 5) & 0b1,
+                     "BSEL": (compress_config >> 3) & 0b11,
+                     "SQRT": (compress_config >> 2) & 0b1,
+                     "JPEG": (compress_config >> 1) & 0b1,
+                     "TEST": compress_config & 0b1}
+    return settings_dict
+
+
+def unpack_acquisition_settings(acq_set_val: "bytes|int"):
+    """Unpack CEB image acquisition register value.
+
+    See `SciPacket.ACQUISITION_REG` for details."""
+
+    if isinstance(acq_set_val, bytes):
+        assert len(acq_set_val) == 4, f"Acquisition settings should be a 4-byte field, got {len(acq_set_val)} bytes"
+        acquire_config = int.from_bytes(acq_set_val, "big")
+    elif isinstance(acq_set_val, (int, np.integer)):
+        assert acq_set_val <= 0xFFFFFFFF, f"Acquisition settings should fit within 4 bytes, got \\x{acq_set_val:X}"
+        acquire_config = int(acq_set_val)
+    else:
+        raise TypeError
+    settings_dict = {"DELAY": acquire_config >> 24,
+                     "IMG_NUM": (acquire_config >> 21) & 0b111,
+                     "EXPOSURE": (acquire_config >> 8) & 0x1FFF,
+                     "TABLE1": (acquire_config >> 4) & 0b1111,
+                     "TABLE2": acquire_config & 0b1111}
+    return settings_dict
+
+
 if __name__ == "__main__":
-    path = "/Users/jhughes/Desktop/sdf/punchbowl/Level0/packets/2024-02-09/PUNCH_NFI00_RAW_2024_040_21_32_V01.tlm"
+    path = "/Users/jhughes/Desktop/data/PUNCH_CCSDS/RAW_CCSDS_DATA/PUNCH_NFI00_RAW_2024_160_19_37_V01.tlm"
+    # path = "/Users/jhughes/Desktop/data/PUNCH_CCSDS/RAW_CCSDS_DATA/PUNCH_WFI01_RAW_2024_117_22_00_V01.tlm"
     parsed = process_telemetry_file(path)
-    print(parsed[0x20])
+    print(parse_compression_settings(parsed[0x20]['SCI_XFI_COM_SET'])[22:44])
+
+    fig, ax = plt.subplots()
+    ax.plot(parsed[0x20]['CCSDS_PACKET_LENGTH'])
+    plt.show()
+
+    print(parsed[0x20]['CCSDS_PACKET_LENGTH'][22:44])
+
+    img = np.concatenate(parsed[0x20]['SCI_XFI_IMG_DATA'][22:44])
+    img = pylibjpeg.decode(img.tobytes())
+

@@ -8,7 +8,7 @@ from yaml.loader import FullLoader
 from prefect_sqlalchemy import SqlAlchemyConnector
 from ndcube import NDCube
 from punchbowl.data import write_ndcube_to_fits, get_base_file_name
-from sqlalchemy import and_, or_
+from sqlalchemy import or_
 
 from punchpipe.controlsegment.db import File
 
