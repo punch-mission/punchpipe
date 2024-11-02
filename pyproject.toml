@@ -1,7 +1,7 @@
 [build-system]
 
-requires = ["setuptools",
-            "wheel"]
+requires = ["setuptools>=64", "setuptools-scm>=8", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "punchpipe"
@@ -51,7 +51,8 @@ test = ["pre-commit",
         "pytest-mock-resources[mysql]",
         "freezegun",
         "ruff"]
-docs = ["sphinx",
+docs = ["packaging",
+        "sphinx",
         "pydata-sphinx-theme",
         "sphinx-autoapi",
         "sphinx-favicon",
@@ -68,6 +69,8 @@ punchpipe = "punchpipe.cli:run"
 Repository = "https://github.com/punch-mission/punchpipe.git"
 "Bug Tracker" = "https://github.com/punch-mission/punchpipe/issues"
 #Changelog = "https://github.com/punch-mission/thuban/blob/main/CHANGELOG.md"
+
+[tool.setuptools_scm]
 
 [tool.setuptools]
 packages = ["punchpipe"]
