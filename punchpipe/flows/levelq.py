@@ -4,8 +4,7 @@ import typing as t
 from datetime import datetime
 
 from prefect import flow, task, get_run_logger
-from punchbowl.level2.flow import level2_core_flow, levelq_core_flow
-from sqlalchemy import and_
+from punchbowl.level2.flow import levelq_core_flow
 
 from punchpipe import __version__
 from punchpipe.controlsegment.db import File, Flow

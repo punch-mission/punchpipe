@@ -5,7 +5,6 @@ from datetime import datetime
 
 from prefect import flow, task, get_run_logger
 from punchbowl.level2.flow import level2_core_flow
-from sqlalchemy import and_
 
 from punchpipe import __version__
 from punchpipe.controlsegment.db import File, Flow

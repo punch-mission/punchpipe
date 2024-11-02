@@ -1,3 +1,6 @@
+from importlib.metadata import version as get_version
+from packaging.version import Version
+
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
@@ -16,13 +19,16 @@
 
 
 # -- Project information -----------------------------------------------------
-
-project = 'punchpipe'
-copyright = '2023, PUNCH Science Operations Center'
-author = 'PUNCH Science Operations Center'
+project = "punchpipe"
+copyright = "2024, PUNCH Science Operations Center"
+author = "PUNCH Science Operations Center"
 
 # The full version, including alpha/beta/rc tags
-release = '0.0.1'
+release: str = get_version("punchpipe")
+version: str = release
+_version = Version(release)
+if _version.is_devrelease:
+    version = release = f"{_version.base_version}.dev{_version.dev}"
 
 
 # -- General configuration ---------------------------------------------------

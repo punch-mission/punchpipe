@@ -1,6 +1,5 @@
 import json
 import base64
-import uuid
 from datetime import datetime, timedelta
 import warnings
 
@@ -13,7 +12,7 @@ import pylibjpeg
 
 from punchpipe.level0.ccsds import process_telemetry_file, PACKET_APID2NAME, unpack_compression_settings
 from punchpipe.controlsegment.db import SciPacket, EngPacket
-from punchpipe.controlsegment.util import (get_database_session, load_pipeline_configuration)
+from punchpipe.controlsegment.util import (get_database_session)
 from punchpipe.error import CCSDSPacketConstructionWarning, CCSDSPacketDatabaseUpdateWarning
 
 
