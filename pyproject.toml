@@ -9,7 +9,7 @@ version = "0.0.1"
 dependencies = [
     "click",
     "ccsdspy",
-    "punchbowl @ git+ssh://git@github.com/punch-mission/punchbowl@main",
+    "punchbowl",
     "prefect[sqlalchemy]",
     "pymysql",
     "pandas",
