@@ -23,7 +23,6 @@ dependencies = [
     "plotly",
     "pyyaml",
     "click",
-    "waitress",
     "pylibjpeg[libjpeg]",
     "psutil"
 ]
