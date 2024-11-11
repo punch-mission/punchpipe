@@ -2,13 +2,13 @@ import os
 from datetime import datetime
 
 import yaml
+from ndcube import NDCube
 from prefect import task
+from prefect_sqlalchemy import SqlAlchemyConnector
+from punchbowl.data import get_base_file_name, write_ndcube_to_fits
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from yaml.loader import FullLoader
-from prefect_sqlalchemy import SqlAlchemyConnector
-from ndcube import NDCube
-from punchbowl.data import write_ndcube_to_fits, get_base_file_name
-from sqlalchemy import or_
 
 from punchpipe.controlsegment.db import File
 

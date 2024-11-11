@@ -1,17 +1,19 @@
 import os
 from datetime import datetime
 
+import pytest
 from prefect.testing.utilities import prefect_test_harness
 from pytest_mock_resources import create_mysql_fixture
-import pytest
 
 from punchpipe import __version__
 from punchpipe.controlsegment.db import Base, File, Flow
 from punchpipe.controlsegment.util import load_pipeline_configuration
-from punchpipe.flows.level1 import (level1_construct_file_info,
-                                    level1_construct_flow_info,
-                                    level1_query_ready_files,
-                                    level1_scheduler_flow)
+from punchpipe.flows.level1 import (
+    level1_construct_file_info,
+    level1_construct_flow_info,
+    level1_query_ready_files,
+    level1_scheduler_flow,
+)
 
 TEST_DIR = os.path.dirname(__file__)
 

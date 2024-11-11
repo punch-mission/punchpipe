@@ -3,9 +3,9 @@ import os
 
 import ccsdspy
 import numpy as np
+import pylibjpeg
 from ccsdspy.utils import split_by_apid
 from matplotlib import pyplot as plt
-import pylibjpeg
 
 PACKET_NAME2APID = {
     "ENG_LZ": 0x60,
@@ -128,4 +128,3 @@ if __name__ == "__main__":
 
     img = np.concatenate(parsed[0x20]['SCI_XFI_IMG_DATA'][22:44])
     img = pylibjpeg.decode(img.tobytes())
-

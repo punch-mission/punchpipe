@@ -14,11 +14,11 @@ e.g. `level1` means the Level 0 to Level 1 segment.
 
 ## Accessing the data
 
-Coming soon. 
+Coming soon.
 
 ## First-time setup
 
-Coming soon. 
+Coming soon.
 
 ## Running
 
@@ -33,4 +33,3 @@ Please open an issue or discussion on this repo.
 We encourage all contributions.
 If you have a problem with the code or would like to see a new feature, please open an issue.
 Or you can submit a pull request.
-
