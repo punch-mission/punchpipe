@@ -4,11 +4,11 @@ import numpy as np
 import pytest
 from astropy.nddata import StdDevUncertainty
 from astropy.wcs import WCS
-from prefect.logging import disable_run_logger
-from pytest import fixture
 from ndcube import NDCube
-
+from prefect.logging import disable_run_logger
 from punchbowl.data import NormalizedMetadata
+from pytest import fixture
+
 from punchpipe.level0.decode_sqrt import decode_sqrt, decode_sqrt_data, decode_sqrt_simple, encode_sqrt
 
 

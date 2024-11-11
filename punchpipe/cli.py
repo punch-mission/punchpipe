@@ -1,8 +1,10 @@
-import click
-from waitress import serve
 import subprocess
 
+import click
+from waitress import serve
+
 from .monitor.app import server
+
 
 @click.command
 def run():

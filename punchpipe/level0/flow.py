@@ -1,19 +1,19 @@
 import json
 import base64
-from datetime import datetime, timedelta
 import warnings
+from datetime import datetime, timedelta
 
 import numpy as np
+import pylibjpeg
+import pymysql
 import sqlalchemy.exc
 from prefect import flow, task
 from sqlalchemy import and_
-import pymysql
-import pylibjpeg
 
-from punchpipe.level0.ccsds import process_telemetry_file, PACKET_APID2NAME, unpack_compression_settings
-from punchpipe.controlsegment.db import SciPacket, EngPacket
-from punchpipe.controlsegment.util import (get_database_session)
+from punchpipe.controlsegment.db import EngPacket, SciPacket
+from punchpipe.controlsegment.util import get_database_session
 from punchpipe.error import CCSDSPacketConstructionWarning, CCSDSPacketDatabaseUpdateWarning
+from punchpipe.level0.ccsds import PACKET_APID2NAME, process_telemetry_file, unpack_compression_settings
 
 
 class PacketEncoder(json.JSONEncoder):

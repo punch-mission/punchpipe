@@ -1,5 +1,5 @@
-import json
 import os
+import json
 import shutil
 from datetime import datetime
 
@@ -7,10 +7,10 @@ import numpy as np
 import pytest
 from astropy.nddata import StdDevUncertainty
 from astropy.wcs import WCS
+from ndcube import NDCube
 from prefect import flow
 from prefect.testing.utilities import prefect_test_harness
 from punchbowl.data import NormalizedMetadata
-from ndcube import NDCube
 from pytest_mock_resources import create_mysql_fixture
 
 from punchpipe.controlsegment.db import Base, File, Flow
