@@ -24,7 +24,8 @@ dependencies = [
     "pyyaml",
     "click",
     "waitress",
-    "pylibjpeg[libjpeg]"
+    "pylibjpeg[libjpeg]",
+    "psutil"
 ]
 requires-python = ">=3.11"
 authors = [

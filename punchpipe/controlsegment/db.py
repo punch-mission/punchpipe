@@ -1,6 +1,6 @@
 import os
 
-from sqlalchemy import TEXT, Column, DateTime, Integer, String, Boolean
+from sqlalchemy import TEXT, Column, DateTime, Integer, String, Boolean, Float
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -102,6 +102,17 @@ class EngPacket(Base):
     is_used = Column(Boolean)
     l0_version = Column(Integer)
 
+
+class Health(Base):
+    __tablename__ = "health"
+    health_id = Column(Integer, primary_key=True)
+    datetime = Column(DateTime, nullable=False)
+    cpu_usage = Column(Float, nullable=False)
+    memory_usage = Column(Float, nullable=False)
+    memory_percentage = Column(Float, nullable=False)
+    disk_usage = Column(Float, nullable=False)
+    disk_percentage = Column(Float, nullable=False)
+    num_pids = Column(Integer, nullable=False)
 
 # def json_numpy_obj_hook(dct):
 #     """Decodes a previously encoded numpy ndarray with proper shape and dtype.
