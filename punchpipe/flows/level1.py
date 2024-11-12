@@ -14,29 +14,31 @@ from punchpipe.controlsegment.processor import generic_process_flow_logic
 from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 
 
+SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
+
 @task
 def level1_query_ready_files(session, pipeline_config: dict):
-    return [[f.file_id] for f in session.query(File).where(and_(File.state == "created", File.level == "0")).all()]
+    return [[f.file_id] for f in session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL0_TYPE_CODES))
+    .where(and_(File.state == "created",  File.level == "0")).all()]
 
 
 @task
-def get_psf_model_path(level0_file, pipeline_config: dict):
+def get_psf_model_path(level0_file, pipeline_config: dict, session=None):
     corresponding_psf_model_type = {"PM": "RM",
                                     "PZ": "RZ",
                                     "PP": "RP",
                                     "CR": "RC"}
     psf_model_type = corresponding_psf_model_type[level0_file.file_type]
-    with get_database_session() as session:
-        best_model = (session.query(File)
-                      .filter(File.file_type == psf_model_type)
-                      .filter(File.observatory == level0_file.observatory)
-                      .where(File.date_obs < level0_file.date_obs)
-                      .order_by(File.date_obs.desc()).first())
+    best_model = (session.query(File)
+                  .filter(File.file_type == psf_model_type)
+                  .filter(File.observatory == level0_file.observatory)
+                  .where(File.date_obs < level0_file.date_obs)
+                  .order_by(File.date_obs.desc()).first())
     return os.path.join(best_model.directory(pipeline_config['root']), best_model.filename())
 
 
 @task
-def level1_construct_flow_info(level0_files: list[File], level1_files: File, pipeline_config: dict):
+def level1_construct_flow_info(level0_files: list[File], level1_files: File, pipeline_config: dict, session=None):
     flow_type = "level1_process_flow"
     state = "planned"
     creation_time = datetime.now()
@@ -47,7 +49,7 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File, pip
                 os.path.join(level0_file.directory(pipeline_config["root"]), level0_file.filename())
                 for level0_file in level0_files
             ],
-            "psf_model_path": get_psf_model_path(level0_files[0]),
+            "psf_model_path": get_psf_model_path(level0_files[0], pipeline_config, session=session),
         }
     )
     return Flow(

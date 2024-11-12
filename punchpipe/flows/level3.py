@@ -58,7 +58,7 @@ def level3_PTM_query_ready_files(session, pipeline_config: dict):
 
 
 @task
-def level3_PTM_construct_flow_info(level2_files: File, level3_file: File, pipeline_config: dict):
+def level3_PTM_construct_flow_info(level2_files: File, level3_file: File, pipeline_config: dict, session=None):
     session = get_database_session()  # TODO: replace so this works in the tests by passing in a test
 
     flow_type = "level3_PTM_process_flow"

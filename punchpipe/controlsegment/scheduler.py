@@ -27,7 +27,8 @@ def generic_scheduler_flow_logic(
 
             # prepare the new level flow and file
             children_files = construct_child_file_info(parent_files, pipeline_config)
-            database_flow_info = construct_child_flow_info(parent_files, children_files, pipeline_config)
+            database_flow_info = construct_child_flow_info(parent_files, children_files,
+                                                           pipeline_config, session=session)
             for child_file in children_files:
                 session.add(child_file)
             session.add(database_flow_info)

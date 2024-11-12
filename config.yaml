@@ -9,6 +9,10 @@ plate_scale:
   3: 88 / 3600
   4: 30 / 3600
 
+quality_check:
+  mean_low: 0
+  mean_high: 65000
+
 scheduler:
   max_start: 10
 

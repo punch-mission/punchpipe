@@ -7,6 +7,7 @@ from glob import glob
 from datetime import datetime, timedelta
 
 import numpy as np
+import pandas as pd
 import pylibjpeg
 import pymysql
 import sqlalchemy.exc
@@ -21,7 +22,7 @@ from punchbowl.data.wcs import calculate_helio_wcs_from_celestial, calculate_pc_
 from sqlalchemy import and_
 from sunpy.coordinates import sun
 
-from punchpipe.controlsegment.db import EngPWFPacket, EngXACTPacket, File, SciPacket, TLMFiles, get_closest_eng_packets
+from punchpipe.controlsegment.db import ENGPFWPacket, EngXACTPacket, File, SciPacket, TLMFiles, get_closest_eng_packets
 from punchpipe.controlsegment.util import get_database_session, load_pipeline_configuration
 from punchpipe.error import CCSDSPacketConstructionWarning, CCSDSPacketDatabaseUpdateWarning
 from punchpipe.level0.ccsds import PACKET_APID2NAME, process_telemetry_file, unpack_compression_settings
@@ -132,7 +133,7 @@ def form_packet_entry(apid, packet, packet_num, source_tlm_file_id):
                                  ATT_CMD_CMD_Q_BODY_WRT_ECI3=packet['ATT_CMD_CMD_Q_BODY_WRT_ECI3'],
                                  ATT_CMD_CMD_Q_BODY_WRT_ECI4=packet['ATT_CMD_CMD_Q_BODY_WRT_ECI4'],)
         case 'eng_pfw':
-            return EngPWFPacket(
+            return ENGPFWPacket(
                 apid=apid,
                 sequence_count=packet['CCSDS_SEQUENCE_COUNT'],
                 length=packet['CCSDS_PACKET_LENGTH'],
@@ -232,7 +233,7 @@ def interpolate_value(query_time, before_time, before_value, after_time, after_v
          + before_value)
 
 def get_fits_metadata(observation_time, spacecraft_id):
-    before_xact, after_xact = get_closest_eng_packets(EngXACTPacket, observation_time)
+    before_xact, after_xact = get_closest_eng_packets(EngXACTPacket, observation_time, spacecraft_id)
     ATT_DET_Q_BODY_WRT_ECI1 = interpolate_value(observation_time,
                                                 before_xact.timestamp, before_xact['ATT_DET_Q_BODY_WRT_ECI1'],
                                                 after_xact.timestam, after_xact['ATT_DET_Q_BODY_WRT_ECI1'])
@@ -245,15 +246,19 @@ def get_fits_metadata(observation_time, spacecraft_id):
     ATT_DET_Q_BODY_WRT_ECI4 = interpolate_value(observation_time,
                                                 before_xact.timestamp, before_xact['ATT_DET_Q_BODY_WRT_ECI4'],
                                                 after_xact.timestam, after_xact['ATT_DET_Q_BODY_WRT_ECI4'])
+
+    before_pfw, _ = get_closest_eng_packets(ENGPFWPacket, observation_time, spacecraft_id)
     return {'spacecraft_id': spacecraft_id,
             'datetime': observation_time,
             'ATT_DET_Q_BODY_WRT_ECI1': ATT_DET_Q_BODY_WRT_ECI1,
             'ATT_DET_Q_BODY_WRT_ECI2': ATT_DET_Q_BODY_WRT_ECI2,
             'ATT_DET_Q_BODY_WRT_ECI3': ATT_DET_Q_BODY_WRT_ECI3,
-            'ATT_DET_Q_BODY_WRT_ECI4': ATT_DET_Q_BODY_WRT_ECI4}
+            'ATT_DET_Q_BODY_WRT_ECI4': ATT_DET_Q_BODY_WRT_ECI4,
+            'POSITION_CURR': before_pfw['POSITION_CURR']}
 
 
 def form_preliminary_wcs(metadata, plate_scale):
+    """Create the preliminary WCS for punchbowl"""
     quaternion = np.array([metadata['ATT_DET_Q_BODY_WRT_ECI1'],
                            metadata['ATT_DET_Q_BODY_WRT_ECI2'],
                            metadata['ATT_DET_Q_BODY_WRT_ECI3'],
@@ -271,6 +276,15 @@ def form_preliminary_wcs(metadata, plate_scale):
 
     return calculate_helio_wcs_from_celestial(celestial_wcs, metadata['datetime'], (2048, 2048))
 
+def image_is_okay(image, pipeline_config):
+    """Check that the formed image conforms to image quality expectations"""
+    return pipeline_config['quality_check']['mean_low'] < np.mean(image) < pipeline_config['quality_check']['mean_high']
+
+def form_from_jpeg_compressed(packets):
+    """Form a JPEG-LS image from packets"""
+    img = pylibjpeg.decode(packets.tobytes())
+    return img
+
 @flow
 def form_level0_fits(session=None, pipeline_config_path="config.yaml"):
     if session is None:
@@ -281,7 +295,10 @@ def form_level0_fits(session=None, pipeline_config_path="config.yaml"):
     distinct_times = session.query(SciPacket.timestamp).filter(~SciPacket.is_used).distinct().all()
     distinct_spacecraft = session.query(SciPacket.spacecraft_id).filter(~SciPacket.is_used).distinct().all()
 
+
     for spacecraft in distinct_spacecraft:
+        errors = []
+
         for t in distinct_times:
             image_packets_entries = session.query(SciPacket).where(and_(SciPacket.timestamp == t[0],
                                                                 SciPacket.spacecraft_id == spacecraft[0])).all()
@@ -304,42 +321,70 @@ def form_level0_fits(session=None, pipeline_config_path="config.yaml"):
             ordered_image_content = np.concatenate(ordered_image_content)
 
             # Get the proper image
+            skip_image = False
             if image_compression[0]['JPEG'] == 1:  # this assumes the image compression is static for an image
-                image = form_from_jpeg_compressed(ordered_image_content)
+                try:
+                    image = form_from_jpeg_compressed(ordered_image_content)
+                except ValueError as e:
+                    error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
+                             'start_block': image_packets_entries[0].flash_block,
+                             'replay_length': image_packets_entries[-1].flash_block
+                                              - image_packets_entries[0].flash_block}
+                    errors.append(error)
+                else:
+                    skip_image = True
             else:
-                image = np.zeros((2048, 2048))
+                skip_image = True
+                error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
+                         'start_block': image_packets_entries[0].flash_block,
+                         'replay_length': image_packets_entries[-1].flash_block
+                                          - image_packets_entries[0].flash_block}
+                errors.append(error)
 
-            spacecraft_secrets = Secret.load("spacecraft-ids")
-            spacecraft_id_mapper = spacecraft_secrets.get()
-            spacecraft_id = spacecraft_id_mapper[image_packets_entries[0].spacecraft_id]
+            # check the quality of the image
+            if not skip_image and not image_is_okay(image, config):
+                skip_image = True
+                error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
+                         'start_block': image_packets_entries[0].flash_block,
+                         'replay_length': image_packets_entries[-1].flash_block
+                                          - image_packets_entries[0].flash_block}
+                errors.append(error)
 
-            metadata_contents = get_fits_metadata(image_packets_entries[0].timestamp, spacecraft_id)
-            file_type = POSITIONS_TO_CODES[convert_pfw_position_to_polarizer(metadata_contents['POSITION_CURR'])]
-            preliminary_wcs = form_preliminary_wcs(metadata_contents, config['plate_scale'][spacecraft_id])
-            meta = NormalizedMetadata.load_template(file_type + spacecraft_id, "0")
-            for meta_key, meta_value in metadata_contents.items():
-                meta[meta_key] = meta_value
-            cube = NDCube(data=image, metadata=meta, wcs=preliminary_wcs)
+            if not skip_image:
+                spacecraft_secrets = Secret.load("spacecraft-ids")
+                spacecraft_id_mapper = spacecraft_secrets.get()
+                spacecraft_id = spacecraft_id_mapper[image_packets_entries[0].spacecraft_id]
 
-            l0_db_entry = File(level="0",
-                               file_type=file_type,
-                               observatory=str(spacecraft_id),
-                               file_version="1",  # TODO: increment the file version
-                               software_version=software_version,
-                               date_created=datetime.now(),
-                               date_obs=t,
-                               date_beg=t,
-                               date_end=t,
-                               state="created")
+                metadata_contents = get_fits_metadata(image_packets_entries[0].timestamp, spacecraft_id)
+                file_type = POSITIONS_TO_CODES[convert_pfw_position_to_polarizer(metadata_contents['POSITION_CURR'])]
+                preliminary_wcs = form_preliminary_wcs(metadata_contents, config['plate_scale'][spacecraft_id])
+                meta = NormalizedMetadata.load_template(file_type + spacecraft_id, "0")
+                for meta_key, meta_value in metadata_contents.items():
+                    meta[meta_key] = meta_value
+                cube = NDCube(data=image, metadata=meta, wcs=preliminary_wcs)
 
-            write_ndcube_to_fits(cube, os.path.join(l0_db_entry.directory(config['data_path']),
-                                                    get_base_file_name(cube)))
-            # TODO: write a jp2
-            for image_packets_entries in image_packets_entries:
-                image_packets_entries.is_used = True
-            session.add(l0_db_entry)
-            session.commit()
+                l0_db_entry = File(level="0",
+                                   file_type=file_type,
+                                   observatory=str(spacecraft_id),
+                                   file_version="1",  # TODO: increment the file version
+                                   software_version=software_version,
+                                   date_created=datetime.now(),
+                                   date_obs=t,
+                                   date_beg=t,
+                                   date_end=t,
+                                   state="created")
 
-def form_from_jpeg_compressed(packets):
-    img = pylibjpeg.decode(packets.tobytes())
-    return img
+                write_ndcube_to_fits(cube, os.path.join(l0_db_entry.directory(config['data_path']),
+                                                        get_base_file_name(cube)))
+                # TODO: write a jp2
+                for image_packets_entries in image_packets_entries:
+                    image_packets_entries.is_used = True
+                session.add(l0_db_entry)
+                session.commit()
+        df_errors = pd.DataFrame(errors)
+        date_str = datetime.now().strftime("%Y_%j")
+        df_path = os.path.join(config['root'], 'REPLAY', f'PUNCH_{spacecraft}_REPLAY_{date_str}.csv')
+        os.makedirs(df_path, exist_ok=True)
+        df_errors.to_csv(df_path, index=False)
+
+

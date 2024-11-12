@@ -124,7 +124,7 @@ class EngXACTPacket(Base):
     ATT_CMD_CMD_Q_BODY_WRT_ECI3 = Column(Float, nullable=False) # Commanded Att Quaternion
     ATT_CMD_CMD_Q_BODY_WRT_ECI4	= Column(Float, nullable=False) # Commanded Att Quaternion
 
-class EngPWFPacket(Base):
+class ENGPFWPacket(Base):
     __tablename__ = "eng_pfw"
     packet_id = Column(Integer, primary_key=True)
     apid = Column(Integer, nullable=False, index=True)
