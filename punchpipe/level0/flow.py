@@ -325,7 +325,7 @@ def form_level0_fits(session=None, pipeline_config_path="config.yaml"):
             if image_compression[0]['JPEG'] == 1:  # this assumes the image compression is static for an image
                 try:
                     image = form_from_jpeg_compressed(ordered_image_content)
-                except ValueError as e:
+                except ValueError:
                     error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
                              'start_block': image_packets_entries[0].flash_block,
                              'replay_length': image_packets_entries[-1].flash_block
@@ -386,5 +386,3 @@ def form_level0_fits(session=None, pipeline_config_path="config.yaml"):
         df_path = os.path.join(config['root'], 'REPLAY', f'PUNCH_{spacecraft}_REPLAY_{date_str}.csv')
         os.makedirs(df_path, exist_ok=True)
         df_errors.to_csv(df_path, index=False)
-
-
