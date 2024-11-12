@@ -5,6 +5,7 @@ from datetime import datetime
 
 from prefect import flow, task
 from punchbowl.level1.flow import level1_core_flow
+from punchpipe.controlsegment.util import get_database_session
 from sqlalchemy import and_
 
 from punchpipe import __version__
@@ -19,8 +20,19 @@ def level1_query_ready_files(session, pipeline_config: dict):
 
 
 @task
-def get_psf_model_path(level0_file):
-    return "/home/marcus.hughes/build4/simpunch/build_3_review_files/synthetic_forward_psf.h5"
+def get_psf_model_path(level0_file, pipeline_config: dict):
+    corresponding_psf_model_type = {"PM": "RM",
+                                    "PZ": "RZ",
+                                    "PP": "RP",
+                                    "CR": "RC"}
+    psf_model_type = corresponding_psf_model_type[level0_file.file_type]
+    with get_database_session() as session:
+        best_model = (session.query(File)
+                      .filter(File.file_type == psf_model_type)
+                      .filter(File.observatory == level0_file.observatory)
+                      .where(File.date_obs < level0_file.date_obs)
+                      .order_by(File.date_obs.desc()).first())
+    return os.path.join(best_model.directory(pipeline_config['root']), best_model.filename())
 
 
 @task
@@ -40,7 +52,7 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File, pip
     )
     return Flow(
         flow_type=flow_type,
-        flow_level=1,
+        flow_level="1",
         state=state,
         creation_time=creation_time,
         priority=priority,
