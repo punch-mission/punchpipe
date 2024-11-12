@@ -18,18 +18,6 @@ def level1_query_ready_files(session, pipeline_config: dict):
     return [[f.file_id] for f in session.query(File).where(and_(File.state == "created", File.level == "0")).all()]
 
 
-# TODO handle more robustly
-@task
-def get_vignetting_function(level0_file):
-    observatory = int(level0_file.observatory)
-    if observatory < 4:
-        vignetting_function_path = "/home/marcus.hughes/build4/simpunch/build_3_review_files/PUNCH_L1_GM1_20240817174727_v2.fits"
-    else:
-        vignetting_function_path = "/home/marcus.hughes/build4/simpunch/build_3_review_files/PUNCH_L1_GM4_20240819045110_v1.fits"
-    return vignetting_function_path
-
-
-# TODO handle more robustly
 @task
 def get_psf_model_path(level0_file):
     return "/home/marcus.hughes/build4/simpunch/build_3_review_files/synthetic_forward_psf.h5"
@@ -47,7 +35,6 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File, pip
                 os.path.join(level0_file.directory(pipeline_config["root"]), level0_file.filename())
                 for level0_file in level0_files
             ],
-            "vignetting_function_path": get_vignetting_function(level0_files[0]),
             "psf_model_path": get_psf_model_path(level0_files[0]),
         }
     )
