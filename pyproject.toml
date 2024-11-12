@@ -61,7 +61,7 @@ docs = ["packaging",
 dev = ["punchpipe[test,docs]", "pre-commit"]
 
 [project.scripts]
-punchpipe = "punchpipe.cli:run"
+punchpipe = "punchpipe.cli:main"
 
 [project.urls]
 #Homepage = "https://example.com"
