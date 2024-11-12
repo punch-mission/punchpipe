@@ -1,18 +1,17 @@
-import json
 import os
+import json
 from datetime import datetime
 
 import numpy as np
 from astropy.nddata import StdDevUncertainty
 from astropy.wcs import WCS
-from prefect import flow, task
-from punchbowl.data import NormalizedMetadata
 from ndcube import NDCube
-from sqlalchemy.orm import Session
+from prefect import flow, task
 from prefect_sqlalchemy import SqlAlchemyConnector
+from punchbowl.data import NormalizedMetadata
+from sqlalchemy.orm import Session
 
 from punchpipe.controlsegment.db import File, Flow
-
 
 
 @task
