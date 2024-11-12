@@ -34,6 +34,14 @@ def get_psf_model_path(level0_file, pipeline_config: dict, session=None):
                   .order_by(File.date_obs.desc()).first())
     return os.path.join(best_model.directory(pipeline_config['root']), best_model.filename())
 
+@task
+def get_quartic_model_path(level0_file, pipeline_config: dict, session=None):
+    best_model = (session.query(File)
+                  .filter(File.file_type == 'FQ')
+                  .filter(File.observatory == level0_file.observatory)
+                  .where(File.date_obs < level0_file.date_obs)
+                  .order_by(File.date_obs.desc()).first())
+    return os.path.join(best_model.directory(pipeline_config['root']), best_model.filename())
 
 @task
 def level1_construct_flow_info(level0_files: list[File], level1_files: File, pipeline_config: dict, session=None):
@@ -48,6 +56,7 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File, pip
                 for level0_file in level0_files
             ],
             "psf_model_path": get_psf_model_path(level0_files[0], pipeline_config, session=session),
+            "quartic_coefficient_path": get_quartic_model_path(level0_files[0], pipeline_config, session=session),
         }
     )
     return Flow(
