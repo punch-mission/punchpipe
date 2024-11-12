@@ -11,8 +11,9 @@ from punchpipe.controlsegment.util import get_database_session
 
 REFRESH_RATE = 60  # seconds
 
-column_names = ["call_data", "creation_time", "end_time", "flow_id", "flow_level", "flow_run_id",
-                "flow_run_name", "flow_type", "priority", "start_time", "state"]
+column_names = ["flow_id", "flow_level", "flow_run_id",
+                "flow_run_name", "flow_type", "call_data", "creation_time", "end_time",
+                "priority", "start_time", "state"]
 schedule_columns =[{'name': v, 'id': v} for v in column_names]
 
 
