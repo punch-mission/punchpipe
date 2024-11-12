@@ -29,7 +29,7 @@ def get_psf_model_path(level0_file, pipeline_config: dict, session=None):
     psf_model_type = corresponding_psf_model_type[level0_file.file_type]
     best_model = (session.query(File)
                   .filter(File.file_type == psf_model_type)
-                  .filter(File.observatory == level0_file.observatory)
+                  .filter(File.observatory == "1")
                   # .where(File.date_obs <= level0_file.date_obs)
                   .order_by(File.date_obs.desc()).first())
     return os.path.join(best_model.directory(pipeline_config['root']), best_model.filename())
@@ -38,7 +38,7 @@ def get_psf_model_path(level0_file, pipeline_config: dict, session=None):
 def get_quartic_model_path(level0_file, pipeline_config: dict, session=None):
     best_model = (session.query(File)
                   .filter(File.file_type == 'FQ')
-                  .filter(File.observatory == level0_file.observatory)
+                  .filter(File.observatory == "1")
                   # .where(File.date_obs <= level0_file.date_obs)
                   .order_by(File.date_obs.desc()).first())
     return os.path.join(best_model.directory(pipeline_config['root']), best_model.filename())
