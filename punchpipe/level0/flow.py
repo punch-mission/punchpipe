@@ -16,7 +16,7 @@ from punchbowl.data import get_base_file_name
 from sqlalchemy import and_
 from glob import glob
 from sunpy.coordinates import sun
-
+from prefect.blocks.system import Secret
 
 from punchbowl.data.meta import NormalizedMetadata
 from punchbowl.data.io import write_ndcube_to_fits
@@ -310,7 +310,10 @@ def form_level0_fits(session=None, pipeline_config_path="config.yaml"):
             else:
                 image = np.zeros((2048, 2048))
 
-            spacecraft_id = image_packets_entries[0].spacecraft_id
+            spacecraft_secrets = Secret.load("spacecraft-ids")
+            spacecraft_id_mapper = spacecraft_secrets.get()
+            spacecraft_id = spacecraft_id_mapper[image_packets_entries[0].spacecraft_id]
+
             metadata_contents = get_fits_metadata(image_packets_entries[0].timestamp, spacecraft_id)
             file_type = POSITIONS_TO_CODES[convert_pfw_position_to_polarizer(metadata_contents['POSITION_CURR'])]
             preliminary_wcs = form_preliminary_wcs(metadata_contents, config['plate_scale'][spacecraft_id])
