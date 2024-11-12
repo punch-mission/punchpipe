@@ -1,8 +1,7 @@
+from prefect_sqlalchemy import SqlAlchemyConnector
 from sqlalchemy import create_engine, text
 
 from punchpipe.controlsegment.db import Base
-from prefect_sqlalchemy import SqlAlchemyConnector
-
 
 if __name__ == "__main__":
     credentials = SqlAlchemyConnector.load("mariadb-creds")

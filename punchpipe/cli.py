@@ -1,7 +1,9 @@
-import click
 import subprocess
 
+import click
+
 from .monitor.app import create_app
+
 
 @click.group
 def main():

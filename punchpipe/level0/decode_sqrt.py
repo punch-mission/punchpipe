@@ -2,9 +2,8 @@ import os.path
 from typing import Tuple, Union
 
 import numpy as np
-from prefect import get_run_logger, task
 from ndcube import NDCube
-
+from prefect import get_run_logger, task
 
 TABLE_PATH = os.path.dirname(__file__) + "/decoding_tables/"
 

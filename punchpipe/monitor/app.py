@@ -2,9 +2,9 @@ from datetime import datetime, timedelta
 
 import dash_bootstrap_components as dbc
 import pandas as pd
-from dash import Dash, Input, Output, callback, dash_table, dcc, html
-import psutil
 import plotly.express as px
+import psutil
+from dash import Dash, Input, Output, callback, dash_table, dcc, html
 
 from punchpipe.controlsegment.db import Health
 from punchpipe.controlsegment.util import get_database_session

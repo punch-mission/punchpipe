@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from astropy.nddata import StdDevUncertainty
 from astropy.wcs import WCS
-from punchbowl.data import NormalizedMetadata
 from ndcube import NDCube
+from punchbowl.data import NormalizedMetadata
 
 from punchpipe.controlsegment.db import File
 from punchpipe.controlsegment.util import match_data_with_file_db_entry
