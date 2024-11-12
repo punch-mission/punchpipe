@@ -1,9 +1,10 @@
+import os
 import json
 import base64
-import os
 import warnings
-from datetime import datetime, timedelta
 import importlib.metadata
+from glob import glob
+from datetime import datetime, timedelta
 
 import numpy as np
 import pylibjpeg
@@ -12,21 +13,19 @@ import sqlalchemy.exc
 from astropy.wcs import WCS
 from ndcube import NDCube
 from prefect import flow, task
-from punchbowl.data import get_base_file_name
-from sqlalchemy import and_
-from glob import glob
-from sunpy.coordinates import sun
 from prefect.blocks.system import Secret
-
-from punchbowl.data.meta import NormalizedMetadata
+from punchbowl.data import get_base_file_name
 from punchbowl.data.io import write_ndcube_to_fits
-from punchbowl.data.wcs import calculate_pc_matrix, calculate_helio_wcs_from_celestial
+from punchbowl.data.meta import NormalizedMetadata
+from punchbowl.data.wcs import calculate_helio_wcs_from_celestial, calculate_pc_matrix
+from sqlalchemy import and_
+from sunpy.coordinates import sun
 
-from punchpipe.controlsegment.db import EngXACTPacket, SciPacket, TLMFiles, File, get_closest_eng_packets, EngPWFPacket
+from punchpipe.controlsegment.db import EngPWFPacket, EngXACTPacket, File, SciPacket, TLMFiles, get_closest_eng_packets
 from punchpipe.controlsegment.util import get_database_session, load_pipeline_configuration
 from punchpipe.error import CCSDSPacketConstructionWarning, CCSDSPacketDatabaseUpdateWarning
 from punchpipe.level0.ccsds import PACKET_APID2NAME, process_telemetry_file, unpack_compression_settings
-from punchpipe.level0.meta import convert_pfw_position_to_polarizer, POSITIONS_TO_CODES, eci_quaternion_to_ra_dec
+from punchpipe.level0.meta import POSITIONS_TO_CODES, convert_pfw_position_to_polarizer, eci_quaternion_to_ra_dec
 
 software_version = importlib.metadata.version("punchpipe")
 
@@ -190,7 +189,7 @@ def form_packet_entry(apid, packet, packet_num, source_tlm_file_id):
                 REDUNDANT_RESOLVER_POSITION_5=packet['REDUNDANT_RESOLVER_POSITION_5'],
             )
         case _:
-            warnings.warn(f"Unable to add packet to database.", CCSDSPacketDatabaseUpdateWarning)
+            warnings.warn("Unable to add packet to database.", CCSDSPacketDatabaseUpdateWarning)
 @task
 def update_tlm_database(packets, telemetry_file_path: str, session=None):
     if session is None:

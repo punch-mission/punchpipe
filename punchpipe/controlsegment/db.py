@@ -1,5 +1,4 @@
 import os
-import math
 
 from sqlalchemy import TEXT, Boolean, Column, DateTime, Float, Integer, String
 from sqlalchemy.orm import declarative_base
