@@ -17,7 +17,7 @@ scheduler:
   max_start: 10
 
 launcher:
-  max_flows_running: 5
+  max_flows_running: 25
 
 levels:
   level0_process_flow:
