@@ -39,8 +39,16 @@ def session_fn(session):
                        software_version='none',
                        date_obs=datetime.now())
 
-    psf_model = File(level="0",
+    psf_model = File(level="1",
                        file_type="RM",
+                       observatory='0',
+                       state='created',
+                       file_version='none',
+                       software_version='none',
+                       date_obs=datetime.now()-timedelta(days=1))
+
+    quartic_fit_coeffs = File(level="1",
+                       file_type="FQ",
                        observatory='0',
                        state='created',
                        file_version='none',
@@ -50,6 +58,7 @@ def session_fn(session):
     session.add(level0_file)
     session.add(level1_file)
     session.add(psf_model)
+    session.add(quartic_fit_coeffs)
 
 db = create_mysql_fixture(Base, session_fn, session=True)
 
