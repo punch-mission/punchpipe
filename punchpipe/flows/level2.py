@@ -41,7 +41,8 @@ def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipe
             "data_list": [
                 os.path.join(level1_file.directory(pipeline_config["root"]), level1_file.filename())
                 for level1_file in level1_files
-            ]
+            ],
+            "voter_filenames": [[]]
         }
     )
     return Flow(
