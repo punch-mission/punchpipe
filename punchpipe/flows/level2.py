@@ -11,7 +11,7 @@ from punchpipe.controlsegment.db import File, Flow
 from punchpipe.controlsegment.processor import generic_process_flow_logic
 from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 
-SCIENCE_LEVEL1_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
+SCIENCE_LEVEL1_TYPE_CODES = ["PM", "PZ", "PP"]# , "CR"] # TODO handle CR in a separate flow maybe
 
 
 @task
