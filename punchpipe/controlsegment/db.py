@@ -15,7 +15,7 @@ class File(Base):
     file_type = Column(String(2), nullable=False)
     observatory = Column(String(1), nullable=False)
     file_version = Column(String(16), nullable=False)
-    software_version = Column(String(20), nullable=False)
+    software_version = Column(String(35), nullable=False)
     date_created = Column(DateTime, nullable=True)
     date_obs = Column(DateTime, nullable=False)
     date_beg = Column(DateTime, nullable=True)
