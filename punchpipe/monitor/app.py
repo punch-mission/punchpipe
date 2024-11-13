@@ -1,75 +1,80 @@
-import json
-from datetime import date, timedelta
+from datetime import datetime, timedelta
 
+import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
-from dash import Dash, Input, Output, dash_table, dcc, html
-from dash.exceptions import PreventUpdate
+import psutil
+from dash import Dash, Input, Output, callback, dash_table, dcc, html
 
-app = Dash(__name__)
+from punchpipe.controlsegment.db import Health
+from punchpipe.controlsegment.util import get_database_session
 
-df = pd.read_csv(
-    "/Users/jhughes/Desktop/repos/punchpipe/punchpipe/monitor/sample.csv",
-    parse_dates=["creation_time", "start_time", "end_time"],
-)
-df.set_index("flow_id")
-df["duration"] = (df["end_time"] - df["start_time"]).map(timedelta.total_seconds)
+REFRESH_RATE = 60  # seconds
 
-fig = px.histogram(df, x="duration")
+column_names = ["flow_id", "flow_level", "flow_run_id",
+                "flow_run_name", "flow_type", "call_data", "creation_time", "end_time",
+                "priority", "start_time", "state"]
+schedule_columns =[{'name': v, 'id': v} for v in column_names]
 
-app.layout = html.Div(
-    [
-        dcc.DatePickerRange(
-            id="date_picker_range",
-            min_date_allowed=date(2022, 1, 1),
-            max_date_allowed=date.today(),
-            initial_visible_month=date(2022, 1, 1),
-            start_date=date.today() - timedelta(days=1),
-            end_date=date.today(),
+
+def create_app():
+    app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
+    app.layout = html.Div([
+        dcc.Graph(id='machine-graph'),
+        dcc.Dropdown(
+            id="machine-stat",
+            options=["cpu_usage", "memory_usage", "memory_percentage", "disk_usage", "disk_percentage", "num_pids"],
+            value="cpu_usage",
+            clearable=False,
         ),
-        dcc.Graph(id="duration", figure=fig),
-        dash_table.DataTable(
-            id="flow_table",
-            data=df.to_dict("records"),
-            columns=[{"name": i, "id": i} for i in df.columns],
-            page_action="none",
-            style_table={"height": "300px", "overflowY": "auto"},
-            sort_action="native",
-        ),
-        html.Pre(id="relayout-data"),
-    ]
-)
+        dash_table.DataTable(id='flows',
+                             data=pd.DataFrame({name: [] for name in column_names}).to_dict('records'),
+                             columns=schedule_columns),
+        dcc.Interval(
+            id='interval-component',
+            interval=REFRESH_RATE * 1000,  # in milliseconds
+            n_intervals=0)
+    ])
 
+    @callback(
+        Output('files', 'data'),
+        Input('interval-component', 'n_intervals'),
+    )
+    def update_flows(n):
+        query = "SELECT * FROM flows;"
+        with get_database_session() as session:
+            df = pd.read_sql_query(query, session.connection())
+        return df.to_dict('records')
 
-@app.callback(
-    Output("duration", "figure"), Input("date_picker_range", "start_date"), Input("date_picker_range", "end_date")
-)
-def update_histogram(start_date, end_date):
-    filtered_df = df[(df["start_time"] > start_date) * (df["end_time"] < end_date)]
-    fig = px.histogram(filtered_df, x="duration")
-    fig.update_layout(transition_duration=500)
+    @callback(
+        Output('machine-graph', 'figure'),
+        Input('interval-component', 'n_intervals'),
+        Input('machine-stat', 'value'),
+    )
+    def update_machine_stats(n, machine_stat):
+        now = datetime.now()
+        cpu_usage = psutil.cpu_percent(interval=None)
+        memory_usage = psutil.virtual_memory().used
+        memory_percentage = psutil.virtual_memory().percent
+        disk_usage = psutil.disk_usage('/').used
+        disk_percentage = psutil.disk_usage('/').percent
+        num_pids = len(psutil.pids())
 
-    return fig
+        with get_database_session() as session:
+            new_health_entry = Health(datetime=now,
+                                      cpu_usage=cpu_usage,
+                                      memory_usage=memory_usage,
+                                      memory_percentage=memory_percentage,
+                                      disk_usage=disk_usage,
+                                      disk_percentage=disk_percentage,
+                                      num_pids=num_pids)
+            session.add(new_health_entry)
+            session.commit()
 
+            reference_time = now - timedelta(hours=24)
+            query = f"SELECT datetime, {machine_stat} FROM health WHERE datetime > '{reference_time}';"
+            df = pd.read_sql_query(query, session.connection())
+        fig = px.line(df, x='datetime', y=machine_stat)
 
-@app.callback(
-    Output("flow_table", "data"), Input("date_picker_range", "start_date"), Input("date_picker_range", "end_date")
-)
-def update_table(start_date, end_date):
-    return df[(df["start_time"] > start_date) * (df["end_time"] < end_date)].to_dict("records")
-
-
-@app.callback(Output("relayout-data", "children"), Input("duration", "relayoutData"))
-def display_relayout_data(relayoutData):
-    if relayoutData is None:
-        raise PreventUpdate
-    elif "xaxis.range[0]" not in relayoutData.keys():
-        raise PreventUpdate
-    else:
-        # get the relevant axis ranges, you can use to drop columns from the datatable
-        print(relayoutData, type(relayoutData))
-        return json.dumps(relayoutData, indent=2)
-
-
-if __name__ == "__main__":
-    app.run_server(debug=False)
+        return fig
+    return app

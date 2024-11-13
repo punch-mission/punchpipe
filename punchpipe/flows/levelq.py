@@ -29,7 +29,7 @@ def levelq_query_ready_files(session, pipeline_config: dict):
 
 
 @task
-def levelq_construct_flow_info(level1_files: list[File], levelq_file: File, pipeline_config: dict):
+def levelq_construct_flow_info(level1_files: list[File], levelq_file: File, pipeline_config: dict, session=None):
     flow_type = "levelq_process_flow"
     state = "planned"
     creation_time = datetime.now()

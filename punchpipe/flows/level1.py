@@ -12,31 +12,39 @@ from punchpipe.controlsegment.db import File, Flow
 from punchpipe.controlsegment.processor import generic_process_flow_logic
 from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 
+SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
 
 @task
 def level1_query_ready_files(session, pipeline_config: dict):
-    return [[f.file_id] for f in session.query(File).where(and_(File.state == "created", File.level == "0")).all()]
-
-
-# TODO handle more robustly
-@task
-def get_vignetting_function(level0_file):
-    observatory = int(level0_file.observatory)
-    if observatory < 4:
-        vignetting_function_path = "/home/marcus.hughes/build4/simpunch/build_3_review_files/PUNCH_L1_GM1_20240817174727_v2.fits"
-    else:
-        vignetting_function_path = "/home/marcus.hughes/build4/simpunch/build_3_review_files/PUNCH_L1_GM4_20240819045110_v1.fits"
-    return vignetting_function_path
-
-
-# TODO handle more robustly
-@task
-def get_psf_model_path(level0_file):
-    return "/home/marcus.hughes/build4/simpunch/build_3_review_files/synthetic_forward_psf.h5"
+    return [[f.file_id] for f in session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL0_TYPE_CODES))
+    .where(and_(File.state == "created",  File.level == "0")).all()]
 
 
 @task
-def level1_construct_flow_info(level0_files: list[File], level1_files: File, pipeline_config: dict):
+def get_psf_model_path(level0_file, pipeline_config: dict, session=None):
+    corresponding_psf_model_type = {"PM": "RM",
+                                    "PZ": "RZ",
+                                    "PP": "RP",
+                                    "CR": "RC"}
+    psf_model_type = corresponding_psf_model_type[level0_file.file_type]
+    best_model = (session.query(File)
+                  .filter(File.file_type == psf_model_type)
+                  .filter(File.observatory == level0_file.observatory)
+                  .where(File.date_obs <= level0_file.date_obs)
+                  .order_by(File.date_obs.desc()).first())
+    return os.path.join(best_model.directory(pipeline_config['root']), best_model.filename())
+
+@task
+def get_quartic_model_path(level0_file, pipeline_config: dict, session=None):
+    best_model = (session.query(File)
+                  .filter(File.file_type == 'FQ')
+                  .filter(File.observatory == level0_file.observatory)
+                  .where(File.date_obs <= level0_file.date_obs)
+                  .order_by(File.date_obs.desc()).first())
+    return os.path.join(best_model.directory(pipeline_config['root']), best_model.filename())
+
+@task
+def level1_construct_flow_info(level0_files: list[File], level1_files: File, pipeline_config: dict, session=None):
     flow_type = "level1_process_flow"
     state = "planned"
     creation_time = datetime.now()
@@ -47,13 +55,13 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File, pip
                 os.path.join(level0_file.directory(pipeline_config["root"]), level0_file.filename())
                 for level0_file in level0_files
             ],
-            "vignetting_function_path": get_vignetting_function(level0_files[0]),
-            "psf_model_path": get_psf_model_path(level0_files[0]),
+            "psf_model_path": get_psf_model_path(level0_files[0], pipeline_config, session=session),
+            "quartic_coefficient_path": get_quartic_model_path(level0_files[0], pipeline_config, session=session),
         }
     )
     return Flow(
         flow_type=flow_type,
-        flow_level=1,
+        flow_level="1",
         state=state,
         creation_time=creation_time,
         priority=priority,

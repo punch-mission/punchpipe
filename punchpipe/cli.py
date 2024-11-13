@@ -1,14 +1,22 @@
 import subprocess
+import multiprocessing as mp
 
 import click
-from waitress import serve
 
-from .monitor.app import server
+from .monitor.app import create_app
 
 
-@click.command
+@click.group
+def main():
+    """Run the PUNCH automated pipeline"""
+
+def launch_monitor():
+    app = create_app()
+    app.run_server(debug=False, port=8051)
+
+@main.command
 def run():
-    print("Launching punchpipe monitor on http://localhost:8050/.")
+    print("Launching punchpipe monitor on http://localhost:8051/.")
     subprocess.Popen(["prefect", "server", "start"])
-    serve(server, host='0.0.0.0', port=8050)
     print("\npunchpipe Prefect flows must be stopped manually in Prefect.")
+    mp.Process(target=launch_monitor, args=()).start()

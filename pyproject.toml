@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "punchpipe"
-version = "0.0.1"
+dynamic = ["version"]
 dependencies = [
     "click",
     "ccsdspy",
@@ -23,8 +23,8 @@ dependencies = [
     "plotly",
     "pyyaml",
     "click",
-    "waitress",
-    "pylibjpeg[libjpeg]"
+    "pylibjpeg[libjpeg]",
+    "psutil"
 ]
 requires-python = ">=3.11"
 authors = [
@@ -61,7 +61,7 @@ docs = ["packaging",
 dev = ["punchpipe[test,docs]", "pre-commit"]
 
 [project.scripts]
-punchpipe = "punchpipe.cli:run"
+punchpipe = "punchpipe.cli:main"
 
 [project.urls]
 #Homepage = "https://example.com"

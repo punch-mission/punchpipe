@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 from prefect.testing.utilities import prefect_test_harness
@@ -23,24 +23,42 @@ def prefect_test_fixture():
         yield
 
 def session_fn(session):
-    level0_file = File(level=0,
-                       file_type='XX',
+    level0_file = File(level="0",
+                       file_type='PM',
                        observatory='0',
                        state='created',
                        file_version='none',
                        software_version='none',
                        date_obs=datetime.now())
 
-    level1_file = File(level=1,
-                       file_type="XX",
+    level1_file = File(level="1",
+                       file_type="PM",
                        observatory='0',
                        state='created',
                        file_version='none',
                        software_version='none',
                        date_obs=datetime.now())
 
-    session.add(level0_file, level1_file)
+    psf_model = File(level="1",
+                       file_type="RM",
+                       observatory='0',
+                       state='created',
+                       file_version='none',
+                       software_version='none',
+                       date_obs=datetime.now()-timedelta(days=1))
 
+    quartic_fit_coeffs = File(level="1",
+                       file_type="FQ",
+                       observatory='0',
+                       state='created',
+                       file_version='none',
+                       software_version='none',
+                       date_obs=datetime.now()-timedelta(days=1))
+
+    session.add(level0_file)
+    session.add(level1_file)
+    session.add(psf_model)
+    session.add(quartic_fit_coeffs)
 
 db = create_mysql_fixture(Base, session_fn, session=True)
 
@@ -55,7 +73,7 @@ def test_level1_construct_file_info():
     pipeline_config_path = os.path.join(TEST_DIR, "config.yaml")
     pipeline_config = load_pipeline_configuration.fn(pipeline_config_path)
     level0_file = [File(level="0",
-                       file_type='XX',
+                       file_type='PM',
                        observatory='0',
                        state='created',
                        file_version='none',
@@ -72,22 +90,22 @@ def test_level1_construct_file_info():
     assert constructed_file_info.state == "planned"
 
 
-def test_level1_construct_flow_info():
+def test_level1_construct_flow_info(db):
     pipeline_config_path = os.path.join(TEST_DIR, "config.yaml")
     pipeline_config = load_pipeline_configuration.fn(pipeline_config_path)
     level0_file = [File(level="0",
-                       file_type='XX',
+                       file_type='PM',
                        observatory='0',
                        state='created',
                        file_version='none',
                        software_version='none',
                        date_obs=datetime.now())]
     level1_file = level1_construct_file_info.fn(level0_file, pipeline_config)
-    flow_info = level1_construct_flow_info.fn(level0_file, level1_file, pipeline_config)
+    flow_info = level1_construct_flow_info.fn(level0_file, level1_file, pipeline_config, session=db)
 
     assert flow_info.flow_type == 'level1_process_flow'
     assert flow_info.state == "planned"
-    assert flow_info.flow_level == 1
+    assert flow_info.flow_level == "1"
     assert flow_info.priority == 6
 
 

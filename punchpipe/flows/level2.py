@@ -11,13 +11,15 @@ from punchpipe.controlsegment.db import File, Flow
 from punchpipe.controlsegment.processor import generic_process_flow_logic
 from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
 
+SCIENCE_LEVEL1_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
+
 
 @task
 def level2_query_ready_files(session, pipeline_config: dict):
     logger = get_run_logger()
     all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(File.level == "1")
-                       .filter(File.file_type.in_(['PP', 'PZ', 'PM'])).all())
+                       .filter(File.file_type.in_(SCIENCE_LEVEL1_TYPE_CODES)).all())
     logger.info(f"{len(all_ready_files)} ready files")
     unique_times = set(f.date_obs for f in all_ready_files)
     logger.info(f"{len(unique_times)} unique times: {unique_times}")
@@ -29,7 +31,7 @@ def level2_query_ready_files(session, pipeline_config: dict):
 
 
 @task
-def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipeline_config: dict):
+def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipeline_config: dict, session=None):
     flow_type = "level2_process_flow"
     state = "planned"
     creation_time = datetime.now()

@@ -1,6 +1,17 @@
 root: "/d0/punchsoc/gamera_data/"
 input_drop: "dropzone/"
+tlm_directory: "dropzone/"
 file_version: "1"
+
+plate_scale:
+  1: 88 / 3600
+  2: 88 / 3600
+  3: 88 / 3600
+  4: 30 / 3600
+
+quality_check:
+  mean_low: 0
+  mean_high: 65000
 
 scheduler:
   max_start: 10
