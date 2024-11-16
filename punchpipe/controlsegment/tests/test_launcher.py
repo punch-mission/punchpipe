@@ -78,7 +78,7 @@ def test_count_running_flows(db):
 
 
 def test_escalate_long_waiting_flows(db):
-    pipeline_config_path = os.path.join(TEST_DIR, "config.yaml")
+    pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
     pipeline_config = load_pipeline_configuration.fn(pipeline_config_path)
 
     with freeze_time(datetime(2023, 2, 2, 0, 0, 0)) as frozen_datetime:

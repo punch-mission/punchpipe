@@ -22,8 +22,8 @@ def get_valid_starfields(session, f: File, timedelta_window: timedelta):
                                      f.date_obs <= valid_star_end)).all())
 
 
-def get_valid_fcorona_models(session, f: File, timedelta_window: timedelta):
-    valid_fcorona_start, valid_fcorona_end = f.date_obs - timedelta_window, f.date_obs +timedelta_window
+def get_valid_fcorona_models(session, f: File, before_timedelta: timedelta, after_timedelta: timedelta):
+    valid_fcorona_start, valid_fcorona_end = f.date_obs - before_timedelta, f.date_obs + after_timedelta
     return (session.query(File).filter(File.state == "created").filter(File.level == 2)
                       .filter(File.file_type == 'PF').filter(File.observatory == 'M')
                       .filter(and_(f.date_obs >= valid_fcorona_start,
@@ -31,8 +31,13 @@ def get_valid_fcorona_models(session, f: File, timedelta_window: timedelta):
 
 
 def get_closest_file(f_target: File, f_others: list[File]) -> File:
-    return f_others[0]
+    return min(f_others, key=lambda o: abs((f_target.date_obs - o.date_obs).total_seconds()))
 
+def get_closest_before_file(f_target: File, f_others: list[File]) -> File:
+    return get_closest_file(f_target, [o for o in f_others if f_target.date_obs >= o.date_obs])
+
+def get_closest_after_file(f_target: File, f_others: list[File]) -> File:
+    return get_closest_file(f_target, [o for o in f_others if f_target.date_obs <= o.date_obs])
 
 @task
 def level3_PTM_query_ready_files(session, pipeline_config: dict):
@@ -48,9 +53,16 @@ def level3_PTM_query_ready_files(session, pipeline_config: dict):
         valid_starfields = get_valid_starfields(session, f, timedelta_window=timedelta(days=14))
 
         # TODO put magic numbers in config
-        valid_fcorona_models = get_valid_fcorona_models(session, f, timedelta_window=timedelta(days=3))
+        valid_before_fcorona_models = get_valid_fcorona_models(session, f,
+                                                               before_timedelta=timedelta(days=3),
+                                                               after_timedelta=timedelta(days=0))
+        valid_after_fcorona_models = get_valid_fcorona_models(session, f,
+                                                               before_timedelta=timedelta(days=0),
+                                                               after_timedelta=timedelta(days=3))
 
-        if len(valid_fcorona_models) >= 1 and len(valid_starfields) >= 1:
+        if (len(valid_before_fcorona_models) >= 1
+                and len(valid_after_fcorona_models) >= 1
+                and len(valid_starfields) >= 1):
             actually_ready_files.append(f)
     logger.info(f"{len(actually_ready_files)} Level 3 PTM files have necessary calibration data.")
 
@@ -58,7 +70,7 @@ def level3_PTM_query_ready_files(session, pipeline_config: dict):
 
 
 @task
-def level3_PTM_construct_flow_info(level2_files: File, level3_file: File, pipeline_config: dict, session=None):
+def level3_PTM_construct_flow_info(level2_files: list[File], level3_file: File, pipeline_config: dict, session=None):
     session = get_database_session()  # TODO: replace so this works in the tests by passing in a test
 
     flow_type = "level3_PTM_process_flow"
@@ -72,10 +84,16 @@ def level3_PTM_construct_flow_info(level2_files: File, level3_file: File, pipeli
                 for level2_file in level2_files
             ],
             # TODO put magic numbers in config
-            "f_corona_model_path": get_closest_file(level2_files[0],
+            "before_f_corona_model_path": get_closest_before_file(level2_files[0],
                                                     get_valid_fcorona_models(session,
                                                                              level2_files[0],
-                                                                             timedelta_window=timedelta(days=3))),
+                                                                             before_timedelta=timedelta(days=3),
+                                                                             after_timedelta=timedelta(days=3))),
+            "after_f_corona_model_path": get_closest_after_file(level2_files[0],
+                                                    get_valid_fcorona_models(session,
+                                                                             level2_files[0],
+                                                                             before_timedelta=timedelta(days=3),
+                                                                             after_timedelta=timedelta(days=3))),
             # TODO put magic numbers in config
             "starfield_background_path": get_closest_file(level2_files[0],
                                                     get_valid_starfields(session,

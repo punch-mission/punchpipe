@@ -24,7 +24,8 @@ dependencies = [
     "pyyaml",
     "click",
     "pylibjpeg[libjpeg]",
-    "psutil"
+    "psutil",
+    "gunicorn"
 ]
 requires-python = ">=3.11"
 authors = [

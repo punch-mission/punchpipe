@@ -2,6 +2,7 @@ from typing import List
 from datetime import datetime, timedelta
 
 from prefect import flow, get_run_logger, task
+from prefect.variables import Variable
 from prefect.client import get_client
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
@@ -99,7 +100,8 @@ async def launcher_flow(pipeline_configuration_path="config.yaml"):
     """
     logger = get_run_logger()
 
-    pipeline_config = load_pipeline_configuration(pipeline_configuration_path)
+    config_path = await Variable.get("punchpipe_config", "punchpipe_config.yaml")
+    pipeline_config = load_pipeline_configuration(config_path)
 
     logger.info("Establishing database connection")
     session = get_database_session()

@@ -88,7 +88,7 @@ def empty_core_flow():
     return []
 
 @flow
-def empty_flow(flow_id: int, pipeline_config_path=TESTDATA_DIR+"/config.yaml", session=None):
+def empty_flow(flow_id: int, pipeline_config_path=TESTDATA_DIR+"/punchpipe_config.yaml", session=None):
     generic_process_flow_logic(flow_id, empty_core_flow, pipeline_config_path, session=session)
 
 
@@ -131,7 +131,7 @@ def normal_core_flow():
 
 
 @flow
-def normal_flow(flow_id: int, pipeline_config_path=TESTDATA_DIR+"/config.yaml", session=None):
+def normal_flow(flow_id: int, pipeline_config_path=TESTDATA_DIR+"/punchpipe_config.yaml", session=None):
     generic_process_flow_logic(flow_id, normal_core_flow, pipeline_config_path, session=session)
 
 

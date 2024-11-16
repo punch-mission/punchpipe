@@ -20,11 +20,10 @@ def level0_construct_flow_info():
 
 
 @flow
-def level0_scheduler_flow(pipeline_config_path="config.yaml", session=None):
+def level0_scheduler_flow(session=None):
     generic_scheduler_flow_logic(
         level0_query_ready_files,
         level0_construct_file_info,
         level0_construct_flow_info,
-        pipeline_config_path,
         session=session,
     )

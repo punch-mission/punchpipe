@@ -53,7 +53,7 @@ def test_level2_query_ready_files(db):
 
 
 def test_level2_construct_file_info():
-    pipeline_config_path = os.path.join(TEST_DIR, "config.yaml")
+    pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
     pipeline_config = load_pipeline_configuration.fn(pipeline_config_path)
 
     level1_file = [File(level=0,
@@ -75,7 +75,7 @@ def test_level2_construct_file_info():
 
 
 def test_level2_construct_flow_info():
-    pipeline_config_path = os.path.join(TEST_DIR, "config.yaml")
+    pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
     pipeline_config = load_pipeline_configuration.fn(pipeline_config_path)
     level1_file = [File(level="1",
                        file_type='XX',
@@ -94,7 +94,7 @@ def test_level2_construct_flow_info():
 
 
 def test_level2_scheduler_flow(db):
-    pipeline_config_path = os.path.join(TEST_DIR, "config.yaml")
+    pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
     with prefect_test_harness():
         level2_scheduler_flow(pipeline_config_path, db)
     results = db.query(Flow).where(Flow.state == 'planned').all()
