@@ -1,11 +1,11 @@
-import subprocess
 import os
 import time
-from datetime import datetime
+import subprocess
 from pathlib import Path
+from datetime import datetime
 
 import click
-from prefect import serve, flow, deploy
+from prefect import flow, serve
 from prefect.variables import Variable
 
 from punchpipe.controlsegment.launcher import launcher_flow

@@ -1,4 +1,3 @@
-from prefect.variables import Variable
 
 from punchpipe.controlsegment.db import File, FileRelationship
 from punchpipe.controlsegment.util import get_database_session, load_pipeline_configuration, update_file_state

@@ -2,8 +2,8 @@ from typing import List
 from datetime import datetime, timedelta
 
 from prefect import flow, get_run_logger, task
-from prefect.variables import Variable
 from prefect.client import get_client
+from prefect.variables import Variable
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
