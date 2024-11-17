@@ -13,9 +13,9 @@ def update_machine_health_stats():
 
     now = datetime.now()
     cpu_usage = psutil.cpu_percent(interval=5)
-    memory_usage = psutil.virtual_memory().used
+    memory_usage = psutil.virtual_memory().used / 1E9  # store in GB
     memory_percentage = psutil.virtual_memory().percent
-    disk_usage = psutil.disk_usage(config.get("root", "/")).used
+    disk_usage = psutil.disk_usage(config.get("root", "/")).used / 1E9  # store in GB
     disk_percentage = psutil.disk_usage(config.get("root", "/")).percent
     num_pids = len(psutil.pids())
 
