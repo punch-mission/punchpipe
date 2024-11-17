@@ -28,7 +28,7 @@ def create_app():
         html.Div(
             id="status-cards"
         ),
-        dash_table.DataTable(id='flows',
+        dash_table.DataTable(id='flows-table',
                              data=pd.DataFrame({name: [] for name in column_names}).to_dict('records'),
                              columns=schedule_columns,
                              page_current=0,
@@ -81,12 +81,12 @@ def create_app():
         return [None] * 3
 
     @callback(
-        Output('flows', 'data'),
+        Output('flows-table', 'data'),
         Input('interval-component', 'n_intervals'),
-        Input('table-sorting-filtering', "page_current"),
-        Input('table-sorting-filtering', "page_size"),
-        Input('table-sorting-filtering', 'sort_by'),
-        Input('table-sorting-filtering', 'filter_query'))
+        Input('flows-table', "page_current"),
+        Input('flows-table', "page_size"),
+        Input('flows-table', 'sort_by'),
+        Input('flows-table', 'filter_query'))
     def update_flows(n, page_current, page_size, sort_by, filter):
         query = "SELECT * FROM flows;"
         with get_database_session() as session:
