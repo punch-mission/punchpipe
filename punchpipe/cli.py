@@ -86,7 +86,7 @@ def run(configuration_path):
     now = datetime.now()
 
     configuration_path = str(Path(configuration_path).resolve())
-    output_path = f"punchpipe_{now.strftime("%Y%m%d_%H%M%S")}.txt"
+    output_path = f"punchpipe_{now.strftime('%Y%m%d_%H%M%S')}.txt"
 
     print()
     print(f"Launching punchpipe at {now} with configuration: {configuration_path}")
