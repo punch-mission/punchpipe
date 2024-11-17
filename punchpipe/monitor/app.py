@@ -9,10 +9,11 @@ from punchpipe.control.util import get_database_session
 
 REFRESH_RATE = 60  # seconds
 
-column_names = ["flow_id", "flow_level", "flow_run_id",
-                "flow_run_name", "flow_type", "call_data", "creation_time", "end_time",
-                "priority", "start_time", "state"]
-schedule_columns =[{'name': v, 'id': v} for v in column_names]
+column_names = [ "flow_level", "flow_type", "state", "priority",
+                 "creation_time", "start_time", "end_time",
+                 "flow_id", "flow_run_id",
+                 "flow_run_name", "call_data"]
+schedule_columns =[{'name': v.replace("_", " ").capitalize(), 'id': v} for v in column_names]
 PAGE_SIZE = 15
 
 def create_app():
@@ -40,7 +41,11 @@ def create_app():
 
                              sort_action='custom',
                              sort_mode='multi',
-                             sort_by=[]
+                             sort_by=[],
+                             style_cell_conditional=[
+                                {'if': {'column_id': 'call_data'},
+                                 'width': '30%'},
+                             ]
                              ),
         dcc.Interval(
             id='interval-component',
