@@ -4,7 +4,6 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
 from dash import Dash, Input, Output, callback, dash_table, dcc, html
-import dash_bootstrap_components as dbc
 
 from punchpipe.control.util import get_database_session
 
