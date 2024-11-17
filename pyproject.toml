@@ -71,10 +71,7 @@ Repository = "https://github.com/punch-mission/punchpipe.git"
 "Bug Tracker" = "https://github.com/punch-mission/punchpipe/issues"
 #Changelog = "https://github.com/punch-mission/thuban/blob/main/CHANGELOG.md"
 
-[tool.setuptools_scm]
 
-[tool.setuptools]
-packages = ["punchpipe"]
 
 [tool.codespell]
 skip = "*.fts,*.fits,venv,*.pro,*.asdf,*.ipynb"

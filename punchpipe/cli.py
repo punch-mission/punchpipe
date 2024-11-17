@@ -8,7 +8,9 @@ import click
 from prefect import flow, serve
 from prefect.variables import Variable
 
-from punchpipe.controlsegment.launcher import launcher_flow
+from punchpipe.control.launcher import launcher_flow
+from punchpipe.control.health import update_machine_health_stats
+from punchpipe.control.util import load_pipeline_configuration
 from punchpipe.flows.level1 import level1_process_flow, level1_scheduler_flow
 from punchpipe.flows.level2 import level2_process_flow, level2_scheduler_flow
 from punchpipe.flows.level3 import level3_PTM_process_flow, level3_PTM_scheduler_flow
@@ -29,11 +31,11 @@ def my_flow():
     print("Hello, Prefect!")
 
 
-def serve_flows():
+def serve_flows(configuration_path):
+    config = load_pipeline_configuration.fn(configuration_path)
     launcher_deployment = launcher_flow.to_deployment(name="launcher-deployment",
                                                       description="Launch a pipeline segment.",
-                                                      cron="* * * * *",
-
+                                                      cron=config['launcher'].get("schedule", "* * * * *"),
                                                       )
 
     level1_scheduler_deployment = level1_scheduler_flow.to_deployment(name="level1-scheduler-deployment",
@@ -64,11 +66,16 @@ def serve_flows():
     level3_PTM_process_deployment = level3_PTM_process_flow.to_deployment(name="level3_PTM_process_flow",
                                                                           description="Process PTM files from Level 2 to Level 3.")
 
+    health_deployment = update_machine_health_stats.to_deployment(name="update-health-stats-deployment",
+                                                                  description="Update the health stats table data.",
+                                                                  cron="* * * * *")
+
     serve(launcher_deployment,
           level1_scheduler_deployment, level1_process_deployment,
           level2_scheduler_deployment, level2_process_deployment,
           levelq_scheduler_deployment, levelq_process_deployment,
           level3_PTM_scheduler_deployment, level3_PTM_process_deployment,
+          health_deployment,
           limit=1000
     )
 
@@ -99,7 +106,7 @@ def run(configuration_path):
                                            stdout=f, stderr=subprocess.STDOUT)
         time.sleep(3)
         Variable.set("punchpipe_config", configuration_path, overwrite=True)
-        serve_flows()
+        serve_flows(configuration_path)
 
         try:
             prefect_process.wait()

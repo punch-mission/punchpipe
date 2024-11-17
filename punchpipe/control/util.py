@@ -11,7 +11,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from yaml.loader import FullLoader
 
-from punchpipe.controlsegment.db import File
+from punchpipe.control.db import File
 
 
 def get_database_session():

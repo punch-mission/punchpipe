@@ -7,8 +7,8 @@ from prefect.variables import Variable
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from punchpipe.controlsegment.db import Flow
-from punchpipe.controlsegment.util import get_database_session, load_pipeline_configuration
+from punchpipe.control.db import Flow
+from punchpipe.control.util import get_database_session, load_pipeline_configuration
 
 
 @task

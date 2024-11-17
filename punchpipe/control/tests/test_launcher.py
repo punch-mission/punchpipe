@@ -6,14 +6,14 @@ from prefect.logging import disable_run_logger
 from prefect.testing.utilities import prefect_test_harness
 from pytest_mock_resources import create_mysql_fixture
 
-from punchpipe.controlsegment.db import Base, File, Flow
-from punchpipe.controlsegment.launcher import (
+from punchpipe.control.db import Base, File, Flow
+from punchpipe.control.launcher import (
     count_running_flows,
     escalate_long_waiting_flows,
     filter_for_launchable_flows,
     gather_planned_flows,
 )
-from punchpipe.controlsegment.util import load_pipeline_configuration
+from punchpipe.control.util import load_pipeline_configuration
 
 TEST_DIR = os.path.dirname(__file__)
 

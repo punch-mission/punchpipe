@@ -7,8 +7,8 @@ from prefect.testing.utilities import prefect_test_harness
 from pytest_mock_resources import create_mysql_fixture
 
 from punchpipe import __version__
-from punchpipe.controlsegment.db import Base, File, Flow
-from punchpipe.controlsegment.util import load_pipeline_configuration
+from punchpipe.control.db import Base, File, Flow
+from punchpipe.control.util import load_pipeline_configuration
 from punchpipe.flows.level2 import (
     level2_construct_file_info,
     level2_construct_flow_info,

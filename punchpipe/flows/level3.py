@@ -8,10 +8,10 @@ from punchbowl.level3.flow import level3_core_flow
 from sqlalchemy import and_
 
 from punchpipe import __version__
-from punchpipe.controlsegment.db import File, Flow
-from punchpipe.controlsegment.processor import generic_process_flow_logic
-from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
-from punchpipe.controlsegment.util import get_database_session
+from punchpipe.control.db import File, Flow
+from punchpipe.control.processor import generic_process_flow_logic
+from punchpipe.control.scheduler import generic_scheduler_flow_logic
+from punchpipe.control.util import get_database_session
 
 
 def get_valid_starfields(session, f: File, timedelta_window: timedelta):

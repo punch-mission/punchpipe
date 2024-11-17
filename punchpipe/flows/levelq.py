@@ -7,9 +7,9 @@ from prefect import flow, get_run_logger, task
 from punchbowl.level2.flow import levelq_core_flow
 
 from punchpipe import __version__
-from punchpipe.controlsegment.db import File, Flow
-from punchpipe.controlsegment.processor import generic_process_flow_logic
-from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
+from punchpipe.control.db import File, Flow
+from punchpipe.control.processor import generic_process_flow_logic
+from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 
 @task

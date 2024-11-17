@@ -8,9 +8,9 @@ from punchbowl.level1.flow import level1_core_flow
 from sqlalchemy import and_
 
 from punchpipe import __version__
-from punchpipe.controlsegment.db import File, Flow
-from punchpipe.controlsegment.processor import generic_process_flow_logic
-from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
+from punchpipe.control.db import File, Flow
+from punchpipe.control.processor import generic_process_flow_logic
+from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
 

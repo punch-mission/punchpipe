@@ -3,7 +3,7 @@ from glob import glob
 
 from prefect import flow
 
-from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
+from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 
 def level0_query_ready_files(session, pipeline_config: dict):

@@ -13,8 +13,8 @@ from prefect.testing.utilities import prefect_test_harness
 from punchbowl.data import NormalizedMetadata
 from pytest_mock_resources import create_mysql_fixture
 
-from punchpipe.controlsegment.db import Base, File, Flow
-from punchpipe.controlsegment.processor import generic_process_flow_logic
+from punchpipe.control.db import Base, File, Flow
+from punchpipe.control.processor import generic_process_flow_logic
 
 TESTDATA_DIR = os.path.dirname(__file__)
 

@@ -6,8 +6,7 @@ import plotly.express as px
 import psutil
 from dash import Dash, Input, Output, callback, dash_table, dcc, html
 
-from punchpipe.controlsegment.db import Health
-from punchpipe.controlsegment.util import get_database_session
+from punchpipe.control.util import get_database_session
 
 REFRESH_RATE = 60  # seconds
 
@@ -53,24 +52,7 @@ def create_app():
     )
     def update_machine_stats(n, machine_stat):
         now = datetime.now()
-        cpu_usage = psutil.cpu_percent(interval=None)
-        memory_usage = psutil.virtual_memory().used
-        memory_percentage = psutil.virtual_memory().percent
-        disk_usage = psutil.disk_usage('/').used
-        disk_percentage = psutil.disk_usage('/').percent
-        num_pids = len(psutil.pids())
-
         with get_database_session() as session:
-            new_health_entry = Health(datetime=now,
-                                      cpu_usage=cpu_usage,
-                                      memory_usage=memory_usage,
-                                      memory_percentage=memory_percentage,
-                                      disk_usage=disk_usage,
-                                      disk_percentage=disk_percentage,
-                                      num_pids=num_pids)
-            session.add(new_health_entry)
-            session.commit()
-
             reference_time = now - timedelta(hours=24)
             query = f"SELECT datetime, {machine_stat} FROM health WHERE datetime > '{reference_time}';"
             df = pd.read_sql_query(query, session.connection())

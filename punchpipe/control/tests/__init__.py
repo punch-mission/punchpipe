@@ -7,8 +7,8 @@ from astropy.wcs import WCS
 from ndcube import NDCube
 from punchbowl.data import NormalizedMetadata
 
-from punchpipe.controlsegment.db import File
-from punchpipe.controlsegment.util import match_data_with_file_db_entry
+from punchpipe.control.db import File
+from punchpipe.control.util import match_data_with_file_db_entry
 
 
 @pytest.fixture()

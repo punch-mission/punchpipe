@@ -4,8 +4,8 @@ from datetime import datetime
 from prefect import get_run_logger
 from prefect.context import get_run_context
 
-from punchpipe.controlsegment.db import File, Flow
-from punchpipe.controlsegment.util import (
+from punchpipe.control.db import File, Flow
+from punchpipe.control.util import (
     get_database_session,
     load_pipeline_configuration,
     match_data_with_file_db_entry,
