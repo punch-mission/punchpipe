@@ -125,7 +125,7 @@ def level3_PTM_construct_file_info(level2_files: t.List[File], pipeline_config: 
 
 
 @flow
-def level3_PTM_scheduler_flow(pipeline_config_path="config.yaml", session=None):
+def level3_PTM_scheduler_flow(pipeline_config_path=None, session=None):
     generic_scheduler_flow_logic(
         level3_PTM_query_ready_files,
         level3_PTM_construct_file_info,
@@ -136,5 +136,5 @@ def level3_PTM_scheduler_flow(pipeline_config_path="config.yaml", session=None):
 
 
 @flow
-def level3_PTM_process_flow(flow_id: int, pipeline_config_path="config.yaml", session=None):
+def level3_PTM_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, level3_core_flow, pipeline_config_path, session=session)

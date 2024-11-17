@@ -76,7 +76,7 @@ def levelq_construct_file_info(level1_files: t.List[File], pipeline_config: dict
 
 
 @flow
-def levelq_scheduler_flow(pipeline_config_path="config.yaml", session=None):
+def levelq_scheduler_flow(pipeline_config_path=None, session=None):
     generic_scheduler_flow_logic(
         levelq_query_ready_files,
         levelq_construct_file_info,
@@ -87,5 +87,5 @@ def levelq_scheduler_flow(pipeline_config_path="config.yaml", session=None):
 
 
 @flow
-def levelq_process_flow(flow_id: int, pipeline_config_path="config.yaml", session=None):
+def levelq_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, levelq_core_flow, pipeline_config_path, session=session)

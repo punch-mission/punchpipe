@@ -88,7 +88,7 @@ async def launch_ready_flows(session: Session, flow_ids: List[int]) -> List:
 
 
 @flow
-async def launcher_flow(pipeline_configuration_path="config.yaml"):
+async def launcher_flow(pipeline_configuration_path=None):
     """The main launcher flow for Prefect, responsible for identifying flows, based on priority,
         that are ready to run and creating flow runs for them. It also escalates long-waiting flows' priorities.
 
@@ -100,8 +100,9 @@ async def launcher_flow(pipeline_configuration_path="config.yaml"):
     """
     logger = get_run_logger()
 
-    config_path = await Variable.get("punchpipe_config", "punchpipe_config.yaml")
-    pipeline_config = load_pipeline_configuration(config_path)
+    if pipeline_configuration_path is None:
+        pipeline_configuration_path = await Variable.get("punchpipe_config", "punchpipe_config.yaml")
+    pipeline_config = load_pipeline_configuration(pipeline_configuration_path)
 
     logger.info("Establishing database connection")
     session = get_database_session()
