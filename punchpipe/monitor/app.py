@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
-import psutil
 from dash import Dash, Input, Output, callback, dash_table, dcc, html
 
 from punchpipe.control.util import get_database_session

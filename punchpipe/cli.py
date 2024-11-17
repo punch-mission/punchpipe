@@ -8,8 +8,8 @@ import click
 from prefect import flow, serve
 from prefect.variables import Variable
 
-from punchpipe.control.launcher import launcher_flow
 from punchpipe.control.health import update_machine_health_stats
+from punchpipe.control.launcher import launcher_flow
 from punchpipe.control.util import load_pipeline_configuration
 from punchpipe.flows.level1 import level1_process_flow, level1_scheduler_flow
 from punchpipe.flows.level2 import level2_process_flow, level2_scheduler_flow
