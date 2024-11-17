@@ -1,10 +1,10 @@
 from datetime import datetime
-import psutil
 
+import psutil
 from prefect import flow
 
-from punchpipe.control.util import get_database_session, load_pipeline_configuration
 from punchpipe.control.db import Health
+from punchpipe.control.util import get_database_session, load_pipeline_configuration
 
 
 @flow
