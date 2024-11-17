@@ -42,10 +42,8 @@ def create_app():
                              sort_action='custom',
                              sort_mode='multi',
                              sort_by=[],
-                             style_cell_conditional=[
-                                {'if': {'column_id': 'call_data'},
-                                 'width': '30%'},
-                             ]
+                             style_table={'overflowX': 'auto',
+                                          'textAlign': 'left'},
                              ),
         dcc.Interval(
             id='interval-component',
