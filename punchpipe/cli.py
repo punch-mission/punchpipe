@@ -90,30 +90,36 @@ def run(configuration_path):
 
     print()
     print(f"Launching punchpipe at {now} with configuration: {configuration_path}")
-    print(f"Terminal logs from punchpipe are in {output_path}.")
-    print("punchpipe Prefect flows must be stopped manually in Prefect.")
-    print("Launching Prefect dashboard on http://localhost:4200/.")
-    print("Launching punchpipe monitor on http://localhost:8051/.")
-    print("Use ctrl-c to exit.")
+    print(f"Terminal logs from punchpipe are in {output_path}")
+
 
     with open(output_path, "w") as f:
-        prefect_process = subprocess.Popen(["prefect", "server", "start"],
-                                           stdout=f, stderr=subprocess.STDOUT)
-        monitor_process = subprocess.Popen(["gunicorn",
-                                            "-b", "0.0.0.0:8051",
-                                            "--chdir", THIS_DIR,
-                                            "cli:server"],
-                                           stdout=f, stderr=subprocess.STDOUT)
-        time.sleep(3)
-        Variable.set("punchpipe_config", configuration_path, overwrite=True)
-        serve_flows(configuration_path)
-
         try:
+            prefect_process = subprocess.Popen(["prefect", "server", "start"],
+                                               stdout=f, stderr=subprocess.STDOUT)
+            time.sleep(3)
+            monitor_process = subprocess.Popen(["gunicorn",
+                                                "-b", "0.0.0.0:8050",
+                                                "--chdir", THIS_DIR,
+                                                "cli:server"],
+                                               stdout=f, stderr=subprocess.STDOUT)
+            Variable.set("punchpipe_config", configuration_path, overwrite=True)
+            print("Launched Prefect dashboard on http://localhost:4200/")
+            print("Launched punchpipe monitor on http://localhost:8050/")
+            print("Use ctrl-c to exit.")
+
+            serve_flows(configuration_path)
             prefect_process.wait()
             monitor_process.wait()
-        except Exception:
+        except KeyboardInterrupt:
+            print("Shutting down.")
             prefect_process.terminate()
             monitor_process.terminate()
-
-    print()
-    print("punchpipe shut down.")
+            print()
+            print("punchpipe safely shut down.")
+        except Exception as e:
+            print(f"Received error: {e}")
+            prefect_process.terminate()
+            monitor_process.terminate()
+            print()
+            print("punchpipe abruptly shut down.")
