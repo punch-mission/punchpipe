@@ -27,7 +27,7 @@ def create_app():
         html.Div(
             id="status-cards"
         ),
-        dash_table.DataTable(id='files',
+        dash_table.DataTable(id='flows',
                              data=pd.DataFrame({name: [] for name in column_names}).to_dict('records'),
                              columns=schedule_columns),
         dcc.Interval(
@@ -37,11 +37,11 @@ def create_app():
     ])
 
     @callback(
-        Output('flow', 'data'),
+        Output('flows', 'data'),
         Input('interval-component', 'n_intervals'),
     )
     def update_flows(n):
-        query = "SELECT * FROM files;"
+        query = "SELECT * FROM flows;"
         with get_database_session() as session:
             df = pd.read_sql_query(query, session.connection())
         return df.to_dict('records')
