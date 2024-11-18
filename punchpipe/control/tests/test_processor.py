@@ -13,8 +13,8 @@ from prefect.testing.utilities import prefect_test_harness
 from punchbowl.data import NormalizedMetadata
 from pytest_mock_resources import create_mysql_fixture
 
-from punchpipe.controlsegment.db import Base, File, Flow
-from punchpipe.controlsegment.processor import generic_process_flow_logic
+from punchpipe.control.db import Base, File, Flow
+from punchpipe.control.processor import generic_process_flow_logic
 
 TESTDATA_DIR = os.path.dirname(__file__)
 
@@ -88,7 +88,7 @@ def empty_core_flow():
     return []
 
 @flow
-def empty_flow(flow_id: int, pipeline_config_path=TESTDATA_DIR+"/config.yaml", session=None):
+def empty_flow(flow_id: int, pipeline_config_path=TESTDATA_DIR+"/punchpipe_config.yaml", session=None):
     generic_process_flow_logic(flow_id, empty_core_flow, pipeline_config_path, session=session)
 
 
@@ -131,7 +131,7 @@ def normal_core_flow():
 
 
 @flow
-def normal_flow(flow_id: int, pipeline_config_path=TESTDATA_DIR+"/config.yaml", session=None):
+def normal_flow(flow_id: int, pipeline_config_path=TESTDATA_DIR+"/punchpipe_config.yaml", session=None):
     generic_process_flow_logic(flow_id, normal_core_flow, pipeline_config_path, session=session)
 
 

@@ -1,12 +1,13 @@
-from punchpipe.controlsegment.db import File, FileRelationship
-from punchpipe.controlsegment.util import get_database_session, load_pipeline_configuration, update_file_state
+
+from punchpipe.control.db import File, FileRelationship
+from punchpipe.control.util import get_database_session, load_pipeline_configuration, update_file_state
 
 
 def generic_scheduler_flow_logic(
     query_ready_files_func, construct_child_file_info, construct_child_flow_info, pipeline_config_path, session=None
 ):
-    # load pipeline configuration
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
+
     max_start = pipeline_config['scheduler']['max_start']
 
     # get database connection

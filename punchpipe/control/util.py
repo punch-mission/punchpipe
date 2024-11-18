@@ -4,13 +4,14 @@ from datetime import datetime
 import yaml
 from ndcube import NDCube
 from prefect import task
+from prefect.variables import Variable
 from prefect_sqlalchemy import SqlAlchemyConnector
 from punchbowl.data import get_base_file_name, write_ndcube_to_fits
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from yaml.loader import FullLoader
 
-from punchpipe.controlsegment.db import File
+from punchpipe.control.db import File
 
 
 def get_database_session():
@@ -28,7 +29,9 @@ def update_file_state(session, file_id, new_state):
 
 
 @task
-def load_pipeline_configuration(path: str) -> dict:
+def load_pipeline_configuration(path: str = None) -> dict:
+    if path is None:
+        path = Variable.get("punchpipe_config", "punchpipe_config.yaml")
     with open(path) as f:
         config = yaml.load(f, Loader=FullLoader)
     # TODO: add validation

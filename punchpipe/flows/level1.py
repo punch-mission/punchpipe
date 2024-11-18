@@ -8,9 +8,9 @@ from punchbowl.level1.flow import level1_core_flow
 from sqlalchemy import and_
 
 from punchpipe import __version__
-from punchpipe.controlsegment.db import File, Flow
-from punchpipe.controlsegment.processor import generic_process_flow_logic
-from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
+from punchpipe.control.db import File, Flow
+from punchpipe.control.processor import generic_process_flow_logic
+from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
 
@@ -86,7 +86,7 @@ def level1_construct_file_info(level0_files: t.List[File], pipeline_config: dict
 
 
 @flow
-def level1_scheduler_flow(pipeline_config_path="config.yaml", session=None):
+def level1_scheduler_flow(pipeline_config_path=None, session=None):
     generic_scheduler_flow_logic(
         level1_query_ready_files,
         level1_construct_file_info,
@@ -97,5 +97,5 @@ def level1_scheduler_flow(pipeline_config_path="config.yaml", session=None):
 
 
 @flow
-def level1_process_flow(flow_id: int, pipeline_config_path="config.yaml", session=None):
+def level1_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, level1_core_flow, pipeline_config_path, session=session)

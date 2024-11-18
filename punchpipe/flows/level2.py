@@ -7,11 +7,11 @@ from prefect import flow, get_run_logger, task
 from punchbowl.level2.flow import level2_core_flow
 
 from punchpipe import __version__
-from punchpipe.controlsegment.db import File, Flow
-from punchpipe.controlsegment.processor import generic_process_flow_logic
-from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
+from punchpipe.control.db import File, Flow
+from punchpipe.control.processor import generic_process_flow_logic
+from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
-SCIENCE_LEVEL1_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
+SCIENCE_LEVEL1_TYPE_CODES = ["PM", "PZ", "PP"]# , "CR"] # TODO handle CR in a separate flow maybe
 
 
 @task
@@ -41,7 +41,8 @@ def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipe
             "data_list": [
                 os.path.join(level1_file.directory(pipeline_config["root"]), level1_file.filename())
                 for level1_file in level1_files
-            ]
+            ],
+            "voter_filenames": [[] for _ in level1_files],
         }
     )
     return Flow(
@@ -68,7 +69,7 @@ def level2_construct_file_info(level1_files: t.List[File], pipeline_config: dict
 
 
 @flow
-def level2_scheduler_flow(pipeline_config_path="config.yaml", session=None):
+def level2_scheduler_flow(pipeline_config_path=None, session=None):
     generic_scheduler_flow_logic(
         level2_query_ready_files,
         level2_construct_file_info,
@@ -79,5 +80,5 @@ def level2_scheduler_flow(pipeline_config_path="config.yaml", session=None):
 
 
 @flow
-def level2_process_flow(flow_id: int, pipeline_config_path="config.yaml", session=None):
+def level2_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, level2_core_flow, pipeline_config_path, session=session)

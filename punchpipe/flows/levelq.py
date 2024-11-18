@@ -7,9 +7,9 @@ from prefect import flow, get_run_logger, task
 from punchbowl.level2.flow import levelq_core_flow
 
 from punchpipe import __version__
-from punchpipe.controlsegment.db import File, Flow
-from punchpipe.controlsegment.processor import generic_process_flow_logic
-from punchpipe.controlsegment.scheduler import generic_scheduler_flow_logic
+from punchpipe.control.db import File, Flow
+from punchpipe.control.processor import generic_process_flow_logic
+from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 
 @task
@@ -76,7 +76,7 @@ def levelq_construct_file_info(level1_files: t.List[File], pipeline_config: dict
 
 
 @flow
-def levelq_scheduler_flow(pipeline_config_path="config.yaml", session=None):
+def levelq_scheduler_flow(pipeline_config_path=None, session=None):
     generic_scheduler_flow_logic(
         levelq_query_ready_files,
         levelq_construct_file_info,
@@ -87,5 +87,5 @@ def levelq_scheduler_flow(pipeline_config_path="config.yaml", session=None):
 
 
 @flow
-def levelq_process_flow(flow_id: int, pipeline_config_path="config.yaml", session=None):
+def levelq_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, levelq_core_flow, pipeline_config_path, session=session)

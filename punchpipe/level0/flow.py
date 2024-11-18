@@ -22,8 +22,8 @@ from punchbowl.data.wcs import calculate_helio_wcs_from_celestial, calculate_pc_
 from sqlalchemy import and_
 from sunpy.coordinates import sun
 
-from punchpipe.controlsegment.db import ENGPFWPacket, EngXACTPacket, File, SciPacket, TLMFiles, get_closest_eng_packets
-from punchpipe.controlsegment.util import get_database_session, load_pipeline_configuration
+from punchpipe.control.db import ENGPFWPacket, EngXACTPacket, File, SciPacket, TLMFiles, get_closest_eng_packets
+from punchpipe.control.util import get_database_session, load_pipeline_configuration
 from punchpipe.error import CCSDSPacketConstructionWarning, CCSDSPacketDatabaseUpdateWarning
 from punchpipe.level0.ccsds import PACKET_APID2NAME, process_telemetry_file, unpack_compression_settings
 from punchpipe.level0.meta import POSITIONS_TO_CODES, convert_pfw_position_to_polarizer, eci_quaternion_to_ra_dec

@@ -3,11 +3,12 @@ from datetime import datetime, timedelta
 
 from prefect import flow, get_run_logger, task
 from prefect.client import get_client
+from prefect.variables import Variable
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from punchpipe.controlsegment.db import Flow
-from punchpipe.controlsegment.util import get_database_session, load_pipeline_configuration
+from punchpipe.control.db import Flow
+from punchpipe.control.util import get_database_session, load_pipeline_configuration
 
 
 @task
@@ -87,7 +88,7 @@ async def launch_ready_flows(session: Session, flow_ids: List[int]) -> List:
 
 
 @flow
-async def launcher_flow(pipeline_configuration_path="config.yaml"):
+async def launcher_flow(pipeline_configuration_path=None):
     """The main launcher flow for Prefect, responsible for identifying flows, based on priority,
         that are ready to run and creating flow runs for them. It also escalates long-waiting flows' priorities.
 
@@ -99,6 +100,8 @@ async def launcher_flow(pipeline_configuration_path="config.yaml"):
     """
     logger = get_run_logger()
 
+    if pipeline_configuration_path is None:
+        pipeline_configuration_path = await Variable.get("punchpipe_config", "punchpipe_config.yaml")
     pipeline_config = load_pipeline_configuration(pipeline_configuration_path)
 
     logger.info("Establishing database connection")
