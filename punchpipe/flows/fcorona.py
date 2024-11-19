@@ -2,6 +2,7 @@ import json
 import typing as t
 import os
 from datetime import datetime, timedelta
+from random import random
 
 from prefect import flow, get_run_logger, task
 from punchbowl.level3.f_corona_model import construct_full_f_corona_model
@@ -15,7 +16,7 @@ from punchpipe.control.util import get_database_session
 
 
 @task
-def f_corona_background_query_ready_files(session, pipeline_config: dict):
+def f_corona_background_query_ready_files(session, pipeline_config: dict, use_n: int = 250):
     logger = get_run_logger()
     all_ready_files = (session.query(File)
                        .filter(File.state == "created")
@@ -24,7 +25,8 @@ def f_corona_background_query_ready_files(session, pipeline_config: dict):
                        .filter(File.observatory == "M").all())
     logger.info(f"{len(all_ready_files)} Level 2 PTM files will be used for F corona background modeling.")
     if len(all_ready_files) > 30:  #  need at least 30 images
-        return [[f.file_id for f in all_ready_files]]
+        random.shuffle(all_ready_files)
+        return [[f.file_id for f in all_ready_files[:250]]]
     else:
         return []
 
