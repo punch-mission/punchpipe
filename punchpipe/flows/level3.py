@@ -16,7 +16,7 @@ from punchpipe.control.util import get_database_session
 
 def get_valid_starfields(session, f: File, timedelta_window: timedelta):
     valid_star_start, valid_star_end = f.date_obs - timedelta_window, f.date_obs + timedelta_window
-    return (session.query(File).filter(File.state == "created").filter(File.level == "2")
+    return (session.query(File).filter(File.state == "created").filter(File.level == "3")
                         .filter(File.file_type == 'PS').filter(File.observatory == 'M')
                         .filter(and_(f.date_obs >= valid_star_start,
                                      f.date_obs <= valid_star_end)).all())
@@ -24,7 +24,7 @@ def get_valid_starfields(session, f: File, timedelta_window: timedelta):
 
 def get_valid_fcorona_models(session, f: File, before_timedelta: timedelta, after_timedelta: timedelta):
     valid_fcorona_start, valid_fcorona_end = f.date_obs - before_timedelta, f.date_obs + after_timedelta
-    return (session.query(File).filter(File.state == "created").filter(File.level == 2)
+    return (session.query(File).filter(File.state == "created").filter(File.level == "3")
                       .filter(File.file_type == 'PF').filter(File.observatory == 'M')
                       .filter(and_(f.date_obs >= valid_fcorona_start,
                                    f.date_obs <= valid_fcorona_end)).all())
