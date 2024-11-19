@@ -101,14 +101,14 @@ def serve_flows(configuration_path):
                                                                               "pipeline_config_path": configuration_path}
                                                                           )
 
-    construct_starfield_background_scheduler_deployment = construct_f_corona_background_scheduler_flow.to_deployment(name="construct_starfield-scheduler-deployment",
+    construct_starfield_background_scheduler_deployment = construct_starfield_background_scheduler_flow.to_deployment(name="construct_starfield-scheduler-deployment",
                                                                               description="Schedule a starfield background.",
                                                                               cron="* * * * *",
                                                                               parameters={
                                                                                   "pipeline_config_path": configuration_path}
 
                                                                               )
-    construct_starfield_background_process_deployment = construct_f_corona_background_process_flow.to_deployment(name="construct_starfield_background_process_flow",
+    construct_starfield_background_process_deployment = construct_starfield_background_process_flow.to_deployment(name="construct_starfield_background_process_flow",
                                                                           description="Create starfield background.",
                                                                           parameters={
                                                                               "pipeline_config_path": configuration_path}

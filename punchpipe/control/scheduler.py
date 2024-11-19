@@ -4,7 +4,9 @@ from punchpipe.control.util import get_database_session, load_pipeline_configura
 
 
 def generic_scheduler_flow_logic(
-    query_ready_files_func, construct_child_file_info, construct_child_flow_info, pipeline_config_path, session=None
+    query_ready_files_func, construct_child_file_info, construct_child_flow_info, pipeline_config_path,
+        new_file_state="progressed",
+        session=None
 ):
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
 
@@ -21,7 +23,7 @@ def generic_scheduler_flow_logic(
             parent_files = []
             for file_id in group:
                 # mark the file as progressed so that there aren't duplicate processing flows
-                update_file_state(session, file_id, "progressed")
+                update_file_state(session, file_id, new_file_state)
 
                 # get the prior level file's information
                 parent_files += session.query(File).where(File.file_id == file_id).all()

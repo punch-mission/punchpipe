@@ -1,10 +1,10 @@
 import json
 import typing as t
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from prefect import flow, get_run_logger, task
-from punchbowl.level3.f_corona_model import construct_f_corona_background
+from punchbowl.level3.f_corona_model import construct_full_f_corona_model
 from sqlalchemy import and_
 
 from punchpipe import __version__
@@ -39,7 +39,7 @@ def construct_f_corona_background_flow_info(level3_files: list[File],
     priority = pipeline_config["levels"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
-            "data_list": [
+            "filenames": [
                 os.path.join(level3_file.directory(pipeline_config["root"]), level3_file.filename())
                 for level3_file in level3_files
             ],
@@ -63,9 +63,19 @@ def construct_f_corona_background_file_info(level2_files: t.List[File], pipeline
                 observatory="M",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
-                date_obs=level2_files[0].date_obs,  # todo use the average or something
+                date_obs= datetime.now()-timedelta(days=60),
                 state="planned",
-            )]
+            ),
+        File(
+            level="3",
+            file_type="PF",
+            observatory="M",
+            file_version=pipeline_config["file_version"],
+            software_version=__version__,
+            date_obs=datetime.now()+timedelta(days=60),
+            state="planned",
+        )
+    ]
 
 @flow
 def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, session=None):
@@ -74,9 +84,10 @@ def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, sess
         construct_f_corona_background_file_info,
         construct_f_corona_background_flow_info,
         pipeline_config_path,
+        new_file_state="created",
         session=session,
     )
 
 @flow
 def construct_f_corona_background_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, construct_f_corona_background, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, construct_full_f_corona_model, pipeline_config_path, session=session)

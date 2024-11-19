@@ -2,10 +2,10 @@ import typing as t
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from prefect import flow, get_run_logger, task
-from punchbowl.level3.f_corona_model import construct_f_corona_background
+from punchbowl.level3.stellar import generate_starfield_background
 from sqlalchemy import and_
 
 
@@ -42,7 +42,7 @@ def construct_starfield_background_flow_info(level3_fcorona_subtracted_files: li
     priority = pipeline_config["levels"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
-            "data_list": [
+            "filenames": [
                 os.path.join(level3_file.directory(pipeline_config["root"]), level3_file.filename())
                 for level3_file in level3_fcorona_subtracted_files
             ],
@@ -66,9 +66,19 @@ def construct_starfield_background_file_info(level3_files: t.List[File], pipelin
                 observatory="M",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
-                date_obs=level3_files[0].date_obs,  # todo use the average or something
+                date_obs= datetime.now()-timedelta(days=60),
                 state="planned",
-            )]
+            ),
+        File(
+            level="3",
+            file_type="PS",
+            observatory="M",
+            file_version=pipeline_config["file_version"],
+            software_version=__version__,
+            date_obs=datetime.now()+timedelta(days=60),
+            state="planned",
+        )
+    ]
 
 
 @flow
@@ -78,6 +88,7 @@ def construct_starfield_background_scheduler_flow(pipeline_config_path=None, ses
         construct_starfield_background_flow_info,
         construct_starfield_background_file_info,
         pipeline_config_path,
+        new_file_state="created",
         session=session,
     )
 
@@ -85,6 +96,6 @@ def construct_starfield_background_scheduler_flow(pipeline_config_path=None, ses
 @flow
 def construct_starfield_background_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id,
-                               construct_starfield_background_file_info,
+                               generate_starfield_background,
                                pipeline_config_path,
                                session=session)
