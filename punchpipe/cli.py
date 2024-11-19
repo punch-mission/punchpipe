@@ -13,8 +13,10 @@ from punchpipe.control.launcher import launcher_flow
 from punchpipe.control.util import load_pipeline_configuration
 from punchpipe.flows.level1 import level1_process_flow, level1_scheduler_flow
 from punchpipe.flows.level2 import level2_process_flow, level2_scheduler_flow
-from punchpipe.flows.level3 import level3_PTM_process_flow, level3_PTM_scheduler_flow
+from punchpipe.flows.level3 import level3_PTM_process_flow, level3_PTM_scheduler_flow, level3_PIM_process_flow, level3_PIM_scheduler_flow
 from punchpipe.flows.levelq import levelq_process_flow, levelq_scheduler_flow
+from punchpipe.flows.starfield import construct_starfield_background_process_flow, construct_starfield_background_scheduler_flow
+from punchpipe.flows.fcorona import construct_f_corona_background_scheduler_flow, construct_f_corona_background_process_flow
 from punchpipe.monitor.app import create_app
 
 THIS_DIR = os.path.dirname(__file__)
@@ -73,6 +75,46 @@ def serve_flows(configuration_path):
                                                                   parameters={"pipeline_config_path": configuration_path}
                                                                   )
 
+    level3_PIM_scheduler_deployment = level3_PIM_scheduler_flow.to_deployment(name="level3-PIM-scheduler-deployment",
+                                                                              description="Schedule a Level 3 flow to make PIM.",
+                                                                              cron="* * * * *",
+                                                                              parameters={
+                                                                                  "pipeline_config_path": configuration_path}
+
+                                                                              )
+    level3_PIM_process_deployment = level3_PIM_process_flow.to_deployment(name="level3_PIM_process_flow",
+                                                                          description="Process to PIM files.",
+                                                                          parameters={
+                                                                              "pipeline_config_path": configuration_path}
+                                                                          )
+
+    construct_f_corona_background_scheduler_deployment = construct_f_corona_background_scheduler_flow.to_deployment(name="construct_f_corona_background-scheduler-deployment",
+                                                                              description="Schedule an F corona background.",
+                                                                              cron="* * * * *",
+                                                                              parameters={
+                                                                                  "pipeline_config_path": configuration_path}
+
+                                                                              )
+    construct_f_corona_background_process_deployment = construct_f_corona_background_process_flow.to_deployment(name="construct_f_corona_background_process_flow",
+                                                                          description="Process F corona background.",
+                                                                          parameters={
+                                                                              "pipeline_config_path": configuration_path}
+                                                                          )
+
+    construct_starfield_background_scheduler_deployment = construct_f_corona_background_scheduler_flow.to_deployment(name="construct_starfield-scheduler-deployment",
+                                                                              description="Schedule a starfield background.",
+                                                                              cron="* * * * *",
+                                                                              parameters={
+                                                                                  "pipeline_config_path": configuration_path}
+
+                                                                              )
+    construct_starfield_background_process_deployment = construct_f_corona_background_process_flow.to_deployment(name="construct_starfield_background_process_flow",
+                                                                          description="Create starfield background.",
+                                                                          parameters={
+                                                                              "pipeline_config_path": configuration_path}
+                                                                          )
+
+
     level3_PTM_scheduler_deployment = level3_PTM_scheduler_flow.to_deployment(name="level3-PTM-scheduler-deployment",
                                                                               description="Schedule a Level 3 flow to make PTM.",
                                                                               cron="* * * * *",
@@ -95,6 +137,9 @@ def serve_flows(configuration_path):
           level2_scheduler_deployment, level2_process_deployment,
           levelq_scheduler_deployment, levelq_process_deployment,
           level3_PTM_scheduler_deployment, level3_PTM_process_deployment,
+          construct_f_corona_background_process_deployment, construct_f_corona_background_scheduler_deployment,
+          construct_starfield_background_process_deployment, construct_starfield_background_scheduler_deployment,
+          level3_PIM_scheduler_deployment, level3_PIM_process_deployment,
           health_deployment,
           limit=1000
     )

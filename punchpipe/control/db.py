@@ -216,3 +216,15 @@ def get_closest_eng_packets(table, timestamp, spacecraft_id):
         gt_event = lt_event
 
     return lt_event, gt_event
+
+
+def get_closest_file(f_target: File, f_others: list[File]) -> File:
+    return min(f_others, key=lambda o: abs((f_target.date_obs - o.date_obs).total_seconds()))
+
+
+def get_closest_before_file(f_target: File, f_others: list[File]) -> File:
+    return get_closest_file(f_target, [o for o in f_others if f_target.date_obs >= o.date_obs])
+
+
+def get_closest_after_file(f_target: File, f_others: list[File]) -> File:
+    return get_closest_file(f_target, [o for o in f_others if f_target.date_obs <= o.date_obs])
