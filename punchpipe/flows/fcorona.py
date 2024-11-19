@@ -24,7 +24,7 @@ def f_corona_background_query_ready_files(session, pipeline_config: dict):
                        .filter(File.observatory == "M").all())
     logger.info(f"{len(all_ready_files)} Level 2 PTM files will be used for F corona background modeling.")
     if len(all_ready_files) > 30:  #  need at least 30 images
-        return [all_ready_files]
+        return [[f.file_id for f in all_ready_files]]
     else:
         return []
 
@@ -63,7 +63,7 @@ def construct_f_corona_background_file_info(level2_files: t.List[File], pipeline
                 observatory="M",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
-                date_obs=level2_files[0].date_obs,
+                date_obs=level2_files[0].date_obs,  # todo use the average or something
                 state="planned",
             )]
 

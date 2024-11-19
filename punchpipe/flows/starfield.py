@@ -26,7 +26,7 @@ def starfield_background_query_ready_files(session, pipeline_config: dict):
                        .filter(File.observatory == "M").all())
     logger.info(f"{len(all_ready_files)} Level 3 PIM files will be used for F corona background modeling.")
     if len(all_ready_files) >= 30:
-        return [all_ready_files]
+        return [[f.file_id for f in all_ready_files]]
     else:
         return []
 
@@ -66,7 +66,7 @@ def construct_starfield_background_file_info(level3_files: t.List[File], pipelin
                 observatory="M",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
-                date_obs=level3_files[0].date_obs,
+                date_obs=level3_files[0].date_obs,  # todo use the average or something
                 state="planned",
             )]
 
