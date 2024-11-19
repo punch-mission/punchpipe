@@ -218,7 +218,6 @@ def level3_PIM_scheduler_flow(pipeline_config_path=None, session=None):
         level3_PIM_construct_file_info,
         level3_PIM_construct_flow_info,
         pipeline_config_path,
-        new_file_state="created",
         session=session,
     )
 
