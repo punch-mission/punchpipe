@@ -68,6 +68,21 @@ def level3_PTM_construct_flow_info(level2_files: list[File], level3_file: File, 
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["levels"][flow_type]["priority"]["initial"]
+
+    f_corona_before = get_closest_before_file(level2_files[0],
+                                                                  get_valid_fcorona_models(session,
+                                                                             level2_files[0],
+                                                                             before_timedelta=timedelta(days=90),
+                                                                             after_timedelta=timedelta(days=0)))
+    f_corona_after = get_closest_after_file(level2_files[0],
+                                                                get_valid_fcorona_models(session,
+                                                                             level2_files[0],
+                                                                             before_timedelta=timedelta(days=0),
+                                                                             after_timedelta=timedelta(days=90)))
+    starfield = get_closest_file(level2_files[0],
+                                                          get_valid_starfields(session,
+                                                                             level2_files[0],
+                                                                             timedelta_window=timedelta(days=90)))
     call_data = json.dumps(
         {
             "data_list": [
@@ -75,21 +90,10 @@ def level3_PTM_construct_flow_info(level2_files: list[File], level3_file: File, 
                 for level2_file in level2_files
             ],
             # TODO put magic numbers in config
-            "before_f_corona_model_path": get_closest_before_file(level2_files[0],
-                                                                  get_valid_fcorona_models(session,
-                                                                             level2_files[0],
-                                                                             before_timedelta=timedelta(days=90),
-                                                                             after_timedelta=timedelta(days=0))),
-            "after_f_corona_model_path": get_closest_after_file(level2_files[0],
-                                                                get_valid_fcorona_models(session,
-                                                                             level2_files[0],
-                                                                             before_timedelta=timedelta(days=0),
-                                                                             after_timedelta=timedelta(days=90))),
+            "before_f_corona_model_path": os.path.join(f_corona_before.directory(pipeline_config["root"]), f_corona_before.filename()),
+            "after_f_corona_model_path": os.path.join(f_corona_after.directory(pipeline_config["root"]), f_corona_after.filename()),
             # TODO put magic numbers in config
-            "starfield_background_path": get_closest_file(level2_files[0],
-                                                          get_valid_starfields(session,
-                                                                             level2_files[0],
-                                                                             timedelta_window=timedelta(days=90))),
+            "starfield_background_path": os.path.join(starfield.directory(pipeline_config["root"]), starfield.filename()),
         }
     )
     return Flow(
@@ -163,6 +167,16 @@ def level3_PIM_construct_flow_info(level2_files: list[File], level3_file: File, 
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["levels"][flow_type]["priority"]["initial"]
+    f_corona_before = get_closest_before_file(level2_files[0],
+                                                                  get_valid_fcorona_models(session,
+                                                                             level2_files[0],
+                                                                             before_timedelta=timedelta(days=90),
+                                                                             after_timedelta=timedelta(days=0)))
+    f_corona_after = get_closest_after_file(level2_files[0],
+                                                                get_valid_fcorona_models(session,
+                                                                             level2_files[0],
+                                                                             before_timedelta=timedelta(days=0),
+                                                                             after_timedelta=timedelta(days=90)))
     call_data = json.dumps(
         {
             "data_list": [
@@ -170,16 +184,8 @@ def level3_PIM_construct_flow_info(level2_files: list[File], level3_file: File, 
                 for level2_file in level2_files
             ],
             # TODO put magic numbers in config
-            "before_f_corona_model_path": get_closest_before_file(level2_files[0],
-                                                                  get_valid_fcorona_models(session,
-                                                                             level2_files[0],
-                                                                             before_timedelta=timedelta(days=90),
-                                                                             after_timedelta=timedelta(days=0))),
-            "after_f_corona_model_path": get_closest_after_file(level2_files[0],
-                                                                get_valid_fcorona_models(session,
-                                                                             level2_files[0],
-                                                                             before_timedelta=timedelta(days=0),
-                                                                             after_timedelta=timedelta(days=90))),
+            "before_f_corona_model_path": os.path.join(f_corona_before.directory(pipeline_config["root"]), f_corona_before.filename()),
+            "after_f_corona_model_path": os.path.join(f_corona_after.directory(pipeline_config["root"]), f_corona_after.filename()),
         }
     )
     return Flow(
