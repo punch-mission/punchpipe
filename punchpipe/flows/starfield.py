@@ -66,7 +66,7 @@ def construct_starfield_background_file_info(level3_files: t.List[File], pipelin
                 observatory="M",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
-                date_obs= datetime.now()-timedelta(days=60),
+                date_obs= datetime(2024, 8, 1, 12, 0, 0), # datetime.now()-timedelta(days=60),
                 state="planned",
             ),
         File(
@@ -75,7 +75,7 @@ def construct_starfield_background_file_info(level3_files: t.List[File], pipelin
             observatory="M",
             file_version=pipeline_config["file_version"],
             software_version=__version__,
-            date_obs=datetime.now()+timedelta(days=60),
+            date_obs=datetime(2024, 12, 1, 12, 0, 0), # datetime.now()+timedelta(days=60),
             state="planned",
         )
     ]
