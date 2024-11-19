@@ -85,8 +85,8 @@ def construct_starfield_background_file_info(level3_files: t.List[File], pipelin
 def construct_starfield_background_scheduler_flow(pipeline_config_path=None, session=None):
     generic_scheduler_flow_logic(
         starfield_background_query_ready_files,
-        construct_starfield_background_flow_info,
         construct_starfield_background_file_info,
+        construct_starfield_background_flow_info,
         pipeline_config_path,
         new_file_state="created",
         session=session,
