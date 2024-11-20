@@ -20,6 +20,7 @@ from punchpipe.flows.starfield import construct_starfield_background_process_flo
 from punchpipe.flows.fcorona import construct_f_corona_background_scheduler_flow, construct_f_corona_background_process_flow
 from punchpipe.monitor.app import create_app
 
+mp.set_start_method('spawn')
 THIS_DIR = os.path.dirname(__file__)
 app = create_app()
 server = app.server
@@ -27,7 +28,6 @@ server = app.server
 @click.group
 def main():
     """Run the PUNCH automated pipeline"""
-    mp.set_start_method('spawn')
 
 
 @flow
