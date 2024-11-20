@@ -3,6 +3,7 @@ import time
 import subprocess
 from pathlib import Path
 from datetime import datetime
+import multiprocessing as mp
 
 import click
 from prefect import flow, serve
@@ -148,6 +149,8 @@ def serve_flows(configuration_path):
 @main.command
 @click.argument("configuration_path", type=click.Path(exists=True))
 def run(configuration_path):
+    mp.set_start_method('spawn')
+
     now = datetime.now()
 
     configuration_path = str(Path(configuration_path).resolve())
