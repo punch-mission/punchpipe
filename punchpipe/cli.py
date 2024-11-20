@@ -27,6 +27,7 @@ server = app.server
 @click.group
 def main():
     """Run the PUNCH automated pipeline"""
+    mp.set_start_method('spawn')
 
 
 @flow
@@ -149,8 +150,6 @@ def serve_flows(configuration_path):
 @main.command
 @click.argument("configuration_path", type=click.Path(exists=True))
 def run(configuration_path):
-    mp.set_start_method('spawn')
-
     now = datetime.now()
 
     configuration_path = str(Path(configuration_path).resolve())
