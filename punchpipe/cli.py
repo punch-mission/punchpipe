@@ -53,7 +53,7 @@ def serve_flows(configuration_path):
 
     level1_scheduler_deployment = level1_scheduler_flow.to_deployment(name="level1-scheduler-deployment",
                                                                       description="Schedule a Level 1 flow.",
-                                                                      cron="* * * * *",
+                                                                      cron=config['levels']['level1_process_flow'].get("schedule", "* * * * *"),
                                                                       parameters={"pipeline_config_path": configuration_path}
                                                                       )
     level1_process_deployment = level1_process_flow.to_deployment(name="level1_process_flow",
@@ -63,7 +63,7 @@ def serve_flows(configuration_path):
 
     level2_scheduler_deployment = level2_scheduler_flow.to_deployment(name="level2-scheduler-deployment",
                                                                       description="Schedule a Level 2 flow.",
-                                                                      cron="* * * * *",
+                                                                      cron=config['levels']['level2_process_flow'].get("schedule", "* * * * *"),
                                                                       parameters={
                                                                           "pipeline_config_path": configuration_path}
 
@@ -75,7 +75,7 @@ def serve_flows(configuration_path):
 
     levelq_scheduler_deployment = levelq_scheduler_flow.to_deployment(name="levelq-scheduler-deployment",
                                                                       description="Schedule a Level Q flow.",
-                                                                      cron="* * * * *",
+                                                                      cron=config['levels']['levelq_process_flow'].get("schedule", "* * * * *"),
                                                                       parameters={
                                                                           "pipeline_config_path": configuration_path}
 
@@ -87,7 +87,7 @@ def serve_flows(configuration_path):
 
     level3_PIM_scheduler_deployment = level3_PIM_scheduler_flow.to_deployment(name="level3-PIM-scheduler-deployment",
                                                                               description="Schedule a Level 3 flow to make PIM.",
-                                                                              cron="* * * * *",
+                                                                              cron=config['levels']['level3_PIM_process_flow'].get("schedule", "* * * * *"),
                                                                               parameters={
                                                                                   "pipeline_config_path": configuration_path}
 
@@ -127,7 +127,7 @@ def serve_flows(configuration_path):
 
     level3_PTM_scheduler_deployment = level3_PTM_scheduler_flow.to_deployment(name="level3-PTM-scheduler-deployment",
                                                                               description="Schedule a Level 3 flow to make PTM.",
-                                                                              cron="* * * * *",
+                                                                              cron=config['levels']['level3_PTM_process_flow'].get("schedule", "* * * * *"),
                                                                               parameters={
                                                                                   "pipeline_config_path": configuration_path}
 
