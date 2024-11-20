@@ -186,12 +186,14 @@ def run(configuration_path):
         except KeyboardInterrupt:
             print("Shutting down.")
             prefect_process.terminate()
+            time.sleep(10)
             monitor_process.terminate()
             print()
             print("punchpipe safely shut down.")
         except Exception as e:
             print(f"Received error: {e}")
             prefect_process.terminate()
+            time.sleep(10)
             monitor_process.terminate()
             print()
             print("punchpipe abruptly shut down.")
