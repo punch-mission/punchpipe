@@ -26,7 +26,7 @@ server = app.server
 
 def main():
     """Run the PUNCH automated pipeline"""
-    mp.set_start_method('spawn')
+    # mp.set_start_method('spawn')
     parser = argparse.ArgumentParser(prog='punchpipe')
     subparsers = parser.add_subparsers(dest='command')
 
