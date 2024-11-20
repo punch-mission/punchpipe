@@ -19,7 +19,7 @@ from punchpipe.control.util import get_database_session
 def f_corona_background_query_ready_files(session, pipeline_config: dict, use_n: int = 250):
     logger = get_run_logger()
     all_ready_files = (session.query(File)
-                       .filter(File.state == "created")
+                       .filter(File.state.in_(["created", "progressed"]))
                        .filter(File.level == "2")
                        .filter(File.file_type == "PT")
                        .filter(File.observatory == "M").all())
