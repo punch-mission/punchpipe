@@ -1,3 +1,4 @@
+import argparse
 import os
 import time
 import subprocess
@@ -5,7 +6,6 @@ from pathlib import Path
 from datetime import datetime
 import multiprocessing as mp
 
-import click
 from prefect import flow, serve
 from prefect.variables import Variable
 
@@ -20,15 +20,23 @@ from punchpipe.flows.starfield import construct_starfield_background_process_flo
 from punchpipe.flows.fcorona import construct_f_corona_background_scheduler_flow, construct_f_corona_background_process_flow
 from punchpipe.monitor.app import create_app
 
-mp.set_start_method('spawn')
 THIS_DIR = os.path.dirname(__file__)
 app = create_app()
 server = app.server
 
-@click.group
 def main():
     """Run the PUNCH automated pipeline"""
+    mp.set_start_method('spawn')
+    parser = argparse.ArgumentParser(prog='punchpipe')
+    subparsers = parser.add_subparsers(dest='command')
 
+    run_parser = subparsers.add_parser('run', help='Run the pipline')
+    run_parser.add_argument('config', type=str, help='Path to config for running')
+
+    args = parser.parse_args()
+
+    if args.command == 'run':
+        run(args.config)
 
 @flow
 def my_flow():
@@ -146,9 +154,6 @@ def serve_flows(configuration_path):
           limit=1000
     )
 
-
-@main.command
-@click.argument("configuration_path", type=click.Path(exists=True))
 def run(configuration_path):
     now = datetime.now()
 
