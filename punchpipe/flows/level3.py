@@ -33,7 +33,7 @@ def get_valid_fcorona_models(session, f: File, before_timedelta: timedelta, afte
 @task
 def level3_PTM_query_ready_files(session, pipeline_config: dict):
     logger = get_run_logger()
-    all_ready_files = session.query(File).where(and_(and_(File.state == "created",
+    all_ready_files = session.query(File).where(and_(and_(File.state.in_(["progressed", "created"]),
                                                           File.level == "2"),
                                                      File.file_type == "PT")).all()
     logger.info(f"{len(all_ready_files)} Level 3 PTM files need to be processed.")
