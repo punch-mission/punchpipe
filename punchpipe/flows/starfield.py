@@ -13,7 +13,7 @@ from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 
 @task
-def starfield_background_query_ready_files(session, pipeline_config: dict):
+def starfield_background_query_ready_files(session, pipeline_config: dict, reference_time=None):
     logger = get_run_logger()
     all_ready_files = (session.query(File)
                        .filter(File.state == "created")
@@ -31,7 +31,7 @@ def starfield_background_query_ready_files(session, pipeline_config: dict):
 def construct_starfield_background_flow_info(level3_fcorona_subtracted_files: list[File],
                                              level3_starfield_model_file: File,
                                              pipeline_config: dict,
-                                             session=None):
+                                             session=None, reference_time=None):
     flow_type = "construct_starfield_background_process_flow"
     state = "planned"
     creation_time = datetime.now()
@@ -42,6 +42,7 @@ def construct_starfield_background_flow_info(level3_fcorona_subtracted_files: li
                 os.path.join(level3_file.directory(pipeline_config["root"]), level3_file.filename())
                 for level3_file in level3_fcorona_subtracted_files
             ])),
+            "reference_time": reference_time
         }
     )
     return Flow(
@@ -55,7 +56,7 @@ def construct_starfield_background_flow_info(level3_fcorona_subtracted_files: li
 
 
 @task
-def construct_starfield_background_file_info(level3_files: t.List[File], pipeline_config: dict) -> t.List[File]:
+def construct_starfield_background_file_info(level3_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
     return [File(
                 level="3",
                 file_type="PS",
@@ -78,13 +79,14 @@ def construct_starfield_background_file_info(level3_files: t.List[File], pipelin
 
 
 @flow
-def construct_starfield_background_scheduler_flow(pipeline_config_path=None, session=None):
+def construct_starfield_background_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
     generic_scheduler_flow_logic(
         starfield_background_query_ready_files,
         construct_starfield_background_file_info,
         construct_starfield_background_flow_info,
         pipeline_config_path,
-        new_file_state="created",
+        update_input_file_state=False,
+        reference_time=reference_time,
         session=session,
     )
 
