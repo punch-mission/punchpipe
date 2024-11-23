@@ -15,13 +15,13 @@ from punchpipe.control.scheduler import generic_scheduler_flow_logic
 SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
 
 @task
-def level1_query_ready_files(session, pipeline_config: dict):
+def level1_query_ready_files(session, pipeline_config: dict, reference_time=None):
     return [[f.file_id] for f in session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL0_TYPE_CODES))
     .where(and_(File.state == "created",  File.level == "0")).all()]
 
 
 @task
-def get_psf_model_path(level0_file, pipeline_config: dict, session=None):
+def get_psf_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
     corresponding_psf_model_type = {"PM": "RM",
                                     "PZ": "RZ",
                                     "PP": "RP",
@@ -35,7 +35,7 @@ def get_psf_model_path(level0_file, pipeline_config: dict, session=None):
     return os.path.join(best_model.directory(pipeline_config['root']), best_model.filename())
 
 @task
-def get_quartic_model_path(level0_file, pipeline_config: dict, session=None):
+def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
     best_model = (session.query(File)
                   .filter(File.file_type == 'FQ')
                   .filter(File.observatory == level0_file.observatory)
@@ -44,7 +44,8 @@ def get_quartic_model_path(level0_file, pipeline_config: dict, session=None):
     return os.path.join(best_model.directory(pipeline_config['root']), best_model.filename())
 
 @task
-def level1_construct_flow_info(level0_files: list[File], level1_files: File, pipeline_config: dict, session=None):
+def level1_construct_flow_info(level0_files: list[File], level1_files: File,
+                               pipeline_config: dict, session=None, reference_time=None):
     flow_type = "level1_process_flow"
     state = "planned"
     creation_time = datetime.now()
@@ -70,7 +71,7 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File, pip
 
 
 @task
-def level1_construct_file_info(level0_files: t.List[File], pipeline_config: dict) -> t.List[File]:
+def level1_construct_file_info(level0_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
     return [
         File(
             level="1",
@@ -86,12 +87,13 @@ def level1_construct_file_info(level0_files: t.List[File], pipeline_config: dict
 
 
 @flow
-def level1_scheduler_flow(pipeline_config_path=None, session=None):
+def level1_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
     generic_scheduler_flow_logic(
         level1_query_ready_files,
         level1_construct_file_info,
         level1_construct_flow_info,
         pipeline_config_path,
+        reference_time=reference_time,
         session=session,
     )
 

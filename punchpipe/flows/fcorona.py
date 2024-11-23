@@ -14,7 +14,7 @@ from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 
 @task
-def f_corona_background_query_ready_files(session, pipeline_config: dict, use_n: int = 250):
+def f_corona_background_query_ready_files(session, pipeline_config: dict, use_n: int = 250, reference_time=None):
     logger = get_run_logger()
     all_ready_files = (session.query(File)
                        .filter(File.state.in_(["created", "progressed"]))
@@ -32,7 +32,7 @@ def f_corona_background_query_ready_files(session, pipeline_config: dict, use_n:
 def construct_f_corona_background_flow_info(level3_files: list[File],
                                             level3_f_model_file: File,
                                             pipeline_config: dict,
-                                            session=None):
+                                            session=None, reference_time=None):
     flow_type = "construct_f_corona_background_process_flow"
     state = "planned"
     creation_time = datetime.now()
@@ -56,7 +56,7 @@ def construct_f_corona_background_flow_info(level3_files: list[File],
 
 
 @task
-def construct_f_corona_background_file_info(level2_files: t.List[File], pipeline_config: dict) -> t.List[File]:
+def construct_f_corona_background_file_info(level2_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
     return [File(
                 level="3",
                 file_type="PF",
@@ -65,26 +65,17 @@ def construct_f_corona_background_file_info(level2_files: t.List[File], pipeline
                 software_version=__version__,
                 date_obs= datetime(2024, 8, 1, 12, 0, 0), #datetime.now()-timedelta(days=60),
                 state="planned",
-            ),
-        File(
-            level="3",
-            file_type="PF",
-            observatory="M",
-            file_version=pipeline_config["file_version"],
-            software_version=__version__,
-            date_obs=datetime(2024, 12, 1, 12, 0, 0), # datetime.now()+timedelta(days=60),
-            state="planned",
-        )
-    ]
+            ),]
 
 @flow
-def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, session=None):
+def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
     generic_scheduler_flow_logic(
         f_corona_background_query_ready_files,
         construct_f_corona_background_file_info,
         construct_f_corona_background_flow_info,
         pipeline_config_path,
-        new_file_state="created",
+        update_input_file_state=False,
+        reference_time=reference_time,
         session=session,
     )
 

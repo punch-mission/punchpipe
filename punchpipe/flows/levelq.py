@@ -13,7 +13,7 @@ from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 
 @task
-def levelq_query_ready_files(session, pipeline_config: dict):
+def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None):
     logger = get_run_logger()
     all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(File.level == "1")
@@ -29,7 +29,7 @@ def levelq_query_ready_files(session, pipeline_config: dict):
 
 
 @task
-def levelq_construct_flow_info(level1_files: list[File], levelq_file: File, pipeline_config: dict, session=None):
+def levelq_construct_flow_info(level1_files: list[File], levelq_file: File, pipeline_config: dict, session=None, reference_time=None):
     flow_type = "levelq_process_flow"
     state = "planned"
     creation_time = datetime.now()
@@ -53,7 +53,7 @@ def levelq_construct_flow_info(level1_files: list[File], levelq_file: File, pipe
 
 
 @task
-def levelq_construct_file_info(level1_files: t.List[File], pipeline_config: dict) -> t.List[File]:
+def levelq_construct_file_info(level1_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
     return [File(
                 level="Q",
                 file_type="CT",
@@ -76,12 +76,13 @@ def levelq_construct_file_info(level1_files: t.List[File], pipeline_config: dict
 
 
 @flow
-def levelq_scheduler_flow(pipeline_config_path=None, session=None):
+def levelq_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
     generic_scheduler_flow_logic(
         levelq_query_ready_files,
         levelq_construct_file_info,
         levelq_construct_flow_info,
         pipeline_config_path,
+        reference_time=reference_time,
         session=session,
     )
 
