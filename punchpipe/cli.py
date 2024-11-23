@@ -38,11 +38,6 @@ def main():
     if args.command == 'run':
         run(args.config)
 
-@flow
-def my_flow():
-    print("Hello, Prefect!")
-
-
 def serve_flows(configuration_path):
     config = load_pipeline_configuration.fn(configuration_path)
     launcher_deployment = launcher_flow.to_deployment(name="launcher-deployment",
