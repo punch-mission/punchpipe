@@ -1,19 +1,15 @@
-import typing as t
-
-import json
 import os
-from datetime import datetime, timedelta
+import json
+import typing as t
+from datetime import datetime
 
 from prefect import flow, get_run_logger, task
 from punchbowl.level3.stellar import generate_starfield_background
-from sqlalchemy import and_
-
 
 from punchpipe import __version__
 from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
-from punchpipe.control.util import get_database_session
 
 
 @task
