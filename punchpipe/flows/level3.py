@@ -166,7 +166,7 @@ def level3_PIM_construct_flow_info(level2_files: list[File], level3_file: File, 
                                    session=None, reference_time=None):
     session = get_database_session()  # TODO: replace so this works in the tests by passing in a test
 
-    flow_type = "level3_PIM_process_flow"
+    flow_type = "L3_PIM"
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["levels"][flow_type]["priority"]["initial"]

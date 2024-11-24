@@ -68,7 +68,7 @@ def construct_f_corona_background_file_info(level2_files: t.List[File], pipeline
             ),]
 
 @flow
-def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
+def f_corona_scheduler(pipeline_config_path=None, session=None, reference_time=None):
     generic_scheduler_flow_logic(
         f_corona_background_query_ready_files,
         construct_f_corona_background_file_info,
@@ -80,5 +80,5 @@ def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, sess
     )
 
 @flow
-def construct_f_corona_background_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+def f_corona_process(flow_id: int, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, construct_full_f_corona_model, pipeline_config_path, session=session)
