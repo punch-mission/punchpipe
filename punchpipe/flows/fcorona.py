@@ -32,7 +32,8 @@ def f_corona_background_query_ready_files(session, pipeline_config: dict, use_n:
 def construct_f_corona_background_flow_info(level3_files: list[File],
                                             level3_f_model_file: File,
                                             pipeline_config: dict,
-                                            session=None, reference_time=None):
+                                            session=None,
+                                            reference_time=None):
     flow_type = "construct_f_corona_background_process_flow"
     state = "planned"
     creation_time = datetime.now()
@@ -43,6 +44,7 @@ def construct_f_corona_background_flow_info(level3_files: list[File],
                 os.path.join(level3_file.directory(pipeline_config["root"]), level3_file.filename())
                 for level3_file in level3_files
             ],
+            "reference_time": reference_time
         }
     )
     return Flow(
@@ -63,7 +65,7 @@ def construct_f_corona_background_file_info(level2_files: t.List[File], pipeline
                 observatory="M",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
-                date_obs= datetime(2024, 8, 1, 12, 0, 0), #datetime.now()-timedelta(days=60),
+                date_obs= reference_time,
                 state="planned",
             ),]
 
