@@ -2,7 +2,7 @@ import os
 import json
 import random
 import typing as t
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from prefect import flow, get_run_logger, task
 from punchbowl.level3.f_corona_model import construct_polarized_f_corona_model
@@ -15,9 +15,15 @@ from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 @task
 def f_corona_background_query_ready_files(session, pipeline_config: dict, use_n: int = 250, reference_time=None):
+    reference_time = reference_time or datetime.now()
+    before = reference_time - timedelta(weeks=2)
+    after = reference_time + timedelta(weeks=2)
+
     logger = get_run_logger()
     all_ready_files = (session.query(File)
                        .filter(File.state.in_(["created", "progressed"]))
+                       .filter(File.date_obs >= before)
+                       .filter(File.date_obs <= after)
                        .filter(File.level == "2")
                        .filter(File.file_type == "PT")
                        .filter(File.observatory == "M").all())
