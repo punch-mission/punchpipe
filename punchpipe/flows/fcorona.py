@@ -30,7 +30,7 @@ def f_corona_background_query_ready_files(session, pipeline_config: dict, use_n:
     logger.info(f"{len(all_ready_files)} Level 2 PTM files will be used for F corona background modeling.")
     if len(all_ready_files) > 30:  #  need at least 30 images
         random.shuffle(all_ready_files)
-        return [[f.file_id for f in all_ready_files[:250]]]
+        return [[f.file_id for f in all_ready_files[:use_n]]]
     else:
         return []
 
