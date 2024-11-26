@@ -15,7 +15,7 @@ from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 
 @task
-def f_corona_background_query_ready_files(session, pipeline_config: dict, use_n: int = 250,
+def f_corona_background_query_ready_files(session, pipeline_config: dict, use_n: int = 50,
                                           reference_time: datetime =None):
     reference_time = reference_time or datetime.now()
     before = reference_time - timedelta(weeks=2)
