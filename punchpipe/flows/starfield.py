@@ -42,7 +42,7 @@ def construct_starfield_background_flow_info(level3_fcorona_subtracted_files: li
                 os.path.join(level3_file.directory(pipeline_config["root"]), level3_file.filename())
                 for level3_file in level3_fcorona_subtracted_files
             ])),
-            "reference_time": reference_time
+            "reference_time": str(reference_time)
         }
     )
     return Flow(
