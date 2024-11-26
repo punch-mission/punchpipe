@@ -2,6 +2,7 @@ import os
 import json
 import typing as t
 from datetime import datetime, timedelta
+from dateutil.parser import parse as parse_datetime_str
 
 from prefect import flow, get_run_logger, task
 from punchbowl.level3.flow import level3_core_flow, level3_PIM_flow
@@ -215,7 +216,9 @@ def level3_PIM_construct_file_info(level2_files: t.List[File], pipeline_config: 
 
 
 @flow
-def level3_PIM_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
+def level3_PIM_scheduler_flow(pipeline_config_path=None, session=None, reference_time:datetime=None):
+    if not isinstance(reference_time, datetime):
+        reference_time = parse_datetime_str(reference_time)
     generic_scheduler_flow_logic(
         level3_PIM_query_ready_files,
         level3_PIM_construct_file_info,

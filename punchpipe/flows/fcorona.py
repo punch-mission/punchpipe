@@ -3,6 +3,7 @@ import json
 import random
 import typing as t
 from datetime import datetime, timedelta
+from dateutil.parser import parse as parse_datetime_str
 
 from prefect import flow, get_run_logger, task
 from punchbowl.level3.f_corona_model import construct_polarized_f_corona_model
@@ -77,6 +78,9 @@ def construct_f_corona_background_file_info(level2_files: t.List[File], pipeline
 
 @flow
 def f_corona_scheduler(pipeline_config_path=None, session=None, reference_time=None):
+    if not isinstance(reference_time, datetime):
+        reference_time = parse_datetime_str(reference_time)
+
     generic_scheduler_flow_logic(
         f_corona_background_query_ready_files,
         construct_f_corona_background_file_info,
