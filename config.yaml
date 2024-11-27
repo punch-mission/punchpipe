@@ -54,7 +54,7 @@ levels:
     schedule: "* * * * *"
     options:
 
-  level3_PTM_process_flow:
+  L3_PTM:
     priority:
       initial: 10000
       seconds: [1]
@@ -62,7 +62,7 @@ levels:
     schedule: "* * * * *"
     options:
 
-  level3_PIM_process_flow:
+  L3_PIM:
     priority:
       initial: 10000
       seconds: [1]
@@ -70,7 +70,7 @@ levels:
     schedule: "* * * * *"
     options:
 
-  construct_f_corona_background_process_flow:
+  f_corona:
     priority:
       initial: 10000
       seconds: [1]
@@ -78,7 +78,7 @@ levels:
     schedule: "* * * * *"
     options:
 
-  construct_starfield_background_process_flow:
+  starfield:
     priority:
       initial: 10000
       seconds: [1]
