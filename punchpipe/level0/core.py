@@ -262,4 +262,3 @@ def form_from_jpeg_compressed(packets):
     """Form a JPEG-LS image from packets"""
     img = pylibjpeg.decode(packets.tobytes())
     return img
-
