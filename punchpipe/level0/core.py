@@ -16,7 +16,7 @@ from punchbowl.data.wcs import calculate_helio_wcs_from_celestial, calculate_pc_
 from sunpy.coordinates import sun
 
 from punchpipe.control.db import ENGPFWPacket, EngXACTPacket, SciPacket, TLMFiles, get_closest_eng_packets
-from punchpipe.control.util import get_database_session, load_pipeline_configuration
+from punchpipe.control.util import get_database_session
 from punchpipe.error import CCSDSPacketConstructionWarning, CCSDSPacketDatabaseUpdateWarning
 from punchpipe.level0.ccsds import PACKET_APID2NAME, process_telemetry_file, get_single_packet
 from punchpipe.level0.meta import eci_quaternion_to_ra_dec

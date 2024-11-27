@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 from ndcube import NDCube
 from prefect import flow
-from prefect.blocks.system import Secret
 from punchbowl.data import get_base_file_name
 from punchbowl.data.io import write_ndcube_to_fits
 from punchbowl.data.meta import NormalizedMetadata
