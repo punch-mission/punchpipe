@@ -5,6 +5,7 @@ import importlib.metadata
 from glob import glob
 from datetime import datetime, timedelta
 
+import astropy.time
 import numpy as np
 import pylibjpeg
 import pymysql
@@ -17,7 +18,7 @@ from sunpy.coordinates import sun
 from punchpipe.control.db import ENGPFWPacket, EngXACTPacket, SciPacket, TLMFiles, get_closest_eng_packets
 from punchpipe.control.util import get_database_session, load_pipeline_configuration
 from punchpipe.error import CCSDSPacketConstructionWarning, CCSDSPacketDatabaseUpdateWarning
-from punchpipe.level0.ccsds import PACKET_APID2NAME, process_telemetry_file
+from punchpipe.level0.ccsds import PACKET_APID2NAME, process_telemetry_file, get_single_packet
 from punchpipe.level0.meta import eci_quaternion_to_ra_dec
 
 software_version = importlib.metadata.version("punchpipe")
@@ -37,11 +38,11 @@ class PacketEncoder(json.JSONEncoder):
 
 
 @task
-def detect_new_tlm_files(session=None) -> [str]:
+def detect_new_tlm_files(pipeline_config: dict, session=None) -> [str]:
     if session is None:
         session = get_database_session()
 
-    tlm_directory = load_pipeline_configuration()['tlm_directory']
+    tlm_directory = pipeline_config['tlm_directory']
     found_tlm_files = set(glob(tlm_directory + '/*.tlm'))
     database_tlm_files = set(session.query(TLMFiles.path).distinct().all())
     return list(found_tlm_files - database_tlm_files)
@@ -137,7 +138,6 @@ def form_packet_entry(apid, packet, packet_num, source_tlm_file_id):
                 PFW_STATUS=packet['PFW_STATUS'],
                 STEP_CALC=packet['STEP_CALC'],
                 LAST_CMD_N_STEPS=packet['LAST_CMD_N_STEPS'],
-                HOME_POSITION_OVRD=packet['HOME_POSITION_OVRD'],
                 POSITION_CURR=packet['POSITION_CURR'],
                 POSITION_CMD=packet['POSITION_CMD'],
                 RESOLVER_POS_RAW=packet['RESOLVER_POS_RAW'],
@@ -183,9 +183,10 @@ def form_packet_entry(apid, packet, packet_num, source_tlm_file_id):
             )
         case _:
             warnings.warn("Unable to add packet to database.", CCSDSPacketDatabaseUpdateWarning)
+            return None
 
 @task
-def update_tlm_database(packets, telemetry_file_path: str, session=None):
+def update_tlm_database(packets, tlm_id: int, session=None):
     if session is None:
         session = get_database_session()
 
@@ -193,8 +194,10 @@ def update_tlm_database(packets, telemetry_file_path: str, session=None):
         for i in range(len(this_apid_packets['CCSDS_APID'])):
             if apid in PACKET_APID2NAME:
                 try:
-                    this_packet = form_packet_entry(apid, this_apid_packets[i], i, telemetry_file_path)
-                    session.add(this_packet)
+                    this_packet = form_packet_entry(apid, get_single_packet(this_apid_packets, i),
+                                                    i, tlm_id)
+                    if this_packet is not None:
+                        session.add(this_packet)
                 except (sqlalchemy.exc.DataError, pymysql.err.DataError) as e:
                     warnings.warn(f"Unable to add packet to database, {e}.", CCSDSPacketDatabaseUpdateWarning)
         session.commit()
@@ -205,34 +208,36 @@ def interpolate_value(query_time, before_time, before_value, after_time, after_v
         return before_value
     elif query_time == after_time:
         return after_value
+    elif before_time == after_time:
+        return after_value
     else:
         return ((after_value - before_value)
-         * (query_time - before_time) / (after_time - before_value)
+         * (query_time - before_time) / (after_time - before_time)
          + before_value)
 
-def get_fits_metadata(observation_time, spacecraft_id):
-    before_xact, after_xact = get_closest_eng_packets(EngXACTPacket, observation_time, spacecraft_id)
+def get_fits_metadata(observation_time, spacecraft_id, session):
+    before_xact, after_xact = get_closest_eng_packets(EngXACTPacket, observation_time, spacecraft_id, session)
     ATT_DET_Q_BODY_WRT_ECI1 = interpolate_value(observation_time,
-                                                before_xact.timestamp, before_xact['ATT_DET_Q_BODY_WRT_ECI1'],
-                                                after_xact.timestam, after_xact['ATT_DET_Q_BODY_WRT_ECI1'])
+                                                before_xact.timestamp, before_xact.ATT_DET_Q_BODY_WRT_ECI1,
+                                                after_xact.timestamp, after_xact.ATT_DET_Q_BODY_WRT_ECI1)
     ATT_DET_Q_BODY_WRT_ECI2 = interpolate_value(observation_time,
-                                                before_xact.timestamp, before_xact['ATT_DET_Q_BODY_WRT_ECI2'],
-                                                after_xact.timestam, after_xact['ATT_DET_Q_BODY_WRT_ECI2'])
+                                                before_xact.timestamp, before_xact.ATT_DET_Q_BODY_WRT_ECI2,
+                                                after_xact.timestamp, after_xact.ATT_DET_Q_BODY_WRT_ECI2)
     ATT_DET_Q_BODY_WRT_ECI3 = interpolate_value(observation_time,
-                                                before_xact.timestamp, before_xact['ATT_DET_Q_BODY_WRT_ECI3'],
-                                                after_xact.timestam, after_xact['ATT_DET_Q_BODY_WRT_ECI3'])
+                                                before_xact.timestamp, before_xact.ATT_DET_Q_BODY_WRT_ECI3,
+                                                after_xact.timestamp, after_xact.ATT_DET_Q_BODY_WRT_ECI3)
     ATT_DET_Q_BODY_WRT_ECI4 = interpolate_value(observation_time,
-                                                before_xact.timestamp, before_xact['ATT_DET_Q_BODY_WRT_ECI4'],
-                                                after_xact.timestam, after_xact['ATT_DET_Q_BODY_WRT_ECI4'])
+                                                before_xact.timestamp, before_xact.ATT_DET_Q_BODY_WRT_ECI4,
+                                                after_xact.timestamp, after_xact.ATT_DET_Q_BODY_WRT_ECI4)
 
-    before_pfw, _ = get_closest_eng_packets(ENGPFWPacket, observation_time, spacecraft_id)
+    before_pfw, _ = get_closest_eng_packets(ENGPFWPacket, observation_time, spacecraft_id, session)
     return {'spacecraft_id': spacecraft_id,
             'datetime': observation_time,
             'ATT_DET_Q_BODY_WRT_ECI1': ATT_DET_Q_BODY_WRT_ECI1,
             'ATT_DET_Q_BODY_WRT_ECI2': ATT_DET_Q_BODY_WRT_ECI2,
             'ATT_DET_Q_BODY_WRT_ECI3': ATT_DET_Q_BODY_WRT_ECI3,
             'ATT_DET_Q_BODY_WRT_ECI4': ATT_DET_Q_BODY_WRT_ECI4,
-            'POSITION_CURR': before_pfw['POSITION_CURR']}
+            'POSITION_CURR': before_pfw.POSITION_CURR}
 
 
 def form_preliminary_wcs(metadata, plate_scale):
@@ -252,7 +257,7 @@ def form_preliminary_wcs(metadata, plate_scale):
     celestial_wcs.wcs.ctype = f"RA--{projection}", f"DEC-{projection}"
     celestial_wcs.wcs.cunit = "deg", "deg"
 
-    return calculate_helio_wcs_from_celestial(celestial_wcs, metadata['datetime'], (2048, 2048))
+    return calculate_helio_wcs_from_celestial(celestial_wcs, astropy.time.Time(metadata['datetime']), (2048, 2048))[0]
 
 def image_is_okay(image, pipeline_config):
     """Check that the formed image conforms to image quality expectations"""
