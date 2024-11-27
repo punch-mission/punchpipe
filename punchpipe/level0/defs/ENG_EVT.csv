@@ -1,5 +1,4 @@
 name,data_type,bit_length
-ENG_EVT_HDR_LEN,uint,16
 ENG_EVT_HDR_SCID,uint,8
 ENG_EVT_HDR_FILL1,uint,1
 ENG_EVT_HDR_FLASH_BLOCK,uint,15

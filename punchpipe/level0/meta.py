@@ -43,7 +43,7 @@ def eci_quaternion_to_ra_dec(q):
     z_body = R @ z_eci
 
     # Calculate RA and Dec from the rotated z-vector
-    c = SkyCoord(z_body[0], z_body[1], z_body[2], representation_type='cartesian', unit='m')
+    c = SkyCoord(z_body[0], z_body[1], z_body[2], representation_type='cartesian', unit='m').fk5
     ra = c.ra.deg
     dec = c.dec.deg
     roll = np.arctan2(q[1] * q[2] - q[0] * q[3], 1 / 2 - (q[2] ** 2 + q[3] ** 2))

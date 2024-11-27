@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 from ndcube import NDCube
 from prefect import flow
-from prefect.blocks.system import Secret
 from punchbowl.data import get_base_file_name
 from punchbowl.data.io import write_ndcube_to_fits
 from punchbowl.data.meta import NormalizedMetadata
@@ -27,24 +26,28 @@ from punchpipe.level0.core import (
 )
 from punchpipe.level0.meta import POSITIONS_TO_CODES, convert_pfw_position_to_polarizer
 
+from prefect.blocks.fields import SecretDict
+from prefect.blocks.core import Block
+
+class SpacecraftMapping(Block):
+    mapping: SecretDict
 
 @flow
-def level0_ingest_raw_packets(session=None):
+def level0_ingest_raw_packets(pipeline_config_path: str | None = None, session=None):
     if session is None:
         session = get_database_session()
+    config = load_pipeline_configuration(pipeline_config_path)
 
-    paths = detect_new_tlm_files(session=session)
+    paths = detect_new_tlm_files(config, session=session)
     for path in paths:
         packets = parse_new_tlm_files(path)
-        update_tlm_database(packets, path)
-
-        # update the database with this tlm file
         new_tlm_file = TLMFiles(path=path, is_processed=True)
         session.add(new_tlm_file)
         session.commit()
+        update_tlm_database(packets, new_tlm_file.tlm_id)
 
 @flow
-def level0_form_images(session=None, pipeline_config_path="config.yaml"):
+def level0_form_images(session=None, pipeline_config_path=None):
     if session is None:
         session = get_database_session()
 
@@ -54,10 +57,13 @@ def level0_form_images(session=None, pipeline_config_path="config.yaml"):
     distinct_spacecraft = session.query(SciPacket.spacecraft_id).filter(~SciPacket.is_used).distinct().all()
 
 
+    already_parsed_tlms = {} # tlm_path maps to the parsed contents
+
     for spacecraft in distinct_spacecraft:
         errors = []
 
         for t in distinct_times:
+            print(t)
             image_packets_entries = session.query(SciPacket).where(and_(SciPacket.timestamp == t[0],
                                                                 SciPacket.spacecraft_id == spacecraft[0])).all()
             image_compression = [unpack_compression_settings(packet.compression_settings)
@@ -65,10 +71,18 @@ def level0_form_images(session=None, pipeline_config_path="config.yaml"):
 
             # Read all the relevant TLM files
             needed_tlm_ids = set([image_packet.source_tlm_file for image_packet in image_packets_entries])
-            tlm_id_to_tlm_path = {tlm_id: session.query(TLMFiles.path).where(TLMFiles.tlm_id == tlm_id)
+            tlm_id_to_tlm_path = {tlm_id: session.query(TLMFiles.path).where(TLMFiles.tlm_id == tlm_id).one().path
                                   for tlm_id in needed_tlm_ids}
             needed_tlm_paths = list(session.query(TLMFiles.path).where(TLMFiles.tlm_id.in_(needed_tlm_ids)).all())
-            tlm_contents = [process_telemetry_file(tlm_path) for tlm_path in needed_tlm_paths]
+            needed_tlm_paths = [p.path for p in needed_tlm_paths]
+
+            # parse any new TLM files needed
+            for tlm_path in needed_tlm_paths:
+                if tlm_path not in already_parsed_tlms:
+                    already_parsed_tlms[tlm_path] = process_telemetry_file(tlm_path)
+
+            # make it easy to grab the right TLM files
+            tlm_contents = [already_parsed_tlms[tlm_path] for tlm_path in needed_tlm_paths]
 
             # Form the image packet stream for decompression
             ordered_image_content = []
@@ -84,14 +98,15 @@ def level0_form_images(session=None, pipeline_config_path="config.yaml"):
                 try:
                     image = form_from_jpeg_compressed(ordered_image_content)
                 except ValueError:
+                    print("jpeg failed")
+                    skip_image = True
                     error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
                              'start_block': image_packets_entries[0].flash_block,
                              'replay_length': image_packets_entries[-1].flash_block
                                               - image_packets_entries[0].flash_block}
                     errors.append(error)
-                else:
-                    skip_image = True
             else:
+                print("not jpeg compressed")
                 skip_image = True
                 error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
                          'start_block': image_packets_entries[0].flash_block,
@@ -101,6 +116,7 @@ def level0_form_images(session=None, pipeline_config_path="config.yaml"):
 
             # check the quality of the image
             if not skip_image and not image_is_okay(image, config):
+                print("image isn't okay")
                 skip_image = True
                 error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
                          'start_block': image_packets_entries[0].flash_block,
@@ -109,17 +125,24 @@ def level0_form_images(session=None, pipeline_config_path="config.yaml"):
                 errors.append(error)
 
             if not skip_image:
-                spacecraft_secrets = Secret.load("spacecraft-ids")
-                spacecraft_id_mapper = spacecraft_secrets.get()
-                spacecraft_id = spacecraft_id_mapper[image_packets_entries[0].spacecraft_id]
+                print("NOT SKIPPING")
+                spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
+                moc_index = spacecraft_secrets["moc"].index(image_packets_entries[0].spacecraft_id)
+                spacecraft_id = spacecraft_secrets["soc"][moc_index]
+                # spacecraft_id = spacecraft_id_mapper[image_packets_entries[0].spacecraft_id]
+                print("TO HERE")
 
-                metadata_contents = get_fits_metadata(image_packets_entries[0].timestamp, spacecraft_id)
+                metadata_contents = get_fits_metadata(image_packets_entries[0].timestamp,
+                                                      image_packets_entries[0].spacecraft_id,
+                                                      session)
                 file_type = POSITIONS_TO_CODES[convert_pfw_position_to_polarizer(metadata_contents['POSITION_CURR'])]
-                preliminary_wcs = form_preliminary_wcs(metadata_contents, config['plate_scale'][spacecraft_id])
-                meta = NormalizedMetadata.load_template(file_type + spacecraft_id, "0")
-                for meta_key, meta_value in metadata_contents.items():
-                    meta[meta_key] = meta_value
-                cube = NDCube(data=image, metadata=meta, wcs=preliminary_wcs)
+                preliminary_wcs = form_preliminary_wcs(metadata_contents, float(config['plate_scale'][spacecraft_id]))
+                meta = NormalizedMetadata.load_template(file_type + str(spacecraft_id), "0")
+                # TODO : activate later
+                # for meta_key, meta_value in metadata_contents.items():
+                #     meta[meta_key] = meta_value
+                meta['DATE-OBS'] = str(t[0])
+                cube = NDCube(data=image, meta=meta, wcs=preliminary_wcs)
 
                 l0_db_entry = File(level="0",
                                    file_type=file_type,
@@ -127,13 +150,14 @@ def level0_form_images(session=None, pipeline_config_path="config.yaml"):
                                    file_version="1",  # TODO: increment the file version
                                    software_version=software_version,
                                    date_created=datetime.now(),
-                                   date_obs=t,
-                                   date_beg=t,
-                                   date_end=t,
+                                   date_obs=t[0],
+                                   date_beg=t[0],
+                                   date_end=t[0],
                                    state="created")
 
-                write_ndcube_to_fits(cube, os.path.join(l0_db_entry.directory(config['data_path']),
-                                                        get_base_file_name(cube)))
+                out_path =  os.path.join(l0_db_entry.directory(config['root']), get_base_file_name(cube)) + ".fits"
+                os.makedirs(os.path.dirname(out_path), exist_ok=True)
+                write_ndcube_to_fits(cube,out_path)
                 # TODO: write a jp2
                 for image_packets_entries in image_packets_entries:
                     image_packets_entries.is_used = True
@@ -141,6 +165,6 @@ def level0_form_images(session=None, pipeline_config_path="config.yaml"):
                 session.commit()
         df_errors = pd.DataFrame(errors)
         date_str = datetime.now().strftime("%Y_%j")
-        df_path = os.path.join(config['root'], 'REPLAY', f'PUNCH_{spacecraft}_REPLAY_{date_str}.csv')
-        os.makedirs(df_path, exist_ok=True)
+        df_path = os.path.join(config['root'], 'REPLAY', f'PUNCH_{str(spacecraft[0])}_REPLAY_{date_str}.csv')
+        os.makedirs(os.path.dirname(df_path), exist_ok=True)
         df_errors.to_csv(df_path, index=False)

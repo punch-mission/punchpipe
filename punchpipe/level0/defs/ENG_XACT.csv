@@ -1,5 +1,4 @@
 name,data_type,bit_length
-ENG_XACT_HDR_LEN,uint,16
 ENG_XACT_HDR_SCID,uint,8
 ENG_XACT_HDR_FILL1,uint,1
 ENG_XACT_HDR_FLASH_BLOCK,uint,15

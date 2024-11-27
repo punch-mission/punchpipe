@@ -1,5 +1,4 @@
 name,data_type,bit_length
-ENG_STM_LOG_HDR_LEN,uint,16
 ENG_STM_LOG_HDR_SCID,uint,8
 ENG_STM_LOG_HDR_FILL1,uint,1
 ENG_STM_LOG_HDR_FLASH_BLOCK,uint,15

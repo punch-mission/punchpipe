@@ -2,6 +2,7 @@ import os
 
 from sqlalchemy import TEXT, Boolean, Column, DateTime, Float, Integer, String
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.dialects.mysql import INTEGER
 
 from punchpipe.error import MissingCCSDSDataError
 
@@ -134,54 +135,53 @@ class ENGPFWPacket(Base):
     flash_block = Column(Integer, nullable=False)
     timestamp = Column(DateTime, nullable=False, index=True)
     packet_num = Column(Integer, nullable=False)
-    source_tlm_file = Column(Integer, nullable=False)
+    source_tlm_file = Column(INTEGER(unsigned=True), nullable=False)
 
-    PFW_STATUS =Column(Integer, nullable=False)  # Current PFW Status (0 - no error, else error)
-    STEP_CALC = Column(Integer, nullable=False) # Calculated step (0-1199)
-    LAST_CMD_N_STEPS = Column(Integer, nullable=False) # Commanded number of steps (1-1199)
-    HOME_POSITION_OVRD = Column(Integer, nullable=False) # HOME Position OVERRIDE
-    POSITION_CURR = Column(Integer, nullable=False) # Current position (1-5, 0 - manual stepping)
-    POSITION_CMD = Column(Integer, nullable=False) # Commanded position (1-5, 0 - manual stepping)
-    RESOLVER_POS_RAW = Column(Integer, nullable=False) # Resolver position - raw resolver counts (0-65000)
-    RESOLVER_POS_CORR = Column(Integer, nullable=False) # Resolver position - error correction applied (0-65000)
-    RESOLVER_READ_CNT = Column(Integer, nullable=False) # Accumulative # of resolver reads (resets on boot)
-    LAST_MOVE_N_STEPS = Column(Integer, nullable=False)# Number of steps on last move (1-1199)
+    PFW_STATUS =Column(INTEGER(unsigned=True), nullable=False)  # Current PFW Status (0 - no error, else error)
+    STEP_CALC = Column(INTEGER(unsigned=True), nullable=False) # Calculated step (0-1199)
+    LAST_CMD_N_STEPS = Column(INTEGER(unsigned=True), nullable=False) # Commanded number of steps (1-1199)
+    POSITION_CURR = Column(INTEGER(unsigned=True), nullable=False) # Current position (1-5, 0 - manual stepping)
+    POSITION_CMD = Column(INTEGER(unsigned=True), nullable=False) # Commanded position (1-5, 0 - manual stepping)
+    RESOLVER_POS_RAW = Column(INTEGER(unsigned=True), nullable=False) # Resolver position - raw resolver counts (0-65000)
+    RESOLVER_POS_CORR = Column(INTEGER(unsigned=True), nullable=False) # Resolver position - error correction applied (0-65000)
+    RESOLVER_READ_CNT = Column(INTEGER(unsigned=True), nullable=False) # Accumulative # of resolver reads (resets on boot)
+    LAST_MOVE_N_STEPS = Column(INTEGER(unsigned=True), nullable=False)# Number of steps on last move (1-1199)
     LAST_MOVE_EXECUTION_TIME = Column(Float, nullable=False) # Current move execution time
-    LIFETIME_STEPS_TAKEN = Column(Integer, nullable=False) # Lifetime accumulative number of steps taken
+    LIFETIME_STEPS_TAKEN = Column(INTEGER(unsigned=True), nullable=False) # Lifetime accumulative number of steps taken
     LIFETIME_EXECUTION_TIME	= Column(Float, nullable=False) # Lifetime accumulative execution time
-    FSM_CTRL_STATE = Column(Integer, nullable=False) # Controller FSM State
-    READ_SUB_STATE = Column(Integer, nullable=False) # READ Sub-FSM State
-    MOVE_SUB_STATE = Column(Integer, nullable=False) # MOVE Sub-FSM State
-    HOME_SUB_STATE = Column(Integer, nullable=False) # HOME Sub-FSM State
-    HOME_POSITION = Column(Integer, nullable=False) # Home Position (1-5)
-    RESOLVER_SELECT = Column(Integer, nullable=False) # Resolver Select
-    RESOLVER_TOLERANCE_HOME = Column(Integer, nullable=False) # Resolver Tolerance
-    RESOLVER_TOLERANCE_CURR = Column(Integer, nullable=False) # Resolver Tolerance
-    STEPPER_SELECT= Column(Integer, nullable=False) # Stepper Motor Select
-    STEPPER_RATE_DELAY = Column(Integer, nullable=False) # Stepper Motor Rate Delay
+    FSM_CTRL_STATE = Column(INTEGER(unsigned=True), nullable=False) # Controller FSM State
+    READ_SUB_STATE = Column(INTEGER(unsigned=True), nullable=False) # READ Sub-FSM State
+    MOVE_SUB_STATE = Column(INTEGER(unsigned=True), nullable=False) # MOVE Sub-FSM State
+    HOME_SUB_STATE = Column(INTEGER(unsigned=True), nullable=False) # HOME Sub-FSM State
+    HOME_POSITION = Column(INTEGER(unsigned=True), nullable=False) # Home Position (1-5)
+    RESOLVER_SELECT = Column(INTEGER(unsigned=True), nullable=False) # Resolver Select
+    RESOLVER_TOLERANCE_HOME = Column(INTEGER(unsigned=True), nullable=False) # Resolver Tolerance
+    RESOLVER_TOLERANCE_CURR = Column(INTEGER(unsigned=True), nullable=False) # Resolver Tolerance
+    STEPPER_SELECT= Column(INTEGER(unsigned=True), nullable=False) # Stepper Motor Select
+    STEPPER_RATE_DELAY = Column(INTEGER(unsigned=True), nullable=False) # Stepper Motor Rate Delay
     STEPPER_RATE = Column(Float, nullable=False) # Stepper Motor Rate
-    SHORT_MOVE_SETTLING_TIME_MS	= Column(Integer, nullable=False) # Short Move(1-4 steps) Settling time before reading resolver
-    LONG_MOVE_SETTLING_TIME_MS = Column(Integer, nullable=False) # Long Move(5-1199 steps) Setting time before reading resolver
-    PRIMARY_STEP_OFFSET_1 = Column(Integer, nullable=False) # Primary Step Offset 1
-    PRIMARY_STEP_OFFSET_2 = Column(Integer, nullable=False) # Short Move(1-4 steps) Delay before reading resolver
-    PRIMARY_STEP_OFFSET_3 = Column(Integer, nullable=False) # Primary Step Offset 3
-    PRIMARY_STEP_OFFSET_4 = Column(Integer, nullable=False) # Primary Step Offset 4
-    PRIMARY_STEP_OFFSET_5 = Column(Integer, nullable=False) # Primary Step Offset 5
-    REDUNDANT_STEP_OFFSET_1 = Column(Integer, nullable=False) # Redundant Step Offset 1
-    REDUNDANT_STEP_OFFSET_2 = Column(Integer, nullable=False) # Redundant Step Offset 2
-    REDUNDANT_STEP_OFFSET_3 = Column(Integer, nullable=False) # Redundant Step Offset 3
-    REDUNDANT_STEP_OFFSET_4 = Column(Integer, nullable=False) # Redundant Step Offset 4
-    REDUNDANT_STEP_OFFSET_5 = Column(Integer, nullable=False) # Redundant Step Offset 5
-    PRIMARY_RESOLVER_POSITION_1 = Column(Integer, nullable=False) # Primary Resolver Position 1
-    PRIMARY_RESOLVER_POSITION_2 = Column(Integer, nullable=False) # Primary Resolver Position 2
-    PRIMARY_RESOLVER_POSITION_3 = Column(Integer, nullable=False) # Primary Resolver Position 3
-    PRIMARY_RESOLVER_POSITION_4 = Column(Integer, nullable=False) # Primary Resolver Position 4
-    PRIMARY_RESOLVER_POSITION_5 = Column(Integer, nullable=False) # Primary Resolver Position 5
-    REDUNDANT_RESOLVER_POSITION_1 = Column(Integer, nullable=False) # Redundant Resolver Position 1
-    REDUNDANT_RESOLVER_POSITION_2 = Column(Integer, nullable=False) # Redundant Resolver Position 2
-    REDUNDANT_RESOLVER_POSITION_3 = Column(Integer, nullable=False) # Redundant Resolver Position 3
-    REDUNDANT_RESOLVER_POSITION_4 = Column(Integer, nullable=False) # Redundant Resolver Position 4
-    REDUNDANT_RESOLVER_POSITION_5 = Column(Integer, nullable=False) # Redundant Resolver Position 5
+    SHORT_MOVE_SETTLING_TIME_MS	= Column(INTEGER(unsigned=True), nullable=False) # Short Move(1-4 steps) Settling time before reading resolver
+    LONG_MOVE_SETTLING_TIME_MS = Column(INTEGER(unsigned=True), nullable=False) # Long Move(5-1199 steps) Setting time before reading resolver
+    PRIMARY_STEP_OFFSET_1 = Column(INTEGER(unsigned=True), nullable=False) # Primary Step Offset 1
+    PRIMARY_STEP_OFFSET_2 = Column(INTEGER(unsigned=True), nullable=False) # Short Move(1-4 steps) Delay before reading resolver
+    PRIMARY_STEP_OFFSET_3 = Column(INTEGER(unsigned=True), nullable=False) # Primary Step Offset 3
+    PRIMARY_STEP_OFFSET_4 = Column(INTEGER(unsigned=True), nullable=False) # Primary Step Offset 4
+    PRIMARY_STEP_OFFSET_5 = Column(INTEGER(unsigned=True), nullable=False) # Primary Step Offset 5
+    REDUNDANT_STEP_OFFSET_1 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Step Offset 1
+    REDUNDANT_STEP_OFFSET_2 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Step Offset 2
+    REDUNDANT_STEP_OFFSET_3 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Step Offset 3
+    REDUNDANT_STEP_OFFSET_4 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Step Offset 4
+    REDUNDANT_STEP_OFFSET_5 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Step Offset 5
+    PRIMARY_RESOLVER_POSITION_1 = Column(INTEGER(unsigned=True), nullable=False) # Primary Resolver Position 1
+    PRIMARY_RESOLVER_POSITION_2 = Column(INTEGER(unsigned=True), nullable=False) # Primary Resolver Position 2
+    PRIMARY_RESOLVER_POSITION_3 = Column(INTEGER(unsigned=True), nullable=False) # Primary Resolver Position 3
+    PRIMARY_RESOLVER_POSITION_4 = Column(INTEGER(unsigned=True), nullable=False) # Primary Resolver Position 4
+    PRIMARY_RESOLVER_POSITION_5 = Column(INTEGER(unsigned=True), nullable=False) # Primary Resolver Position 5
+    REDUNDANT_RESOLVER_POSITION_1 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Resolver Position 1
+    REDUNDANT_RESOLVER_POSITION_2 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Resolver Position 2
+    REDUNDANT_RESOLVER_POSITION_3 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Resolver Position 3
+    REDUNDANT_RESOLVER_POSITION_4 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Resolver Position 4
+    REDUNDANT_RESOLVER_POSITION_5 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Resolver Position 5
 
 
 class TLMFiles(Base):
@@ -202,10 +202,10 @@ class Health(Base):
     num_pids = Column(Integer, nullable=False)
 
 
-def get_closest_eng_packets(table, timestamp, spacecraft_id):
+def get_closest_eng_packets(table, timestamp, spacecraft_id, session):
     # find the closest events which are greater/less than the timestamp
-    gt_event = table.query.filter(table.spacecraft_id == spacecraft_id).filter(table.timestamp > timestamp).order_by(table.timestamp.asc()).first()
-    lt_event = table.query.filter(table.spacecraft_id == spacecraft_id).filter(table.timestamp < timestamp).order_by(table.timestamp.desc()).first()
+    gt_event = session.query(table).filter(table.spacecraft_id == spacecraft_id).filter(table.timestamp > timestamp).order_by(table.timestamp.asc()).first()
+    lt_event = session.query(table).filter(table.spacecraft_id == spacecraft_id).filter(table.timestamp < timestamp).order_by(table.timestamp.desc()).first()
 
     if gt_event is None and lt_event is None:
         msg = "Could not find packet near that time."
