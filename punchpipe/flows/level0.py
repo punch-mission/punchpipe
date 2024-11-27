@@ -41,7 +41,7 @@ def level0_ingest_raw_packets(pipeline_config_path: str | None = None, session=N
     paths = detect_new_tlm_files(config, session=session)
     for path in paths:
         packets = parse_new_tlm_files(path)
-        new_tlm_file = TLMFiles(path=path, is_processed=True)
+        new_tlm_file = TLMFiles(path=os.path.basename(path), is_processed=True)
         session.add(new_tlm_file)
         session.commit()
         update_tlm_database(packets, new_tlm_file.tlm_id)
