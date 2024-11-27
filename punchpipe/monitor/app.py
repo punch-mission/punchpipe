@@ -123,49 +123,36 @@ def create_app():
         size = page_size
         return dff.iloc[page * size: (page + 1) * size].to_dict('records')
 
-    @callback(
-        Output('status-cards', 'children'),
-        Input('interval-component', 'n_intervals'),
-    )
-    def update_cards(n):
-        card_content = [
-            dbc.CardHeader("Card header"),
+
+    def create_card_content(level: int, status: str):
+        return [
+            # dbc.CardHeader(f"Level {level} Flow Pressure"),
             dbc.CardBody(
                 [
-                    html.H5("Card title", className="card-title"),
+                    html.H5(f"Level {level} Flow Pressure", className="card-title"),
                     html.P(
-                        "This is some card content that we'll reuse",
+                        status,
                         className="card-text",
                     ),
                 ]
             ),
         ]
 
+    @callback(
+        Output('status-cards', 'children'),
+        Input('interval-component', 'n_intervals'),
+    )
+    def update_cards(n):
         cards = html.Div(
             [
                 dbc.Row(
                     [
-                        dbc.Col(dbc.Card(card_content, color="primary", inverse=True)),
-                        dbc.Col(
-                            dbc.Card(card_content, color="secondary", inverse=True)
-                        ),
-                        dbc.Col(dbc.Card(card_content, color="info", inverse=True)),
+                        dbc.Col(dbc.Card(create_card_content(0, "Good"), color="success", inverse=True)),
+                        dbc.Col(dbc.Card(create_card_content(1, "Good"), color="success", inverse=True)),
+                        dbc.Col(dbc.Card(create_card_content(2, "Warning"), color="warning", inverse=True)),
+                        dbc.Col(dbc.Card(create_card_content(3, "Bad"), color="danger", inverse=True)),
                     ],
                     className="mb-4",
-                ),
-                dbc.Row(
-                    [
-                        dbc.Col(dbc.Card(card_content, color="success", inverse=True)),
-                        dbc.Col(dbc.Card(card_content, color="warning", inverse=True)),
-                        dbc.Col(dbc.Card(card_content, color="danger", inverse=True)),
-                    ],
-                    className="mb-4",
-                ),
-                dbc.Row(
-                    [
-                        dbc.Col(dbc.Card(card_content, color="light")),
-                        dbc.Col(dbc.Card(card_content, color="dark", inverse=True)),
-                    ]
                 ),
             ]
         )

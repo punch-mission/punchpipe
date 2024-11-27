@@ -1,5 +1,4 @@
 name,data_type,bit_length
-SCI_XFI_HDR_LEN,uint,16
 SCI_XFI_HDR_SCID,uint,8
 SCI_XFI_HDR_FILL_1,uint,1
 SCI_XFI_HDR_FLASH_BLOCK,uint,15

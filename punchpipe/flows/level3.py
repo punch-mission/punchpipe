@@ -3,12 +3,13 @@ import json
 import typing as t
 from datetime import datetime, timedelta
 
+from dateutil.parser import parse as parse_datetime_str
 from prefect import flow, get_run_logger, task
 from punchbowl.level3.flow import level3_core_flow, level3_PIM_flow
 from sqlalchemy import and_
 
 from punchpipe import __version__
-from punchpipe.control.db import File, Flow, get_closest_file, get_closest_before_file, get_closest_after_file
+from punchpipe.control.db import File, Flow, get_closest_after_file, get_closest_before_file, get_closest_file
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
 from punchpipe.control.util import get_database_session
@@ -31,7 +32,7 @@ def get_valid_fcorona_models(session, f: File, before_timedelta: timedelta, afte
 
 
 @task
-def level3_PTM_query_ready_files(session, pipeline_config: dict):
+def level3_PTM_query_ready_files(session, pipeline_config: dict, reference_time=None):
     logger = get_run_logger()
     all_ready_files = session.query(File).where(and_(and_(File.state.in_(["progressed", "created"]),
                                                           File.level == "2"),
@@ -61,7 +62,8 @@ def level3_PTM_query_ready_files(session, pipeline_config: dict):
 
 
 @task
-def level3_PTM_construct_flow_info(level2_files: list[File], level3_file: File, pipeline_config: dict, session=None):
+def level3_PTM_construct_flow_info(level2_files: list[File], level3_file: File,
+                                   pipeline_config: dict, session=None, reference_time=None):
     session = get_database_session()  # TODO: replace so this works in the tests by passing in a test
 
     flow_type = "level3_PTM_process_flow"
@@ -107,7 +109,7 @@ def level3_PTM_construct_flow_info(level2_files: list[File], level3_file: File, 
 
 
 @task
-def level3_PTM_construct_file_info(level2_files: t.List[File], pipeline_config: dict) -> t.List[File]:
+def level3_PTM_construct_file_info(level2_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
     return [File(
                 level="3",
                 file_type="PT",
@@ -120,12 +122,13 @@ def level3_PTM_construct_file_info(level2_files: t.List[File], pipeline_config: 
 
 
 @flow
-def level3_PTM_scheduler_flow(pipeline_config_path=None, session=None):
+def level3_PTM_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
     generic_scheduler_flow_logic(
         level3_PTM_query_ready_files,
         level3_PTM_construct_file_info,
         level3_PTM_construct_flow_info,
         pipeline_config_path,
+        reference_time=reference_time,
         session=session,
     )
 
@@ -136,7 +139,7 @@ def level3_PTM_process_flow(flow_id: int, pipeline_config_path=None, session=Non
 
 
 @task
-def level3_PIM_query_ready_files(session, pipeline_config: dict):
+def level3_PIM_query_ready_files(session, pipeline_config: dict, reference_time=None):
     logger = get_run_logger()
     all_ready_files = session.query(File).where(and_(and_(File.state == "created",
                                                           File.level == "2"),
@@ -160,10 +163,11 @@ def level3_PIM_query_ready_files(session, pipeline_config: dict):
 
 
 @task
-def level3_PIM_construct_flow_info(level2_files: list[File], level3_file: File, pipeline_config: dict, session=None):
+def level3_PIM_construct_flow_info(level2_files: list[File], level3_file: File, pipeline_config: dict,
+                                   session=None, reference_time=None):
     session = get_database_session()  # TODO: replace so this works in the tests by passing in a test
 
-    flow_type = "level3_PIM_process_flow"
+    flow_type = "L3_PIM"
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["levels"][flow_type]["priority"]["initial"]
@@ -199,7 +203,7 @@ def level3_PIM_construct_flow_info(level2_files: list[File], level3_file: File, 
 
 
 @task
-def level3_PIM_construct_file_info(level2_files: t.List[File], pipeline_config: dict) -> t.List[File]:
+def level3_PIM_construct_file_info(level2_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
     return [File(
                 level="3",
                 file_type="PI",
@@ -212,12 +216,15 @@ def level3_PIM_construct_file_info(level2_files: t.List[File], pipeline_config: 
 
 
 @flow
-def level3_PIM_scheduler_flow(pipeline_config_path=None, session=None):
+def level3_PIM_scheduler_flow(pipeline_config_path=None, session=None, reference_time:datetime=None):
+    if not isinstance(reference_time, datetime):
+        reference_time = parse_datetime_str(reference_time)
     generic_scheduler_flow_logic(
         level3_PIM_query_ready_files,
         level3_PIM_construct_file_info,
         level3_PIM_construct_flow_info,
         pipeline_config_path,
+        reference_time=reference_time,
         session=session,
     )
 
@@ -225,4 +232,3 @@ def level3_PIM_scheduler_flow(pipeline_config_path=None, session=None):
 @flow
 def level3_PIM_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, level3_PIM_flow, pipeline_config_path, session=session)
-

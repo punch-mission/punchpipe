@@ -15,7 +15,7 @@ SCIENCE_LEVEL1_TYPE_CODES = ["PM", "PZ", "PP"]# , "CR"] # TODO handle CR in a se
 
 
 @task
-def level2_query_ready_files(session, pipeline_config: dict):
+def level2_query_ready_files(session, pipeline_config: dict, reference_time=None):
     logger = get_run_logger()
     all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(File.level == "1")
@@ -31,7 +31,7 @@ def level2_query_ready_files(session, pipeline_config: dict):
 
 
 @task
-def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipeline_config: dict, session=None):
+def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipeline_config: dict, session=None, reference_time=None):
     flow_type = "level2_process_flow"
     state = "planned"
     creation_time = datetime.now()
@@ -56,7 +56,7 @@ def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipe
 
 
 @task
-def level2_construct_file_info(level1_files: t.List[File], pipeline_config: dict) -> t.List[File]:
+def level2_construct_file_info(level1_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
     return [File(
                 level=2,
                 file_type="PT",
@@ -69,12 +69,13 @@ def level2_construct_file_info(level1_files: t.List[File], pipeline_config: dict
 
 
 @flow
-def level2_scheduler_flow(pipeline_config_path=None, session=None):
+def level2_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
     generic_scheduler_flow_logic(
         level2_query_ready_files,
         level2_construct_file_info,
         level2_construct_flow_info,
         pipeline_config_path,
+        reference_time=reference_time,
         session=session,
     )
 

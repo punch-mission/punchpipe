@@ -54,7 +54,31 @@ levels:
     schedule: "* * * * *"
     options:
 
-  level3_PTM_process_flow:
+  L3_PTM:
+    priority:
+      initial: 10000
+      seconds: [1]
+      escalation: [10000]
+    schedule: "* * * * *"
+    options:
+
+  L3_PIM:
+    priority:
+      initial: 10000
+      seconds: [1]
+      escalation: [10000]
+    schedule: "* * * * *"
+    options:
+
+  f_corona:
+    priority:
+      initial: 10000
+      seconds: [1]
+      escalation: [10000]
+    schedule: "* * * * *"
+    options:
+
+  starfield:
     priority:
       initial: 10000
       seconds: [1]
