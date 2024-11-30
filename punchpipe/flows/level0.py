@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 from ndcube import NDCube
 from prefect import flow
+from prefect.blocks.core import Block
+from prefect.blocks.fields import SecretDict
 from punchbowl.data import get_base_file_name
 from punchbowl.data.io import write_ndcube_to_fits
 from punchbowl.data.meta import NormalizedMetadata
@@ -26,8 +28,6 @@ from punchpipe.level0.core import (
 )
 from punchpipe.level0.meta import POSITIONS_TO_CODES, convert_pfw_position_to_polarizer
 
-from prefect.blocks.fields import SecretDict
-from prefect.blocks.core import Block
 
 class SpacecraftMapping(Block):
     mapping: SecretDict
@@ -63,7 +63,6 @@ def level0_form_images(session=None, pipeline_config_path=None):
         errors = []
 
         for t in distinct_times:
-            print(t)
             image_packets_entries = session.query(SciPacket).where(and_(SciPacket.timestamp == t[0],
                                                                 SciPacket.spacecraft_id == spacecraft[0])).all()
             image_compression = [unpack_compression_settings(packet.compression_settings)
@@ -98,7 +97,6 @@ def level0_form_images(session=None, pipeline_config_path=None):
                 try:
                     image = form_from_jpeg_compressed(ordered_image_content)
                 except ValueError:
-                    print("jpeg failed")
                     skip_image = True
                     error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
                              'start_block': image_packets_entries[0].flash_block,
@@ -106,7 +104,6 @@ def level0_form_images(session=None, pipeline_config_path=None):
                                               - image_packets_entries[0].flash_block}
                     errors.append(error)
             else:
-                print("not jpeg compressed")
                 skip_image = True
                 error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
                          'start_block': image_packets_entries[0].flash_block,
@@ -116,7 +113,6 @@ def level0_form_images(session=None, pipeline_config_path=None):
 
             # check the quality of the image
             if not skip_image and not image_is_okay(image, config):
-                print("image isn't okay")
                 skip_image = True
                 error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
                          'start_block': image_packets_entries[0].flash_block,
@@ -125,12 +121,9 @@ def level0_form_images(session=None, pipeline_config_path=None):
                 errors.append(error)
 
             if not skip_image:
-                print("NOT SKIPPING")
                 spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
                 moc_index = spacecraft_secrets["moc"].index(image_packets_entries[0].spacecraft_id)
                 spacecraft_id = spacecraft_secrets["soc"][moc_index]
-                # spacecraft_id = spacecraft_id_mapper[image_packets_entries[0].spacecraft_id]
-                print("TO HERE")
 
                 metadata_contents = get_fits_metadata(image_packets_entries[0].timestamp,
                                                       image_packets_entries[0].spacecraft_id,
