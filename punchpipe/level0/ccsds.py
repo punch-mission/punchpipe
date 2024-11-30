@@ -55,11 +55,9 @@ def process_telemetry_file(telemetry_file_path):
     apid_separated_tlm = open_and_split_packet_file(telemetry_file_path)
     parsed_data = {}
     for apid, stream in apid_separated_tlm.items():
-        print(apid)
         if apid not in PACKET_APID2NAME or apid in SKIP_APIDS:
-            print(f"skipping {apid}")
+            pass
         else:
-            print(apid, PACKET_APID2NAME[apid])
             definition = load_packet_def(PACKET_APID2NAME[apid])
             parsed_data[apid] = definition.load(stream, include_primary_header=True)
     return parsed_data
