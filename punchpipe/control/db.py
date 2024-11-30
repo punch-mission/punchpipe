@@ -1,8 +1,8 @@
 import os
 
 from sqlalchemy import TEXT, Boolean, Column, DateTime, Float, Integer, String
-from sqlalchemy.orm import declarative_base
 from sqlalchemy.dialects.mysql import INTEGER
+from sqlalchemy.orm import declarative_base
 
 from punchpipe.error import MissingCCSDSDataError
 
