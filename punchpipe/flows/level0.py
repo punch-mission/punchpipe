@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 from ndcube import NDCube
 from prefect import flow
+from prefect.blocks.core import Block
+from prefect.blocks.fields import SecretDict
 from punchbowl.data import get_base_file_name
 from punchbowl.data.io import write_ndcube_to_fits
 from punchbowl.data.meta import NormalizedMetadata
@@ -26,8 +28,6 @@ from punchpipe.level0.core import (
 )
 from punchpipe.level0.meta import POSITIONS_TO_CODES, convert_pfw_position_to_polarizer
 
-from prefect.blocks.fields import SecretDict
-from prefect.blocks.core import Block
 
 class SpacecraftMapping(Block):
     mapping: SecretDict
