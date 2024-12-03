@@ -171,16 +171,19 @@ def level3_PIM_construct_flow_info(level2_files: list[File], level3_file: File, 
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["levels"][flow_type]["priority"]["initial"]
-    f_corona_before = get_closest_before_file(level2_files[0],
-                                                                  get_valid_fcorona_models(session,
+    before_models = get_valid_fcorona_models(session,
                                                                              level2_files[0],
                                                                              before_timedelta=timedelta(days=90),
-                                                                             after_timedelta=timedelta(days=0)))
-    f_corona_after = get_closest_after_file(level2_files[0],
-                                                                get_valid_fcorona_models(session,
+                                                                             after_timedelta=timedelta(days=0))
+    after_models = get_valid_fcorona_models(session,
                                                                              level2_files[0],
                                                                              before_timedelta=timedelta(days=0),
-                                                                             after_timedelta=timedelta(days=90)))
+                                                                             after_timedelta=timedelta(days=90))
+    if before_models and after_models:
+        f_corona_before = get_closest_before_file(level2_files[0], before_models)
+
+    f_corona_after = get_closest_after_file(level2_files[0],
+                                                                )
     call_data = json.dumps(
         {
             "data_list": [
@@ -216,9 +219,7 @@ def level3_PIM_construct_file_info(level2_files: t.List[File], pipeline_config: 
 
 
 @flow
-def level3_PIM_scheduler_flow(pipeline_config_path=None, session=None, reference_time:datetime=None):
-    if not isinstance(reference_time, datetime):
-        reference_time = parse_datetime_str(reference_time)
+def level3_PIM_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
     generic_scheduler_flow_logic(
         level3_PIM_query_ready_files,
         level3_PIM_construct_file_info,
