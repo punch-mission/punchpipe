@@ -27,8 +27,8 @@ def get_valid_fcorona_models(session, f: File, before_timedelta: timedelta, afte
     valid_fcorona_start, valid_fcorona_end = f.date_obs - before_timedelta, f.date_obs + after_timedelta
     return (session.query(File).filter(File.state == "created").filter(File.level == "3")
                       .filter(File.file_type == 'PF').filter(File.observatory == 'M')
-                      .filter(and_(f.date_obs >= valid_fcorona_start,
-                                   f.date_obs <= valid_fcorona_end)).all())
+                      .filter(File.date_obs >= valid_fcorona_start)
+                      .filter(File.date_obs <= valid_fcorona_end).all())
 
 
 @task
