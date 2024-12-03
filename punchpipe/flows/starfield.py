@@ -70,7 +70,7 @@ def construct_starfield_background_file_info(level3_files: t.List[File], pipelin
 
 
 @flow
-def starfield_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
+def starfield_scheduler_flow(pipeline_config_path=None, session=None, reference_time: datetime=None):
     generic_scheduler_flow_logic(
         starfield_background_query_ready_files,
         construct_starfield_background_file_info,
