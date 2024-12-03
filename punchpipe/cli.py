@@ -105,7 +105,7 @@ def serve_flows(configuration_path):
     level3_PIM_scheduler_deployment = level3_PIM_scheduler_flow.to_deployment(name="level3-PIM-scheduler-deployment",
                                                                               description="Schedule a Level 3 flow to make PIM.",
                                                                               tags=["L3", "scheduler"],
-                                                                              cron=config['levels']['L3_PIM'].get("schedule", "* * * * *"),
+                                                                              cron=config['levels']['level3_PIM_process_flow'].get("schedule", "* * * * *"),
                                                                               parameters={
                                                                                   "pipeline_config_path": configuration_path}
 
@@ -119,7 +119,7 @@ def serve_flows(configuration_path):
 
     f_corona_scheduler_dep = f_corona_scheduler.to_deployment(name="construct_f_corona_background-scheduler-deployment",
                                                               description="Schedule an F corona background.",
-                                                              cron=config['levels']['f_corona'].get("schedule", "* * * * *"),
+                                                              cron=config['levels']['construct_f_corona_background_process_flow'].get("schedule", "* * * * *"),
                                                               tags=["L3", "scheduler"],
                                                               parameters={
                                                                                   "pipeline_config_path": configuration_path}
@@ -134,7 +134,7 @@ def serve_flows(configuration_path):
 
     starfield_scheduler_dep = starfield_scheduler_flow.to_deployment(name="construct_starfield-scheduler-deployment",
                                                                      description="Schedule a starfield background.",
-                                                                     cron=config['levels']['starfield'].get("schedule", "* * * * *"),
+                                                                     cron=config['levels']['construct_starfield_background_process_flow'].get("schedule", "* * * * *"),
                                                                      tags=["L3", "scheduler"],
                                                                      parameters={"pipeline_config_path": configuration_path}
 
@@ -148,7 +148,7 @@ def serve_flows(configuration_path):
 
     level3_PTM_scheduler_deployment = level3_PTM_scheduler_flow.to_deployment(name="level3-PTM-scheduler-deployment",
                                                                               description="Schedule a Level 3 flow to make PTM.",
-                                                                              cron=config['levels']['L3_PTM'].get("schedule", "* * * * *"),
+                                                                              cron=config['levels']['level3_PTM_process_flow'].get("schedule", "* * * * *"),
                                                                               tags=["L3", "scheduler"],
                                                                               parameters={
                                                                                   "pipeline_config_path": configuration_path}
