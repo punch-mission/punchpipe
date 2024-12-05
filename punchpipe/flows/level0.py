@@ -43,11 +43,14 @@ def level0_ingest_raw_packets(pipeline_config_path: str | None = None, session=N
     logger.info(f"Preparing to process {len(paths)} files.")
     for path in paths:
         logger.info(f"Ingesting {path}.")
-        packets = parse_new_tlm_files(path)
-        new_tlm_file = TLMFiles(path=path, is_processed=True)
-        session.add(new_tlm_file)
-        session.commit()
-        update_tlm_database(packets, new_tlm_file.tlm_id)
+        try:
+            packets = parse_new_tlm_files(path)
+            new_tlm_file = TLMFiles(path=path, is_processed=True)
+            session.add(new_tlm_file)
+            session.commit()
+            update_tlm_database(packets, new_tlm_file.tlm_id)
+        except Exception as e:
+            logger.error(f"Failed to ingest {path}: {e}")
 
 @flow
 def level0_form_images(session=None, pipeline_config_path=None):
