@@ -212,7 +212,7 @@ def interpolate_value(query_time, before_time, before_value, after_time, after_v
         return after_value
     else:
         return ((after_value - before_value)
-         * (query_time - before_time) / (after_time - before_time)
+         * ((query_time - before_time) / (after_time - before_time))
          + before_value)
 
 def get_fits_metadata(observation_time, spacecraft_id, session):
