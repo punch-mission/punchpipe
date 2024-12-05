@@ -54,11 +54,14 @@ def serve_flows(configuration_path):
 
     level0_ingest_raw_packets_deployment = level0_ingest_raw_packets.to_deployment(name="level0_ingest_raw_packets",
                                                                                    description="Ingest raw packets.",
-                                                                                   cron="* * * * *", tags=['L0'])
+                                                                                   #cron="* * * * *",
+                                                                                   parameters={
+                                                                                       "pipeline_config_path": configuration_path},
+                                                                                   tags=['L0'])
 
     level0_form_images_deployment = level0_form_images.to_deployment(name="level0_form_images",
                                                                      description="Form images from packets.",
-                                                                     cron="* * * * *",
+                                                                     #cron="* * * * *",
                                                                      tags=['L0'],
                                                                      parameters={"pipeline_config_path": configuration_path})
 
