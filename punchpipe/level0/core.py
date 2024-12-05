@@ -1,5 +1,6 @@
 import json
 import base64
+import os
 import warnings
 import importlib.metadata
 from glob import glob
@@ -43,7 +44,7 @@ def detect_new_tlm_files(pipeline_config: dict, session=None) -> [str]:
         session = get_database_session()
 
     tlm_directory = pipeline_config['tlm_directory']
-    found_tlm_files = set(glob(tlm_directory + '/*.tlm'))
+    found_tlm_files = set(glob(os.path.join(tlm_directory, '/**/*.tlm')))
     database_tlm_files = set([p[0] for p in session.query(TLMFiles.path).distinct().all()])
     return list(found_tlm_files - database_tlm_files)
 
@@ -98,7 +99,9 @@ def form_packet_entry(apid, packet, packet_num, source_tlm_file_id):
                              packet_num=packet_num,
                              source_tlm_file=source_tlm_file_id,
                              is_used=False,
-                             compression_settings=packet['SCI_XFI_COM_SET'])
+                             img_pkt_grp=packet['SCI_XFI_HDR_GRP'],
+                             compression_settings=packet['SCI_XFI_COM_SET'],
+                             acquisition_settings=packet['SCI_XFI_ACQ_SET'],)
         case 'eng_xact':
             return EngXACTPacket(apid=apid,
                                  sequence_count=packet['CCSDS_SEQUENCE_COUNT'],
@@ -267,3 +270,7 @@ def form_from_jpeg_compressed(packets):
     """Form a JPEG-LS image from packets"""
     img = pylibjpeg.decode(packets.tobytes())
     return img
+
+def form_from_raw(packets):
+    """Form a raw image from packets"""
+    return np.concatenate(packets)

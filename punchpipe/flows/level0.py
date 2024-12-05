@@ -63,8 +63,9 @@ def level0_form_images(session=None, pipeline_config_path=None):
         errors = []
 
         for t in distinct_times:
-            image_packets_entries = session.query(SciPacket).where(and_(SciPacket.timestamp == t[0],
-                                                                SciPacket.spacecraft_id == spacecraft[0])).all()
+            image_packets_entries = (session.query(SciPacket)
+                                     .where(and_(SciPacket.timestamp == t[0],
+                                                                SciPacket.spacecraft_id == spacecraft[0])).all())
             image_compression = [unpack_compression_settings(packet.compression_settings)
                                  for packet in image_packets_entries]
 
@@ -93,23 +94,24 @@ def level0_form_images(session=None, pipeline_config_path=None):
 
             # Get the proper image
             skip_image = False
-            if image_compression[0]['JPEG'] == 1:  # this assumes the image compression is static for an image
+            if image_compression[0]['CMP_BYP'] == 0 and image_compression[0]['JPEG'] == 1:  # this assumes the image compression is static for an image
                 try:
                     image = form_from_jpeg_compressed(ordered_image_content)
-                except ValueError:
+                except (RuntimeError, ValueError):
                     skip_image = True
                     error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
                              'start_block': image_packets_entries[0].flash_block,
                              'replay_length': image_packets_entries[-1].flash_block
                                               - image_packets_entries[0].flash_block}
                     errors.append(error)
-            else:
+            elif image_compression[0]['CMP_BYP'] == 1:
+                print("couldn't form image because we don't have it implemented")
                 skip_image = True
-                error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
-                         'start_block': image_packets_entries[0].flash_block,
-                         'replay_length': image_packets_entries[-1].flash_block
-                                          - image_packets_entries[0].flash_block}
-                errors.append(error)
+                # error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
+                #          'start_block': image_packets_entries[0].flash_block,
+                #          'replay_length': image_packets_entries[-1].flash_block
+                #                           - image_packets_entries[0].flash_block}
+                # errors.append(error)
 
             # check the quality of the image
             if not skip_image and not image_is_okay(image, config):
