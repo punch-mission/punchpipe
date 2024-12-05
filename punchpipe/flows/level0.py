@@ -38,7 +38,7 @@ def level0_ingest_raw_packets(pipeline_config_path: str | None = None, session=N
     if session is None:
         session = get_database_session()
     config = load_pipeline_configuration(pipeline_config_path)
-    logger.info(f"Querying {config["tlm_directory"]}.")
+    logger.info(f"Querying {config['tlm_directory']}.")
     paths = detect_new_tlm_files(config, session=session)
     logger.info(f"Preparing to process {len(paths)} files.")
     for path in paths:
