@@ -4,7 +4,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 from ndcube import NDCube
-from prefect import flow
+from prefect import flow, get_run_logger
 from prefect.blocks.core import Block
 from prefect.blocks.fields import SecretDict
 from punchbowl.data import get_base_file_name
@@ -34,12 +34,15 @@ class SpacecraftMapping(Block):
 
 @flow
 def level0_ingest_raw_packets(pipeline_config_path: str | None = None, session=None):
+    logger = get_run_logger()
     if session is None:
         session = get_database_session()
     config = load_pipeline_configuration(pipeline_config_path)
-
+    logger.info(f"Querying {config["tlm_directory"]}.")
     paths = detect_new_tlm_files(config, session=session)
+    logger.info(f"Preparing to process {len(paths)} files.")
     for path in paths:
+        logger.info(f"Ingesting {path}.")
         packets = parse_new_tlm_files(path)
         new_tlm_file = TLMFiles(path=path, is_processed=True)
         session.add(new_tlm_file)
@@ -163,3 +166,17 @@ def level0_form_images(session=None, pipeline_config_path=None):
         df_path = os.path.join(config['root'], 'REPLAY', f'PUNCH_{str(spacecraft[0])}_REPLAY_{date_str}.csv')
         os.makedirs(os.path.dirname(df_path), exist_ok=True)
         df_errors.to_csv(df_path, index=False)
+
+if __name__ == "__main__":
+    session = get_database_session()
+
+    path = "/Users/jhughes/new_results/dec05-0936/PUNCH_EM-01_RAW_2016_099_01_19_V01.tlm"
+    #   path = "/Users/jhughes/new_results/dec05-0936/PUNCH_EM-01_RAW_2016_099_01_31_V01.tlm"
+    # path = "/Users/jhughes/new_results/dec05-0936/PUNCH_EM-01_RAW_2110_210_15_29_V01.tlm"
+    packets = parse_new_tlm_files(path)
+    new_tlm_file = TLMFiles(path=path, is_processed=True)
+    session.add(new_tlm_file)
+    session.commit()
+    update_tlm_database(packets, new_tlm_file.tlm_id)
+
+    level0_form_images(pipeline_config_path="/Users/jhughes/punchpipe_config.yaml")

@@ -44,7 +44,7 @@ def detect_new_tlm_files(pipeline_config: dict, session=None) -> [str]:
         session = get_database_session()
 
     tlm_directory = pipeline_config['tlm_directory']
-    found_tlm_files = set(glob(os.path.join(tlm_directory, '/**/*.tlm'), recursive=True))
+    found_tlm_files = set(glob(os.path.join(tlm_directory, '**/*.tlm'), recursive=True))
     database_tlm_files = set([p[0] for p in session.query(TLMFiles.path).distinct().all()])
     return list(found_tlm_files - database_tlm_files)
 
