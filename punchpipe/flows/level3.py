@@ -3,7 +3,6 @@ import json
 import typing as t
 from datetime import datetime, timedelta
 
-from dateutil.parser import parse as parse_datetime_str
 from prefect import flow, get_run_logger, task
 from punchbowl.level3.flow import level3_core_flow, level3_PIM_flow
 from sqlalchemy import and_

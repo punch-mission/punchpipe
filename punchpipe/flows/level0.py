@@ -19,12 +19,12 @@ from punchpipe.level0.ccsds import unpack_compression_settings
 from punchpipe.level0.core import (
     detect_new_tlm_files,
     form_from_jpeg_compressed,
+    form_from_raw,
     form_preliminary_wcs,
     get_fits_metadata,
-    image_is_okay,
     parse_new_tlm_files,
     process_telemetry_file,
-    update_tlm_database, form_from_raw,
+    update_tlm_database,
 )
 from punchpipe.level0.meta import POSITIONS_TO_CODES, convert_pfw_position_to_polarizer
 

@@ -1,7 +1,7 @@
 import os
 
 from sqlalchemy import TEXT, Boolean, Column, Float, Integer, String
-from sqlalchemy.dialects.mysql import INTEGER, DATETIME
+from sqlalchemy.dialects.mysql import DATETIME, INTEGER
 from sqlalchemy.orm import declarative_base
 
 from punchpipe.error import MissingCCSDSDataError

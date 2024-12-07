@@ -1,6 +1,6 @@
+import os
 import json
 import base64
-import os
 import warnings
 import importlib.metadata
 from glob import glob
