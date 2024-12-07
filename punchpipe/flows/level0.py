@@ -24,7 +24,7 @@ from punchpipe.level0.core import (
     image_is_okay,
     parse_new_tlm_files,
     process_telemetry_file,
-    update_tlm_database,
+    update_tlm_database, form_from_raw,
 )
 from punchpipe.level0.meta import POSITIONS_TO_CODES, convert_pfw_position_to_polarizer
 
@@ -41,19 +41,30 @@ def level0_ingest_raw_packets(pipeline_config_path: str | None = None, session=N
     logger.info(f"Querying {config['tlm_directory']}.")
     paths = detect_new_tlm_files(config, session=session)
     logger.info(f"Preparing to process {len(paths)} files.")
+
+    # Commit to processing these TLM files
+    tlm_files = []
     for path in paths:
-        logger.info(f"Ingesting {path}.")
+        new_tlm_file = TLMFiles(path=path, is_processed=False)
+        session.add(new_tlm_file)
+        tlm_files.append(new_tlm_file)
+    session.commit()
+
+    # Actually performing processing
+    for tlm_file in tlm_files:
+        logger.info(f"Ingesting {tlm_file.path}.")
         try:
-            packets = parse_new_tlm_files(path)
-            new_tlm_file = TLMFiles(path=path, is_processed=True)
-            session.add(new_tlm_file)
+            packets = parse_new_tlm_files(tlm_file.path)
+            tlm_file.is_processed = True
             session.commit()
-            update_tlm_database(packets, new_tlm_file.tlm_id)
+            update_tlm_database(packets, tlm_file.tlm_id)
         except Exception as e:
-            logger.error(f"Failed to ingest {path}: {e}")
+            logger.error(f"Failed to ingest {tlm_file.path}: {e}")
 
 @flow
 def level0_form_images(session=None, pipeline_config_path=None):
+    logger = get_run_logger()
+
     if session is None:
         session = get_database_session()
 
@@ -111,22 +122,28 @@ def level0_form_images(session=None, pipeline_config_path=None):
                                               - image_packets_entries[0].flash_block}
                     errors.append(error)
             elif image_compression[0]['CMP_BYP'] == 1:
-                print("couldn't form image because we don't have it implemented")
+                try:
+                    logger.info(f"Packet shape {ordered_image_content.shape[0]}", )
+                    image = form_from_raw(ordered_image_content)
+                except (RuntimeError, ValueError):
+                    skip_image = True
+                    error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
+                             'start_block': image_packets_entries[0].flash_block,
+                             'replay_length': image_packets_entries[-1].flash_block
+                                              - image_packets_entries[0].flash_block}
+                    errors.append(error)
+            else:
                 skip_image = True
-                # error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
-                #          'start_block': image_packets_entries[0].flash_block,
-                #          'replay_length': image_packets_entries[-1].flash_block
-                #                           - image_packets_entries[0].flash_block}
-                # errors.append(error)
+                print("Not implemented")
 
             # check the quality of the image
-            if not skip_image and not image_is_okay(image, config):
-                skip_image = True
-                error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
-                         'start_block': image_packets_entries[0].flash_block,
-                         'replay_length': image_packets_entries[-1].flash_block
-                                          - image_packets_entries[0].flash_block}
-                errors.append(error)
+            # if not skip_image and not image_is_okay(image, config):
+            #     skip_image = True
+            #     error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
+            #              'start_block': image_packets_entries[0].flash_block,
+            #              'replay_length': image_packets_entries[-1].flash_block
+            #                               - image_packets_entries[0].flash_block}
+            #     errors.append(error)
 
             if not skip_image:
                 spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
@@ -169,17 +186,3 @@ def level0_form_images(session=None, pipeline_config_path=None):
         df_path = os.path.join(config['root'], 'REPLAY', f'PUNCH_{str(spacecraft[0])}_REPLAY_{date_str}.csv')
         os.makedirs(os.path.dirname(df_path), exist_ok=True)
         df_errors.to_csv(df_path, index=False)
-
-if __name__ == "__main__":
-    session = get_database_session()
-
-    path = "/Users/jhughes/new_results/dec05-0936/PUNCH_EM-01_RAW_2016_099_01_19_V01.tlm"
-    #   path = "/Users/jhughes/new_results/dec05-0936/PUNCH_EM-01_RAW_2016_099_01_31_V01.tlm"
-    # path = "/Users/jhughes/new_results/dec05-0936/PUNCH_EM-01_RAW_2110_210_15_29_V01.tlm"
-    packets = parse_new_tlm_files(path)
-    new_tlm_file = TLMFiles(path=path, is_processed=True)
-    session.add(new_tlm_file)
-    session.commit()
-    update_tlm_database(packets, new_tlm_file.tlm_id)
-
-    level0_form_images(pipeline_config_path="/Users/jhughes/punchpipe_config.yaml")

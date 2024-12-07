@@ -50,7 +50,7 @@ def detect_new_tlm_files(pipeline_config: dict, session=None) -> [str]:
 
 
 @task
-def parse_new_tlm_files(telemetry_file_path: str):
+def parse_new_tlm_files(telemetry_file_path: str) -> dict:
     return process_telemetry_file(telemetry_file_path)
 
 
@@ -245,10 +245,10 @@ def get_fits_metadata(observation_time, spacecraft_id, session):
 
 def form_preliminary_wcs(metadata, plate_scale):
     """Create the preliminary WCS for punchbowl"""
-    quaternion = np.array([metadata['ATT_DET_Q_BODY_WRT_ECI1'],
-                           metadata['ATT_DET_Q_BODY_WRT_ECI2'],
-                           metadata['ATT_DET_Q_BODY_WRT_ECI3'],
-                           metadata['ATT_DET_Q_BODY_WRT_ECI4']])
+    quaternion = np.array([metadata['ATT_DET_Q_BODY_WRT_ECI1'] * 0.5E-10,
+                           metadata['ATT_DET_Q_BODY_WRT_ECI2'] * 0.5E-10,
+                           metadata['ATT_DET_Q_BODY_WRT_ECI3'] * 0.5E-10,
+                           metadata['ATT_DET_Q_BODY_WRT_ECI4'] * 0.5E-10])
     ra, dec, roll = eci_quaternion_to_ra_dec(quaternion)
     projection = "ARC" if metadata['spacecraft_id'] == '4' else 'AZP'
     celestial_wcs = WCS(naxis=2)
@@ -271,6 +271,42 @@ def form_from_jpeg_compressed(packets):
     img = pylibjpeg.decode(packets.tobytes())
     return img
 
-def form_from_raw(packets):
+def form_from_raw(flat_image):
     """Form a raw image from packets"""
-    return np.concatenate(packets)
+    np.save("experiment.npy", flat_image)
+    pixel_values = unpack_Nbit_values(flat_image, byteorder=">", N=16)
+    nvals = pixel_values.size
+    width = 2176
+    if nvals % width == 0:
+        image = pixel_values.reshape((-1, width))
+    else:
+        image = np.ravel(pixel_values)[:width * (nvals // width)].reshape((-1, width))
+    return image
+
+def unpack_Nbit_values(packed: bytes, byteorder: str, N=19) -> np.ndarray:
+    if N in (8, 16, 32, 64):
+        trailing = len(packed)%(N//8)
+        if trailing:
+            packed = packed[:-trailing]
+        return np.frombuffer(packed, dtype=np.dtype(f"u{N//8}").newbyteorder(byteorder))
+    nbits = len(packed)*8
+    bytes_as_ints = np.frombuffer(packed, "u1")
+    results = []
+    for bit in range(0, nbits, N):
+        encompassing_bytes = bytes_as_ints[bit//8:-((bit+N)//-8)]
+        # "ceil" equivalent of a//b is -(-a//b), because of
+        # http://python-history.blogspot.com/2010/08/why-pythons-integer-division-floors.html
+        if len(encompassing_bytes)*8 < N:
+           break
+        bit_within_byte = bit % 8
+        if byteorder in ("little", "<"):
+            bytes_value = int.from_bytes(encompassing_bytes, "little")
+            bits_value = (bytes_value >> bit_within_byte) & (2**N - 1)
+        elif byteorder in ("big", ">"):
+            extra_bits_to_right = len(encompassing_bytes)*8 - (bit_within_byte+N)
+            bytes_value = int.from_bytes(encompassing_bytes, "big")
+            bits_value = (bytes_value >> extra_bits_to_right) & (2**N - 1)
+        else:
+            raise ValueError("`byteorder` must be either 'little' or 'big'")
+        results.append(bits_value)
+    return np.asanyarray(results)
