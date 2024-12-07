@@ -1,7 +1,7 @@
 import os
 
-from sqlalchemy import TEXT, Boolean, Column, DateTime, Float, Integer, String
-from sqlalchemy.dialects.mysql import INTEGER
+from sqlalchemy import TEXT, Boolean, Column, Float, Integer, String
+from sqlalchemy.dialects.mysql import DATETIME, INTEGER
 from sqlalchemy.orm import declarative_base
 
 from punchpipe.error import MissingCCSDSDataError
@@ -17,10 +17,10 @@ class File(Base):
     observatory = Column(String(1), nullable=False)
     file_version = Column(String(16), nullable=False)
     software_version = Column(String(35), nullable=False)
-    date_created = Column(DateTime, nullable=True)
-    date_obs = Column(DateTime, nullable=False)
-    date_beg = Column(DateTime, nullable=True)
-    date_end = Column(DateTime, nullable=True)
+    date_created = Column(DATETIME(fsp=6), nullable=True)
+    date_obs = Column(DATETIME(fsp=6), nullable=False)
+    date_beg = Column(DATETIME(fsp=6), nullable=True)
+    date_end = Column(DATETIME(fsp=6), nullable=True)
     polarization = Column(String(2), nullable=True)
     state = Column(String(64), nullable=False)
     processing_flow = Column(Integer, nullable=True)
@@ -62,9 +62,9 @@ class Flow(Base):
     flow_run_name = Column(String(64), nullable=True)
     flow_run_id = Column(String(36), nullable=True)
     state = Column(String(16), nullable=False)
-    creation_time = Column(DateTime, nullable=False)
-    start_time = Column(DateTime, nullable=True)
-    end_time = Column(DateTime, nullable=True)
+    creation_time = Column(DATETIME(fsp=6), nullable=False)
+    start_time = Column(DATETIME(fsp=6), nullable=True)
+    end_time = Column(DATETIME(fsp=6), nullable=True)
     priority = Column(Integer, nullable=False)
     call_data = Column(TEXT, nullable=True)
 
@@ -84,12 +84,14 @@ class SciPacket(Base):
     length = Column(Integer, nullable=False)
     spacecraft_id = Column(Integer, nullable=False, index=True)
     flash_block = Column(Integer, nullable=False)
-    timestamp = Column(DateTime, nullable=False, index=True)
+    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
     packet_num = Column(Integer, nullable=False)
     source_tlm_file = Column(Integer, nullable=False)
     is_used = Column(Boolean)
+    img_pkt_grp = Column(Integer, nullable=False)
     l0_version = Column(Integer)
     compression_settings = Column(Integer)
+    acquisition_settings = Column(Integer)
 
 class EngXACTPacket(Base):
     __tablename__ = "eng_xact"
@@ -99,14 +101,14 @@ class EngXACTPacket(Base):
     length = Column(Integer, nullable=False)
     spacecraft_id = Column(Integer, nullable=False, index=True)
     flash_block = Column(Integer, nullable=False)
-    timestamp = Column(DateTime, nullable=False, index=True)
+    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
     packet_num = Column(Integer, nullable=False)
     source_tlm_file = Column(Integer, nullable=False)
 
-    ATT_DET_Q_BODY_WRT_ECI1	= Column(Float, nullable=False) # Attitude Quaternion
-    ATT_DET_Q_BODY_WRT_ECI2	= Column(Float, nullable=False) # Attitude Quaternion
-    ATT_DET_Q_BODY_WRT_ECI3	= Column(Float, nullable=False) # Attitude Quaternion
-    ATT_DET_Q_BODY_WRT_ECI4	= Column(Float, nullable=False) # Attitude Quaternion
+    ATT_DET_Q_BODY_WRT_ECI1	= Column(Integer, nullable=False) # Attitude Quaternion
+    ATT_DET_Q_BODY_WRT_ECI2	= Column(Integer, nullable=False) # Attitude Quaternion
+    ATT_DET_Q_BODY_WRT_ECI3	= Column(Integer, nullable=False) # Attitude Quaternion
+    ATT_DET_Q_BODY_WRT_ECI4	= Column(Integer, nullable=False) # Attitude Quaternion
 
     ATT_DET_RESIDUAL1 = Column(Float, nullable=False) #	Attitude Filter Residual
     ATT_DET_RESIDUAL2 = Column(Float, nullable=False) # Attitude Filter Residual
@@ -133,7 +135,7 @@ class ENGPFWPacket(Base):
     length = Column(Integer, nullable=False)
     spacecraft_id = Column(Integer, nullable=False, index=True)
     flash_block = Column(Integer, nullable=False)
-    timestamp = Column(DateTime, nullable=False, index=True)
+    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
     packet_num = Column(Integer, nullable=False)
     source_tlm_file = Column(INTEGER(unsigned=True), nullable=False)
 
@@ -193,7 +195,7 @@ class TLMFiles(Base):
 class Health(Base):
     __tablename__ = "health"
     health_id = Column(Integer, primary_key=True)
-    datetime = Column(DateTime, nullable=False)
+    datetime = Column(DATETIME(fsp=6), nullable=False)
     cpu_usage = Column(Float, nullable=False)
     memory_usage = Column(Float, nullable=False)
     memory_percentage = Column(Float, nullable=False)

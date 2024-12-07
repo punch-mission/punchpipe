@@ -4,7 +4,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 from ndcube import NDCube
-from prefect import flow
+from prefect import flow, get_run_logger
 from prefect.blocks.core import Block
 from prefect.blocks.fields import SecretDict
 from punchbowl.data import get_base_file_name
@@ -19,9 +19,9 @@ from punchpipe.level0.ccsds import unpack_compression_settings
 from punchpipe.level0.core import (
     detect_new_tlm_files,
     form_from_jpeg_compressed,
+    form_from_raw,
     form_preliminary_wcs,
     get_fits_metadata,
-    image_is_okay,
     parse_new_tlm_files,
     process_telemetry_file,
     update_tlm_database,
@@ -34,20 +34,37 @@ class SpacecraftMapping(Block):
 
 @flow
 def level0_ingest_raw_packets(pipeline_config_path: str | None = None, session=None):
+    logger = get_run_logger()
     if session is None:
         session = get_database_session()
     config = load_pipeline_configuration(pipeline_config_path)
-
+    logger.info(f"Querying {config['tlm_directory']}.")
     paths = detect_new_tlm_files(config, session=session)
+    logger.info(f"Preparing to process {len(paths)} files.")
+
+    # Commit to processing these TLM files
+    tlm_files = []
     for path in paths:
-        packets = parse_new_tlm_files(path)
-        new_tlm_file = TLMFiles(path=path, is_processed=True)
+        new_tlm_file = TLMFiles(path=path, is_processed=False)
         session.add(new_tlm_file)
-        session.commit()
-        update_tlm_database(packets, new_tlm_file.tlm_id)
+        tlm_files.append(new_tlm_file)
+    session.commit()
+
+    # Actually performing processing
+    for tlm_file in tlm_files:
+        logger.info(f"Ingesting {tlm_file.path}.")
+        try:
+            packets = parse_new_tlm_files(tlm_file.path)
+            tlm_file.is_processed = True
+            session.commit()
+            update_tlm_database(packets, tlm_file.tlm_id)
+        except Exception as e:
+            logger.error(f"Failed to ingest {tlm_file.path}: {e}")
 
 @flow
 def level0_form_images(session=None, pipeline_config_path=None):
+    logger = get_run_logger()
+
     if session is None:
         session = get_database_session()
 
@@ -63,8 +80,9 @@ def level0_form_images(session=None, pipeline_config_path=None):
         errors = []
 
         for t in distinct_times:
-            image_packets_entries = session.query(SciPacket).where(and_(SciPacket.timestamp == t[0],
-                                                                SciPacket.spacecraft_id == spacecraft[0])).all()
+            image_packets_entries = (session.query(SciPacket)
+                                     .where(and_(SciPacket.timestamp == t[0],
+                                                                SciPacket.spacecraft_id == spacecraft[0])).all())
             image_compression = [unpack_compression_settings(packet.compression_settings)
                                  for packet in image_packets_entries]
 
@@ -93,10 +111,21 @@ def level0_form_images(session=None, pipeline_config_path=None):
 
             # Get the proper image
             skip_image = False
-            if image_compression[0]['JPEG'] == 1:  # this assumes the image compression is static for an image
+            if image_compression[0]['CMP_BYP'] == 0 and image_compression[0]['JPEG'] == 1:  # this assumes the image compression is static for an image
                 try:
                     image = form_from_jpeg_compressed(ordered_image_content)
-                except ValueError:
+                except (RuntimeError, ValueError):
+                    skip_image = True
+                    error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
+                             'start_block': image_packets_entries[0].flash_block,
+                             'replay_length': image_packets_entries[-1].flash_block
+                                              - image_packets_entries[0].flash_block}
+                    errors.append(error)
+            elif image_compression[0]['CMP_BYP'] == 1:
+                try:
+                    logger.info(f"Packet shape {ordered_image_content.shape[0]}", )
+                    image = form_from_raw(ordered_image_content)
+                except (RuntimeError, ValueError):
                     skip_image = True
                     error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
                              'start_block': image_packets_entries[0].flash_block,
@@ -105,20 +134,16 @@ def level0_form_images(session=None, pipeline_config_path=None):
                     errors.append(error)
             else:
                 skip_image = True
-                error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
-                         'start_block': image_packets_entries[0].flash_block,
-                         'replay_length': image_packets_entries[-1].flash_block
-                                          - image_packets_entries[0].flash_block}
-                errors.append(error)
+                print("Not implemented")
 
             # check the quality of the image
-            if not skip_image and not image_is_okay(image, config):
-                skip_image = True
-                error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
-                         'start_block': image_packets_entries[0].flash_block,
-                         'replay_length': image_packets_entries[-1].flash_block
-                                          - image_packets_entries[0].flash_block}
-                errors.append(error)
+            # if not skip_image and not image_is_okay(image, config):
+            #     skip_image = True
+            #     error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
+            #              'start_block': image_packets_entries[0].flash_block,
+            #              'replay_length': image_packets_entries[-1].flash_block
+            #                               - image_packets_entries[0].flash_block}
+            #     errors.append(error)
 
             if not skip_image:
                 spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
