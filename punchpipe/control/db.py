@@ -105,10 +105,10 @@ class EngXACTPacket(Base):
     packet_num = Column(Integer, nullable=False)
     source_tlm_file = Column(Integer, nullable=False)
 
-    ATT_DET_Q_BODY_WRT_ECI1	= Column(Float, nullable=False) # Attitude Quaternion
-    ATT_DET_Q_BODY_WRT_ECI2	= Column(Float, nullable=False) # Attitude Quaternion
-    ATT_DET_Q_BODY_WRT_ECI3	= Column(Float, nullable=False) # Attitude Quaternion
-    ATT_DET_Q_BODY_WRT_ECI4	= Column(Float, nullable=False) # Attitude Quaternion
+    ATT_DET_Q_BODY_WRT_ECI1	= Column(Integer, nullable=False) # Attitude Quaternion
+    ATT_DET_Q_BODY_WRT_ECI2	= Column(Integer, nullable=False) # Attitude Quaternion
+    ATT_DET_Q_BODY_WRT_ECI3	= Column(Integer, nullable=False) # Attitude Quaternion
+    ATT_DET_Q_BODY_WRT_ECI4	= Column(Integer, nullable=False) # Attitude Quaternion
 
     ATT_DET_RESIDUAL1 = Column(Float, nullable=False) #	Attitude Filter Residual
     ATT_DET_RESIDUAL2 = Column(Float, nullable=False) # Attitude Filter Residual
