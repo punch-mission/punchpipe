@@ -13,7 +13,7 @@ from punchbowl.data.meta import NormalizedMetadata
 from sqlalchemy import and_
 
 from punchpipe import __version__ as software_version
-from punchpipe.control.db import File, SciPacket, TLMFiles
+from punchpipe.control.db import File, SciPacket, TLMFiles, PacketHistory
 from punchpipe.control.util import get_database_session, load_pipeline_configuration
 from punchpipe.level0.ccsds import unpack_compression_settings
 from punchpipe.level0.core import (
@@ -76,6 +76,7 @@ def level0_form_images(session=None, pipeline_config_path=None):
 
     already_parsed_tlms = {} # tlm_path maps to the parsed contents
 
+    skip_count, success_count = 0, 0
     for spacecraft in distinct_spacecraft:
         errors = []
 
@@ -173,6 +174,15 @@ def level0_form_images(session=None, pipeline_config_path=None):
                     image_packets_entries.is_used = True
                 session.add(l0_db_entry)
                 session.commit()
+                success_count += 1
+            else:
+                skip_count += 1
+        history = PacketHistory(datetime=datetime.now(),
+                               num_images_succeeded=success_count,
+                               num_images_failed=skip_count)
+        session.add(history)
+        session.commit()
+
         df_errors = pd.DataFrame(errors)
         date_str = datetime.now().strftime("%Y_%j")
         df_path = os.path.join(config['root'], 'REPLAY', f'PUNCH_{str(spacecraft[0])}_REPLAY_{date_str}.csv')
