@@ -20,7 +20,8 @@ def level1_query_ready_files(session, pipeline_config: dict, reference_time=None
     .filter(File.state == "created").filter(File.level == "0").all()]
     actually_ready = []
     for f in ready:
-        if get_psf_model_path(f, pipeline_config) is not None and get_psf_model_path(f, pipeline_config) is not None:
+        if (get_psf_model_path(f, pipeline_config, session=session) is not None
+                and get_psf_model_path(f, pipeline_config, session=session) is not None):
             actually_ready.append([f])
     return actually_ready
 
