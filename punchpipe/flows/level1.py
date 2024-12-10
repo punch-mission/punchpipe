@@ -22,7 +22,7 @@ def level1_query_ready_files(session, pipeline_config: dict, reference_time=None
     for f in ready:
         if (get_psf_model_path(f, pipeline_config, session=session) is not None
                 and get_psf_model_path(f, pipeline_config, session=session) is not None):
-            actually_ready.append([f])
+            actually_ready.append([f.file_id])
     return actually_ready
 
 @task
