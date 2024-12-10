@@ -54,14 +54,14 @@ def serve_flows(configuration_path):
 
     level0_ingest_raw_packets_deployment = level0_ingest_raw_packets.to_deployment(name="level0_ingest_raw_packets",
                                                                                    description="Ingest raw packets.",
-                                                                                   #cron="* * * * *",
+                                                                                   cron="*/5 * * * *",
                                                                                    parameters={
                                                                                        "pipeline_config_path": configuration_path},
                                                                                    tags=['L0'])
 
     level0_form_images_deployment = level0_form_images.to_deployment(name="level0_form_images",
                                                                      description="Form images from packets.",
-                                                                     #cron="* * * * *",
+                                                                     cron="*/5 * * * *",
                                                                      tags=['L0'],
                                                                      parameters={"pipeline_config_path": configuration_path})
 
@@ -140,8 +140,8 @@ def serve_flows(configuration_path):
                                                                      cron=config['levels']['construct_starfield_background_process_flow'].get("schedule", "* * * * *"),
                                                                      tags=["L3", "scheduler"],
                                                                      parameters={"pipeline_config_path": configuration_path}
-
                                                                                                  )
+
     starfield_process_dep = starfield_process_flow.to_deployment(name="construct_starfield_background_process_flow",
                                                                  description="Create starfield background.",
                                                                  tags=["L3", "process"],
@@ -196,7 +196,7 @@ def run(configuration_path):
         try:
             prefect_process = subprocess.Popen(["prefect", "server", "start"],
                                                stdout=f, stderr=subprocess.STDOUT)
-            time.sleep(10)
+            time.sleep(5)
             monitor_process = subprocess.Popen(["gunicorn",
                                                 "-b", "0.0.0.0:8050",
                                                 "--chdir", THIS_DIR,
@@ -213,14 +213,14 @@ def run(configuration_path):
         except KeyboardInterrupt:
             print("Shutting down.")
             prefect_process.terminate()
-            time.sleep(10)
+            time.sleep(5)
             monitor_process.terminate()
             print()
             print("punchpipe safely shut down.")
         except Exception as e:
             print(f"Received error: {e}")
             prefect_process.terminate()
-            time.sleep(10)
+            time.sleep(5)
             monitor_process.terminate()
             print()
             print("punchpipe abruptly shut down.")
