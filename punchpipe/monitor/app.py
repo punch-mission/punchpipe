@@ -126,10 +126,9 @@ def create_app():
 
     def create_card_content(level: int, status: str):
         return [
-            # dbc.CardHeader(f"Level {level} Flow Pressure"),
             dbc.CardBody(
                 [
-                    html.H5(f"Level {level} Flow Pressure", className="card-title"),
+                    html.H5(f"Level {level} Status", className="card-title"),
                     html.P(
                         status,
                         className="card-text",
@@ -143,14 +142,30 @@ def create_app():
         Input('interval-component', 'n_intervals'),
     )
     def update_cards(n):
+        now = datetime.now()
+        with get_database_session() as session:
+            reference_time = now - timedelta(hours=24)
+            query = (f"SELECT SUM(num_images_succeeded), SUM(num_images_failed) "
+                     f"FROM packet_history WHERE datetime > '{reference_time}';")
+            df = pd.read_sql_query(query, session.connection())
+        num_l0_success = df['SUM(num_images_succeeded)'].sum()
+        num_l0_fails = df['SUM(num_images_failed)'].sum()
+        l0_fraction = num_l0_success / (1 + num_l0_success + num_l0_fails)  # add one to avoid div by 0 errors
+        if l0_fraction > 0.95:
+            l0_status = f"Good ({num_l0_success} : {num_l0_fails})"
+            l0_color = "success"
+        else:
+            l0_status = f"Bad ({num_l0_success} : {num_l0_fails})"
+            l0_color = "danger"
+
         cards = html.Div(
             [
                 dbc.Row(
                     [
-                        dbc.Col(dbc.Card(create_card_content(0, "Good"), color="success", inverse=True)),
+                        dbc.Col(dbc.Card(create_card_content(0, l0_status), color=l0_color, inverse=True)),
                         dbc.Col(dbc.Card(create_card_content(1, "Good"), color="success", inverse=True)),
-                        dbc.Col(dbc.Card(create_card_content(2, "Warning"), color="warning", inverse=True)),
-                        dbc.Col(dbc.Card(create_card_content(3, "Bad"), color="danger", inverse=True)),
+                        dbc.Col(dbc.Card(create_card_content(2, "Good"), color="success", inverse=True)),
+                        dbc.Col(dbc.Card(create_card_content(3, "Good"), color="success", inverse=True)),
                     ],
                     className="mb-4",
                 ),
