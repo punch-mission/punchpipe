@@ -13,7 +13,7 @@ from punchbowl.data.meta import NormalizedMetadata
 from sqlalchemy import and_
 
 from punchpipe import __version__ as software_version
-from punchpipe.control.db import File, SciPacket, TLMFiles, PacketHistory
+from punchpipe.control.db import File, PacketHistory, SciPacket, TLMFiles
 from punchpipe.control.util import get_database_session, load_pipeline_configuration
 from punchpipe.level0.ccsds import unpack_compression_settings
 from punchpipe.level0.core import (
