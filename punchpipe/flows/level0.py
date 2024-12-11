@@ -13,7 +13,7 @@ from punchbowl.data.meta import NormalizedMetadata
 from sqlalchemy import and_
 
 from punchpipe import __version__ as software_version
-from punchpipe.control.db import File, SciPacket, TLMFiles
+from punchpipe.control.db import File, PacketHistory, SciPacket, TLMFiles
 from punchpipe.control.util import get_database_session, load_pipeline_configuration
 from punchpipe.level0.ccsds import unpack_compression_settings
 from punchpipe.level0.core import (
@@ -76,6 +76,7 @@ def level0_form_images(session=None, pipeline_config_path=None):
 
     already_parsed_tlms = {} # tlm_path maps to the parsed contents
 
+    skip_count, success_count = 0, 0
     for spacecraft in distinct_spacecraft:
         errors = []
 
@@ -107,12 +108,12 @@ def level0_form_images(session=None, pipeline_config_path=None):
                 tlm_content_index = needed_tlm_paths.index(tlm_id_to_tlm_path[packet_entry.source_tlm_file])
                 selected_tlm_contents = tlm_contents[tlm_content_index]
                 ordered_image_content.append(selected_tlm_contents[0x20]['SCI_XFI_IMG_DATA'][packet_entry.packet_num])
-            ordered_image_content = np.concatenate(ordered_image_content)
 
             # Get the proper image
             skip_image = False
             if image_compression[0]['CMP_BYP'] == 0 and image_compression[0]['JPEG'] == 1:  # this assumes the image compression is static for an image
                 try:
+                    ordered_image_content = np.concatenate(ordered_image_content)
                     image = form_from_jpeg_compressed(ordered_image_content)
                 except (RuntimeError, ValueError):
                     skip_image = True
@@ -123,6 +124,7 @@ def level0_form_images(session=None, pipeline_config_path=None):
                     errors.append(error)
             elif image_compression[0]['CMP_BYP'] == 1:
                 try:
+                    ordered_image_content = np.concatenate(ordered_image_content)
                     logger.info(f"Packet shape {ordered_image_content.shape[0]}", )
                     image = form_from_raw(ordered_image_content)
                 except (RuntimeError, ValueError):
@@ -135,15 +137,6 @@ def level0_form_images(session=None, pipeline_config_path=None):
             else:
                 skip_image = True
                 print("Not implemented")
-
-            # check the quality of the image
-            # if not skip_image and not image_is_okay(image, config):
-            #     skip_image = True
-            #     error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
-            #              'start_block': image_packets_entries[0].flash_block,
-            #              'replay_length': image_packets_entries[-1].flash_block
-            #                               - image_packets_entries[0].flash_block}
-            #     errors.append(error)
 
             if not skip_image:
                 spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
@@ -181,6 +174,15 @@ def level0_form_images(session=None, pipeline_config_path=None):
                     image_packets_entries.is_used = True
                 session.add(l0_db_entry)
                 session.commit()
+                success_count += 1
+            else:
+                skip_count += 1
+        history = PacketHistory(datetime=datetime.now(),
+                               num_images_succeeded=success_count,
+                               num_images_failed=skip_count)
+        session.add(history)
+        session.commit()
+
         df_errors = pd.DataFrame(errors)
         date_str = datetime.now().strftime("%Y_%j")
         df_path = os.path.join(config['root'], 'REPLAY', f'PUNCH_{str(spacecraft[0])}_REPLAY_{date_str}.csv')

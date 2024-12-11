@@ -204,6 +204,14 @@ class Health(Base):
     num_pids = Column(Integer, nullable=False)
 
 
+class PacketHistory(Base):
+    __tablename__ = "packet_history"
+    id = Column(Integer, primary_key=True)
+    datetime = Column(DATETIME(fsp=6), nullable=False)
+    num_images_succeeded = Column(Integer, nullable=False)
+    num_images_failed = Column(Integer, nullable=False)
+
+
 def get_closest_eng_packets(table, timestamp, spacecraft_id, session):
     # find the closest events which are greater/less than the timestamp
     gt_event = session.query(table).filter(table.spacecraft_id == spacecraft_id).filter(table.timestamp > timestamp).order_by(table.timestamp.asc()).first()

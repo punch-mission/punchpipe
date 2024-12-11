@@ -6,7 +6,7 @@ from ndcube import NDCube
 from prefect import task
 from prefect.variables import Variable
 from prefect_sqlalchemy import SqlAlchemyConnector
-from punchbowl.data import get_base_file_name, write_ndcube_to_fits
+from punchbowl.data import get_base_file_name, write_ndcube_to_fits, write_ndcube_to_jp2
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from yaml.loader import FullLoader
@@ -47,6 +47,9 @@ def write_file(data: NDCube, corresponding_file_db_entry, pipeline_config) -> No
         os.makedirs(output_dir)
     write_ndcube_to_fits(data, output_filename)
     corresponding_file_db_entry.state = "created"
+
+    layer = 0 if len(data.data.shape) > 2 else None
+    write_ndcube_to_jp2(data, output_filename.replace(".fits", ".jp2"), layer=layer)
 
 
 def match_data_with_file_db_entry(data: NDCube, file_db_entry_list):

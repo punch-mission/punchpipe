@@ -5,7 +5,6 @@ from datetime import datetime
 
 from prefect import flow, task
 from punchbowl.level1.flow import level1_core_flow
-from sqlalchemy import and_
 
 from punchpipe import __version__
 from punchpipe.control.db import File, Flow
@@ -16,9 +15,15 @@ SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
 
 @task
 def level1_query_ready_files(session, pipeline_config: dict, reference_time=None):
-    return [[f.file_id] for f in session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL0_TYPE_CODES))
-    .where(and_(File.state == "created",  File.level == "0")).all()]
-
+    max_start = pipeline_config['scheduler']['max_start']
+    ready = [f for f in session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL0_TYPE_CODES))
+    .filter(File.state == "created").filter(File.level == "0").all()][:max_start*3]
+    actually_ready = []
+    for f in ready:
+        if (get_psf_model_path(f, pipeline_config, session=session) is not None
+                and get_psf_model_path(f, pipeline_config, session=session) is not None):
+            actually_ready.append([f.file_id])
+    return actually_ready
 
 @task
 def get_psf_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
@@ -32,7 +37,7 @@ def get_psf_model_path(level0_file, pipeline_config: dict, session=None, referen
                   .filter(File.observatory == level0_file.observatory)
                   .where(File.date_obs <= level0_file.date_obs)
                   .order_by(File.date_obs.desc()).first())
-    return os.path.join(best_model.directory(pipeline_config['root']), best_model.filename())
+    return best_model
 
 @task
 def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
@@ -41,7 +46,7 @@ def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, ref
                   .filter(File.observatory == level0_file.observatory)
                   .where(File.date_obs <= level0_file.date_obs)
                   .order_by(File.date_obs.desc()).first())
-    return os.path.join(best_model.directory(pipeline_config['root']), best_model.filename())
+    return best_model
 
 @task
 def level1_construct_flow_info(level0_files: list[File], level1_files: File,
@@ -50,14 +55,20 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["levels"][flow_type]["priority"]["initial"]
+
+    best_psf_model = get_psf_model_path(level0_files[0], pipeline_config, session=session)
+    best_quartic_model = get_quartic_model_path(level0_files[0], pipeline_config, session=session)
+
     call_data = json.dumps(
         {
             "input_data": [
                 os.path.join(level0_file.directory(pipeline_config["root"]), level0_file.filename())
                 for level0_file in level0_files
             ],
-            "psf_model_path": get_psf_model_path(level0_files[0], pipeline_config, session=session),
-            "quartic_coefficient_path": get_quartic_model_path(level0_files[0], pipeline_config, session=session),
+            "psf_model_path": os.path.join(best_psf_model.directory(pipeline_config['root']),
+                                           best_psf_model.filename()),
+            "quartic_coefficient_path": os.path.join(best_quartic_model.directory(pipeline_config['root']),
+                                                     best_quartic_model.filename()),
         }
     )
     return Flow(
