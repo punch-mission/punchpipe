@@ -64,7 +64,8 @@ db = create_mysql_fixture(Base, session_fn, session=True)
 
 
 def test_query_ready_files(db):
-    pipeline_config = {}
+    pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
+    pipeline_config = load_pipeline_configuration.fn(pipeline_config_path)
     ready_file_ids = level1_query_ready_files.fn(db, pipeline_config)
     assert len(ready_file_ids) == 1
 
