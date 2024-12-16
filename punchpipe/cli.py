@@ -4,6 +4,7 @@ import argparse
 import subprocess
 from pathlib import Path
 from datetime import datetime
+import traceback
 
 from prefect import serve
 from prefect.variables import Variable
@@ -219,6 +220,7 @@ def run(configuration_path):
             print("punchpipe safely shut down.")
         except Exception as e:
             print(f"Received error: {e}")
+            print(traceback.format_exc())
             prefect_process.terminate()
             time.sleep(5)
             monitor_process.terminate()
