@@ -216,7 +216,9 @@ def level3_PIM_construct_file_info(level2_files: t.List[File], pipeline_config: 
 
 
 @flow
-def level3_PIM_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
+def level3_PIM_scheduler_flow(pipeline_config_path: str | None = None,
+                              session=None,
+                              reference_time: datetime | None = None):
     generic_scheduler_flow_logic(
         level3_PIM_query_ready_files,
         level3_PIM_construct_file_info,
