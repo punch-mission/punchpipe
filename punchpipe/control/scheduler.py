@@ -13,8 +13,6 @@ def generic_scheduler_flow_logic(
 
     max_start = pipeline_config['scheduler']['max_start']
 
-    reference_time = reference_time or datetime.now()
-
     if session is None:
         session = get_database_session()
 
