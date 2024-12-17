@@ -4,7 +4,6 @@ import random
 import typing as t
 from datetime import datetime, timedelta
 
-from dateutil.parser import parse as parse_datetime_str
 from prefect import flow, get_run_logger, task
 from punchbowl.level3.f_corona_model import construct_polarized_f_corona_model
 
