@@ -1,10 +1,10 @@
 import os
 import time
 import argparse
+import traceback
 import subprocess
 from pathlib import Path
 from datetime import datetime
-import traceback
 
 from prefect import serve
 from prefect.variables import Variable
