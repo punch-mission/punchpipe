@@ -148,11 +148,11 @@ def level3_PIM_query_ready_files(session, pipeline_config: dict, reference_time=
     actually_ready_files = []
     for f in all_ready_files:
         valid_before_fcorona_models = get_valid_fcorona_models(session, f,
-                                                               before_timedelta=timedelta(days=14),
+                                                               before_timedelta=timedelta(days=90),
                                                                after_timedelta=timedelta(days=0))
         valid_after_fcorona_models = get_valid_fcorona_models(session, f,
                                                                before_timedelta=timedelta(days=0),
-                                                               after_timedelta=timedelta(days=14))
+                                                               after_timedelta=timedelta(days=90))
         logger.info(f"valid before f corona: {valid_before_fcorona_models}")
         logger.info(f"valid after f corona: {valid_after_fcorona_models}")
         if len(valid_before_fcorona_models) >= 1 and len(valid_after_fcorona_models) >= 1:
@@ -173,12 +173,12 @@ def level3_PIM_construct_flow_info(level2_files: list[File], level3_file: File, 
     priority = pipeline_config["levels"][flow_type]["priority"]["initial"]
     before_models = get_valid_fcorona_models(session,
                                                                              level2_files[0],
-                                                                             before_timedelta=timedelta(days=14),
+                                                                             before_timedelta=timedelta(days=90),
                                                                              after_timedelta=timedelta(days=0))
     after_models = get_valid_fcorona_models(session,
                                                                              level2_files[0],
                                                                              before_timedelta=timedelta(days=0),
-                                                                             after_timedelta=timedelta(days=14))
+                                                                             after_timedelta=timedelta(days=90))
     f_corona_before = get_closest_before_file(level2_files[0], before_models)
     f_corona_after = get_closest_after_file(level2_files[0], after_models)
     call_data = json.dumps(
