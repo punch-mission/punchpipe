@@ -4,7 +4,6 @@ import random
 import typing as t
 from datetime import datetime, timedelta
 
-from dateutil.parser import parse as parse_datetime_str
 from prefect import flow, get_run_logger, task
 from punchbowl.level3.f_corona_model import construct_polarized_f_corona_model
 
@@ -15,9 +14,7 @@ from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 
 @task
-def f_corona_background_query_ready_files(session, pipeline_config: dict, use_n: int = 50,
-                                          reference_time: datetime =None):
-    reference_time = reference_time or datetime.now()
+def f_corona_background_query_ready_files(session, pipeline_config: dict, reference_time: datetime, use_n: int = 50):
     before = reference_time - timedelta(weeks=2)
     after = reference_time + timedelta(weeks=2)
 
@@ -40,8 +37,9 @@ def f_corona_background_query_ready_files(session, pipeline_config: dict, use_n:
 def construct_f_corona_background_flow_info(level3_files: list[File],
                                             level3_f_model_file: File,
                                             pipeline_config: dict,
-                                            session=None,
-                                            reference_time: datetime = None):
+                                            reference_time: datetime,
+                                            session=None
+                                            ):
     flow_type = "construct_f_corona_background_process_flow"
     state = "planned"
     creation_time = datetime.now()
@@ -67,7 +65,7 @@ def construct_f_corona_background_flow_info(level3_files: list[File],
 
 @task
 def construct_f_corona_background_file_info(level2_files: t.List[File], pipeline_config: dict,
-                                            reference_time:datetime = None) -> t.List[File]:
+                                            reference_time: datetime) -> t.List[File]:
     return [File(
                 level="3",
                 file_type="PF",
@@ -79,9 +77,8 @@ def construct_f_corona_background_file_info(level2_files: t.List[File], pipeline
             ),]
 
 @flow
-def f_corona_scheduler(pipeline_config_path=None, session=None, reference_time: datetime = None):
-    if not isinstance(reference_time, datetime):
-        reference_time = parse_datetime_str(reference_time)
+def f_corona_scheduler(pipeline_config_path=None, session=None, reference_time: datetime | None = None):
+    reference_time = reference_time or datetime.now()
 
     generic_scheduler_flow_logic(
         f_corona_background_query_ready_files,

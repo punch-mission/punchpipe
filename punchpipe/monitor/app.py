@@ -151,7 +151,7 @@ def create_app():
         num_l0_success = df['SUM(num_images_succeeded)'].sum()
         num_l0_fails = df['SUM(num_images_failed)'].sum()
         l0_fraction = num_l0_success / (1 + num_l0_success + num_l0_fails)  # add one to avoid div by 0 errors
-        if l0_fraction > 0.95:
+        if l0_fraction > 0.95 or (num_l0_success + num_l0_fails) == 0:
             l0_status = f"Good ({num_l0_success} : {num_l0_fails})"
             l0_color = "success"
         else:

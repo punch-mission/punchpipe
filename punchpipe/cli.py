@@ -1,6 +1,7 @@
 import os
 import time
 import argparse
+import traceback
 import subprocess
 from pathlib import Path
 from datetime import datetime
@@ -196,7 +197,7 @@ def run(configuration_path):
         try:
             prefect_process = subprocess.Popen(["prefect", "server", "start"],
                                                stdout=f, stderr=subprocess.STDOUT)
-            time.sleep(5)
+            time.sleep(10)
             monitor_process = subprocess.Popen(["gunicorn",
                                                 "-b", "0.0.0.0:8050",
                                                 "--chdir", THIS_DIR,
@@ -219,6 +220,7 @@ def run(configuration_path):
             print("punchpipe safely shut down.")
         except Exception as e:
             print(f"Received error: {e}")
+            print(traceback.format_exc())
             prefect_process.terminate()
             time.sleep(5)
             monitor_process.terminate()

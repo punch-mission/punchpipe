@@ -13,7 +13,7 @@ from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 
 @task
-def starfield_background_query_ready_files(session, pipeline_config: dict, reference_time: datetime =None):
+def starfield_background_query_ready_files(session, pipeline_config: dict, reference_time: datetime):
     logger = get_run_logger()
     all_ready_files = (session.query(File)
                        .filter(File.state == "created")
@@ -31,7 +31,8 @@ def starfield_background_query_ready_files(session, pipeline_config: dict, refer
 def construct_starfield_background_flow_info(level3_fcorona_subtracted_files: list[File],
                                              level3_starfield_model_file: File,
                                              pipeline_config: dict,
-                                             session=None, reference_time: datetime =None):
+                                             reference_time: datetime,
+                                             session=None ):
     flow_type = "construct_starfield_background_process_flow"
     state = "planned"
     creation_time = datetime.now()
@@ -56,7 +57,8 @@ def construct_starfield_background_flow_info(level3_fcorona_subtracted_files: li
 
 
 @task
-def construct_starfield_background_file_info(level3_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
+def construct_starfield_background_file_info(level3_files: t.List[File], pipeline_config: dict,
+                                             reference_time: datetime) -> t.List[File]:
     return [File(
                 level="3",
                 file_type="PS",
@@ -70,7 +72,9 @@ def construct_starfield_background_file_info(level3_files: t.List[File], pipelin
 
 
 @flow
-def starfield_scheduler_flow(pipeline_config_path=None, session=None, reference_time: datetime=None):
+def starfield_scheduler_flow(pipeline_config_path=None, session=None, reference_time: datetime | None = None):
+    reference_time = reference_time or datetime.now()
+
     generic_scheduler_flow_logic(
         starfield_background_query_ready_files,
         construct_starfield_background_file_info,
