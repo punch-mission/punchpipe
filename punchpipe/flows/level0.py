@@ -73,7 +73,6 @@ def level0_form_images(session=None, pipeline_config_path=None):
     distinct_times = session.query(SciPacket.timestamp).filter(~SciPacket.is_used).distinct().all()
     distinct_spacecraft = session.query(SciPacket.spacecraft_id).filter(~SciPacket.is_used).distinct().all()
 
-
     already_parsed_tlms = {} # tlm_path maps to the parsed contents
 
     skip_count, success_count = 0, 0
@@ -104,20 +103,31 @@ def level0_form_images(session=None, pipeline_config_path=None):
 
             # Form the image packet stream for decompression
             ordered_image_content = []
+            sequence_counter = []
             for packet_entry in image_packets_entries:
                 tlm_content_index = needed_tlm_paths.index(tlm_id_to_tlm_path[packet_entry.source_tlm_file])
                 selected_tlm_contents = tlm_contents[tlm_content_index]
                 ordered_image_content.append(selected_tlm_contents[0x20]['SCI_XFI_IMG_DATA'][packet_entry.packet_num])
+                sequence_counter.append(selected_tlm_contents[0x20]['SCI_XFI_HDR_GRP'][packet_entry.packet_num])
 
             # Get the proper image
             skip_image = False
+            sequence_counter_diff = np.diff(np.array(sequence_counter))
+            if not np.all(np.isin(sequence_counter_diff, [1, 255])):
+                skip_image = True
+                error = {'start_time': image_packets_entries[0].timestamp.isoformat(),
+                         'start_block': image_packets_entries[0].flash_block,
+                         'replay_length': image_packets_entries[-1].flash_block
+                                          - image_packets_entries[0].flash_block}
+                errors.append(error)
+
             if image_compression[0]['CMP_BYP'] == 0 and image_compression[0]['JPEG'] == 1:  # this assumes the image compression is static for an image
                 try:
                     ordered_image_content = np.concatenate(ordered_image_content)
                     image = form_from_jpeg_compressed(ordered_image_content)
                 except (RuntimeError, ValueError):
                     skip_image = True
-                    error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
+                    error = {'start_time': image_packets_entries[0].timestamp.isoformat(),
                              'start_block': image_packets_entries[0].flash_block,
                              'replay_length': image_packets_entries[-1].flash_block
                                               - image_packets_entries[0].flash_block}
@@ -129,7 +139,7 @@ def level0_form_images(session=None, pipeline_config_path=None):
                     image = form_from_raw(ordered_image_content)
                 except (RuntimeError, ValueError):
                     skip_image = True
-                    error = {'start_time': image_packets_entries[0].timestamp.strftime("%Y-%m-%d %h:%m:%s"),
+                    error = {'start_time': image_packets_entries[0].timestamp.isoformat(),
                              'start_block': image_packets_entries[0].flash_block,
                              'replay_length': image_packets_entries[-1].flash_block
                                               - image_packets_entries[0].flash_block}

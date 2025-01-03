@@ -273,10 +273,9 @@ def form_from_jpeg_compressed(packets):
 
 def form_from_raw(flat_image):
     """Form a raw image from packets"""
-    np.save("experiment.npy", flat_image)
     pixel_values = unpack_Nbit_values(flat_image, byteorder=">", N=16)
     nvals = pixel_values.size
-    width = 2176
+    width = 2048
     if nvals % width == 0:
         image = pixel_values.reshape((-1, width))
     else:
