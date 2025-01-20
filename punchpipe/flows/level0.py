@@ -119,7 +119,8 @@ def level0_form_images(session=None, pipeline_config_path=None):
                          'start_block': image_packets_entries[0].flash_block,
                          'replay_length': image_packets_entries[-1].flash_block
                                           - image_packets_entries[0].flash_block}
-                errors.append(error)
+                if error['replay_length'] != 0:
+                    errors.append(error)
 
             if image_compression[0]['CMP_BYP'] == 0 and image_compression[0]['JPEG'] == 1:  # this assumes the image compression is static for an image
                 try:
@@ -131,7 +132,8 @@ def level0_form_images(session=None, pipeline_config_path=None):
                              'start_block': image_packets_entries[0].flash_block,
                              'replay_length': image_packets_entries[-1].flash_block
                                               - image_packets_entries[0].flash_block}
-                    errors.append(error)
+                    if error['replay_length'] != 0:
+                        errors.append(error)
             elif image_compression[0]['CMP_BYP'] == 1:
                 try:
                     ordered_image_content = np.concatenate(ordered_image_content)
@@ -143,7 +145,8 @@ def level0_form_images(session=None, pipeline_config_path=None):
                              'start_block': image_packets_entries[0].flash_block,
                              'replay_length': image_packets_entries[-1].flash_block
                                               - image_packets_entries[0].flash_block}
-                    errors.append(error)
+                    if error['replay_length'] != 0:
+                        errors.append(error)
             else:
                 skip_image = True
                 print("Not implemented")
@@ -194,7 +197,9 @@ def level0_form_images(session=None, pipeline_config_path=None):
         session.commit()
 
         df_errors = pd.DataFrame(errors)
+        # TODO - remove rows with zero-length replay (here or omit appending above?)
         date_str = datetime.now().strftime("%Y_%j")
+        # TODO - Update spacecraft IDs here with NFI00, WFI01, etc
         df_path = os.path.join(config['root'], 'REPLAY', f'PUNCH_{str(spacecraft[0])}_REPLAY_{date_str}.csv')
         os.makedirs(os.path.dirname(df_path), exist_ok=True)
         df_errors.to_csv(df_path, index=False)
