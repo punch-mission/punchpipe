@@ -196,10 +196,16 @@ def level0_form_images(session=None, pipeline_config_path=None):
         session.add(history)
         session.commit()
 
+        # TODO - Need to find out actual spacecraft numerical (hex?) IDs here and replace placeholders
+        spacecraft_name = {
+            1: 'WFI01',
+            2: 'WFI02',
+            3: 'WFI03',
+            4: 'NFI00'
+        }
+
         df_errors = pd.DataFrame(errors)
-        # TODO - remove rows with zero-length replay (here or omit appending above?)
         date_str = datetime.now().strftime("%Y_%j")
-        # TODO - Update spacecraft IDs here with NFI00, WFI01, etc
-        df_path = os.path.join(config['root'], 'REPLAY', f'PUNCH_{str(spacecraft[0])}_REPLAY_{date_str}.csv')
+        df_path = os.path.join(config['root'], 'REPLAY', f'PUNCH_{spacecraft_name[spacecraft[0]]}_REPLAY_{date_str}.csv')
         os.makedirs(os.path.dirname(df_path), exist_ok=True)
         df_errors.to_csv(df_path, index=False)
