@@ -196,12 +196,11 @@ def level0_form_images(session=None, pipeline_config_path=None):
         session.add(history)
         session.commit()
 
-        # TODO - Need to find out actual spacecraft numerical (hex?) IDs here and replace placeholders
         spacecraft_name = {
+            0: 'NFI00',
             1: 'WFI01',
             2: 'WFI02',
-            3: 'WFI03',
-            4: 'NFI00'
+            3: 'WFI03'
         }
 
         df_errors = pd.DataFrame(errors)
