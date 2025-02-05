@@ -8,8 +8,8 @@ from punchpipe.control.util import get_database_session, load_pipeline_configura
 
 
 @flow
-def update_machine_health_stats():
-    config = load_pipeline_configuration()
+def health_monitor(pipeline_config_path: str = None):
+    config = load_pipeline_configuration(pipeline_config_path)
 
     now = datetime.now()
     cpu_usage = psutil.cpu_percent(interval=5)
@@ -29,3 +29,6 @@ def update_machine_health_stats():
                                   num_pids=num_pids)
         session.add(new_health_entry)
         session.commit()
+
+
+# TODO add zombie monitor!

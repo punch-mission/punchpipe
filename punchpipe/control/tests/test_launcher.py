@@ -37,21 +37,21 @@ def session_fn(session):
 
     level0_planned_flow = Flow(flow_id=1,
                                flow_level=0,
-                              flow_type='level0_process_flow',
+                              flow_type='level0',
                               state='planned',
                               creation_time=datetime(2023, 2, 2, 0, 0, 0),
                               priority=5)
 
     level1_planned_flow = Flow(flow_id=2,
                                flow_level=1,
-                              flow_type='level1_process_flow',
+                              flow_type='level1',
                               state='planned',
                               creation_time=datetime(2023, 2, 2, 0, 0, 0),
                               priority=2)
 
     level1_planned_flow2 = Flow(flow_id=3,
                                flow_level=1,
-                              flow_type='level1_process_flow',
+                              flow_type='level1',
                               state='planned',
                               creation_time=datetime(2023, 2, 2, 0, 0, 0),
                               priority=100)

@@ -150,5 +150,5 @@ def test_simple_generic_process_flow_normal_return(db):
     output_filename = os.path.join(level1_file.directory("./test_results/"), level1_file.filename())
     del level1_file
 
-    assert os.path.isfile(output_filename)
+    assert os.path.isfile(str(output_filename))
     shutil.rmtree("./test_results/", ignore_errors=True)

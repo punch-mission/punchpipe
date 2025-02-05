@@ -23,10 +23,10 @@ def count_running_flows(session):
 
 @task
 def escalate_long_waiting_flows(session, pipeline_config):
-    for flow_type in pipeline_config["levels"]:
+    for flow_type in pipeline_config["flows"]:
         for max_seconds_waiting, escalated_priority in zip(
-            pipeline_config["levels"][flow_type]["priority"]["seconds"],
-            pipeline_config["levels"][flow_type]["priority"]["escalation"],
+            pipeline_config["flows"][flow_type]["priority"]["seconds"],
+            pipeline_config["flows"][flow_type]["priority"]["escalation"],
         ):
             since = datetime.now() - timedelta(seconds=max_seconds_waiting)
             session.query(Flow).where(
@@ -88,7 +88,7 @@ async def launch_ready_flows(session: Session, flow_ids: List[int]) -> List:
 
 
 @flow
-async def launcher_flow(pipeline_configuration_path=None):
+async def launcher(pipeline_config_path=None):
     """The main launcher flow for Prefect, responsible for identifying flows, based on priority,
         that are ready to run and creating flow runs for them. It also escalates long-waiting flows' priorities.
 
@@ -100,9 +100,9 @@ async def launcher_flow(pipeline_configuration_path=None):
     """
     logger = get_run_logger()
 
-    if pipeline_configuration_path is None:
-        pipeline_configuration_path = await Variable.get("punchpipe_config", "punchpipe_config.yaml")
-    pipeline_config = load_pipeline_configuration(pipeline_configuration_path)
+    if pipeline_config_path is None:
+        pipeline_config_path = await Variable.get("punchpipe_config", "punchpipe_config.yaml")
+    pipeline_config = load_pipeline_configuration(pipeline_config_path)
 
     logger.info("Establishing database connection")
     session = get_database_session()
@@ -114,7 +114,7 @@ async def launcher_flow(pipeline_configuration_path=None):
     queued_flows = gather_planned_flows(session)
     logger.info(f"There are {len(queued_flows)} planned flows right now.")
     flows_to_launch = filter_for_launchable_flows(
-        queued_flows, num_running_flows, pipeline_config["launcher"]["max_flows_running"]
+        queued_flows, num_running_flows, pipeline_config["control"]["launcher"]["max_flows_running"]
     )
     logger.info(f"Flows with IDs of {flows_to_launch} will be launched.")
     await launch_ready_flows(session, flows_to_launch)

@@ -104,7 +104,7 @@ def test_level1_construct_flow_info(db):
     level1_file = level1_construct_file_info.fn(level0_file, pipeline_config)
     flow_info = level1_construct_flow_info.fn(level0_file, level1_file, pipeline_config, session=db)
 
-    assert flow_info.flow_type == 'level1_process_flow'
+    assert flow_info.flow_type == 'level1'
     assert flow_info.state == "planned"
     assert flow_info.flow_level == "1"
     assert flow_info.priority == 6

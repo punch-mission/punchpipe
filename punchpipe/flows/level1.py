@@ -51,10 +51,10 @@ def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, ref
 @task
 def level1_construct_flow_info(level0_files: list[File], level1_files: File,
                                pipeline_config: dict, session=None, reference_time=None):
-    flow_type = "level1_process_flow"
+    flow_type = "level1"
     state = "planned"
     creation_time = datetime.now()
-    priority = pipeline_config["levels"][flow_type]["priority"]["initial"]
+    priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
     best_psf_model = get_psf_model_path(level0_files[0], pipeline_config, session=session)
     best_quartic_model = get_quartic_model_path(level0_files[0], pipeline_config, session=session)
