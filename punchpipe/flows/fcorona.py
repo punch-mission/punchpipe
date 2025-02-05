@@ -12,6 +12,7 @@ from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
+
 @task
 def f_corona_background_query_ready_files(session, pipeline_config: dict, reference_time: datetime, use_n: int = 50):
     before = reference_time - timedelta(weeks=2)

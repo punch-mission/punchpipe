@@ -1,14 +1,14 @@
+import os
 import time
+import inspect
 import argparse
 import traceback
 import subprocess
 from pathlib import Path
 from datetime import datetime
-import os
-import inspect
 from importlib import import_module
 
-from prefect import serve, Flow
+from prefect import Flow, serve
 from prefect.variables import Variable
 
 from punchpipe.control.util import load_pipeline_configuration
