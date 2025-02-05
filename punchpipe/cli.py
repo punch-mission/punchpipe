@@ -1,4 +1,3 @@
-import os
 import time
 import argparse
 import traceback
@@ -12,7 +11,6 @@ from importlib import import_module
 from prefect import serve, Flow
 from prefect.variables import Variable
 
-from punchpipe.control.launcher import launcher
 from punchpipe.control.util import load_pipeline_configuration
 from punchpipe.monitor.app import create_app
 
