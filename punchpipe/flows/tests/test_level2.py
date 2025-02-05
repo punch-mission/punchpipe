@@ -87,10 +87,10 @@ def test_level2_construct_flow_info():
     level2_file = level2_construct_file_info.fn(level1_file, pipeline_config)
     flow_info = level2_construct_flow_info.fn(level1_file, level2_file, pipeline_config)
 
-    assert flow_info.flow_type == 'level2_process_flow'
+    assert flow_info.flow_type == 'level2'
     assert flow_info.state == "planned"
     assert flow_info.flow_level == "2"
-    assert flow_info.priority == 7
+    assert flow_info.priority == 1000
 
 
 def test_level2_scheduler_flow(db):

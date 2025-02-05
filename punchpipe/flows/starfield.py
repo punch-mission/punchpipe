@@ -33,10 +33,10 @@ def construct_starfield_background_flow_info(level3_fcorona_subtracted_files: li
                                              pipeline_config: dict,
                                              reference_time: datetime,
                                              session=None ):
-    flow_type = "construct_starfield_background_process_flow"
+    flow_type = "construct_starfield_background"
     state = "planned"
     creation_time = datetime.now()
-    priority = pipeline_config["levels"][flow_type]["priority"]["initial"]
+    priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
             "filenames": list(set([
@@ -72,7 +72,7 @@ def construct_starfield_background_file_info(level3_files: t.List[File], pipelin
 
 
 @flow
-def starfield_scheduler_flow(pipeline_config_path=None, session=None, reference_time: datetime | None = None):
+def construct_starfield_background_scheduler_flow(pipeline_config_path=None, session=None, reference_time: datetime | None = None):
     reference_time = reference_time or datetime.now()
 
     generic_scheduler_flow_logic(
@@ -87,7 +87,7 @@ def starfield_scheduler_flow(pipeline_config_path=None, session=None, reference_
 
 
 @flow
-def starfield_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+def construct_starfield_background_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id,
                                generate_starfield_background,
                                pipeline_config_path,

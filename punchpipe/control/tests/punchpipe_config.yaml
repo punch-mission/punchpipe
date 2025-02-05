@@ -1,14 +1,29 @@
 root: "./test_results/"
-file_version: "0.0.1"
+tlm_directory: "./test_results/"
+file_version: "1"
+
+plate_scale:
+  1: 0.02444444444
+  2: 0.02444444444
+  3: 0.02444444444
+  4: 0.008333333333
+
+quality_check:
+  mean_low: 0
+  mean_high: 65000
 
 scheduler:
-  max_start: 10
+  max_start: 16
 
-launcher:
-  max_flows_running: 30
+control:
+  launcher:
+    description: "Kick off new flows for processing."
+    max_flows_running: 50
+  health_monitor:
+    description: "Monitor the health of the pipeline."
 
-levels:
-  level0_process_flow:
+flows:
+  level0:
     priority:
       initial: 5
       seconds: [ 30, 120, 600 ]
@@ -17,18 +32,22 @@ levels:
     options:
       num_quads: 100
 
-  level1_process_flow:
+  level1:
+    description: "Creates Level 1 files."
     priority:
       initial: 6
       seconds: [ 30, 120, 600 ]
       escalation: [ 11, 21, 31 ]
-    schedule:
+    schedule: "* * * * *"
+    tags: ["L1"]
     options:
 
-  level2_process_flow:
+  level2:
+    description: "Creates Level 2 files."
     priority:
       initial: 7
       seconds: [ 30, 120, 600 ]
       escalation: [ 12, 22, 32 ]
-    schedule:
+    schedule: "* * * * *"
+    tags: ["L2"]
     options:

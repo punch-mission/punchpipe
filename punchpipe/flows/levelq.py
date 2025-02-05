@@ -2,9 +2,12 @@ import os
 import json
 import typing as t
 from datetime import datetime
+import logging
 
 from prefect import flow, get_run_logger, task
 from punchbowl.level2.flow import levelq_core_flow
+import boto3
+from botocore.exceptions import ClientError
 
 from punchpipe import __version__
 from punchpipe.control.db import File, Flow
@@ -30,10 +33,10 @@ def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None
 
 @task
 def levelq_construct_flow_info(level1_files: list[File], levelq_file: File, pipeline_config: dict, session=None, reference_time=None):
-    flow_type = "levelq_process_flow"
+    flow_type = "levelq"
     state = "planned"
     creation_time = datetime.now()
-    priority = pipeline_config["levels"][flow_type]["priority"]["initial"]
+    priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
             "data_list": [
@@ -90,3 +93,23 @@ def levelq_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
 @flow
 def levelq_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, levelq_core_flow, pipeline_config_path, session=session)
+
+
+def upload_file_to_s3(file_name, bucket, object_name=None):
+    # If S3 object_name was not specified, use file_name
+    if object_name is None:
+        object_name = os.path.basename(file_name)
+
+    # Upload the file
+    s3_client = boto3.client('s3')
+    try:
+        response = s3_client.upload_file(file_name, bucket, object_name)
+    except ClientError as e:
+        logging.error(e)
+        return False
+    return True
+
+
+# TODO: add uploader
+
+# TODO: add f corona modeler
