@@ -131,9 +131,3 @@ def run(configuration_path):
             monitor_process.terminate()
             print()
             print("punchpipe abruptly shut down.")
-
-# if __name__ == "__main__":
-#     monitor_process = subprocess.Popen(["gunicorn",
-#                                         "-b", "0.0.0.0:8050",
-#                                         "--chdir", THIS_DIR,
-#                                         "cli:server"])
