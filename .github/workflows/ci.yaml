@@ -41,7 +41,7 @@ jobs:
         eval `ssh-agent -s`
         ssh-add - <<< '${{ secrets.PRIVATE_SSH_KEY }}'
         pip install .
-        pytest --cov
+        pytest --cov=punchpipe/
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       env:
