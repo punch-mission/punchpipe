@@ -32,10 +32,10 @@ def level2_query_ready_files(session, pipeline_config: dict, reference_time=None
 
 @task
 def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipeline_config: dict, session=None, reference_time=None):
-    flow_type = "level2_process_flow"
+    flow_type = "level2"
     state = "planned"
     creation_time = datetime.now()
-    priority = pipeline_config["levels"][flow_type]["priority"]["initial"]
+    priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
             "data_list": [

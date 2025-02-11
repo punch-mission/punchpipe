@@ -24,7 +24,8 @@ dependencies = [
     "click",
     "pylibjpeg[libjpeg]",
     "psutil",
-    "gunicorn"
+    "gunicorn",
+    "boto3"
 ]
 requires-python = ">=3.11"
 authors = [

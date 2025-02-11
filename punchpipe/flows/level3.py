@@ -65,10 +65,10 @@ def level3_PTM_construct_flow_info(level2_files: list[File], level3_file: File,
                                    pipeline_config: dict, session=None, reference_time=None):
     session = get_database_session()  # TODO: replace so this works in the tests by passing in a test
 
-    flow_type = "level3_PTM_process_flow"
+    flow_type = "level3_PTM"
     state = "planned"
     creation_time = datetime.now()
-    priority = pipeline_config["levels"][flow_type]["priority"]["initial"]
+    priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
     f_corona_before = get_closest_before_file(level2_files[0],
                                                                   get_valid_fcorona_models(session,
@@ -167,10 +167,10 @@ def level3_PIM_construct_flow_info(level2_files: list[File], level3_file: File, 
                                    session=None, reference_time=None):
     session = get_database_session()  # TODO: replace so this works in the tests by passing in a test
 
-    flow_type = "level3_PIM_process_flow"
+    flow_type = "level3_PIM"
     state = "planned"
     creation_time = datetime.now()
-    priority = pipeline_config["levels"][flow_type]["priority"]["initial"]
+    priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     before_models = get_valid_fcorona_models(session,
                                                                              level2_files[0],
                                                                              before_timedelta=timedelta(days=90),
