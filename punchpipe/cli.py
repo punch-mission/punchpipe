@@ -84,8 +84,8 @@ def serve_flows(configuration_path):
             parameters={"pipeline_config_path": configuration_path}
         )
         flows_to_serve.append(flow_deployment)
-
-    serve(*flows_to_serve, limit=1000)
+    return flows_to_serve
+    # serve(*flows_to_serve, limit=1000)
 
 def run(configuration_path):
     now = datetime.now()
@@ -113,7 +113,8 @@ def run(configuration_path):
             print("Launched punchpipe monitor on http://localhost:8050/")
             print("Use ctrl-c to exit.")
 
-            serve_flows(configuration_path)
+            serve(*serve_flows(configuration_path), limit=1000)
+
             prefect_process.wait()
             monitor_process.wait()
         except KeyboardInterrupt:
