@@ -85,7 +85,7 @@ def serve_flows(configuration_path):
         )
         flows_to_serve.append(flow_deployment)
 
-    serve(*flows_to_serve,limit=1000)
+    serve(*flows_to_serve, limit=1000)
 
 def run(configuration_path):
     now = datetime.now()

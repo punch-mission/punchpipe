@@ -79,7 +79,7 @@ async def launch_ready_flows(session: Session, flow_ids: List[int]) -> List:
 
         # for every flow launch it and store the response
         for this_flow in flow_info:
-            this_deployment_id = deployment_ids[this_flow.flow_type]
+            this_deployment_id = deployment_ids[this_flow.flow_type + "_process_flow"]
             response = await client.create_flow_run_from_deployment(
                 this_deployment_id, parameters={"flow_id": this_flow.flow_id}
             )
