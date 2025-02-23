@@ -4,6 +4,7 @@ import typing as t
 from datetime import datetime
 
 from prefect import flow, task
+from punchbowl.data import write_ndcube_to_fits
 from punchbowl.level1.flow import level1_core_flow
 
 from punchpipe import __version__
@@ -112,3 +113,10 @@ def level1_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
 @flow
 def level1_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, level1_core_flow, pipeline_config_path, session=session)
+
+
+if __name__ == '__main__':
+    results = level1_core_flow(["/home/jmbhughes/data/simpunch/outputs/PUNCH_L0_PM3_20200101002000_v1.fits"],
+                     psf_model_path="/home/jmbhughes/data/simpunch/inputs/synthetic_forward_psf.fits",
+                     quartic_coefficient_path="/home/jmbhughes/data/simpunch/inputs/wfi_quartic_coeffs.fits")
+    write_ndcube_to_fits(results[0], "test.fits")

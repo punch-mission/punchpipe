@@ -133,7 +133,7 @@ def assemble_punchdata_clear(input_tb: str, wcs: WCS,
 
 
 def generate_l3_ptm(input_tb: str, input_pb: str, path_output: str,
-                    time_obs: datetime, time_delta: timedelta, rotation_stage: int) -> bool:
+                    time_obs: datetime, time_delta: timedelta, rotation_stage: int) -> str:
     """Generate PTM - PUNCH Level-3 Polarized Mosaic."""
     # Define the mosaic WCS (helio)
     mosaic_shape = (4096, 4096)
@@ -168,14 +168,16 @@ def generate_l3_ptm(input_tb: str, input_pb: str, path_output: str,
 
     pdata = update_spacecraft_location(pdata, time_obs)
     pdata = generate_uncertainty(pdata)
-    write_ndcube_to_fits(pdata, path_output + get_base_file_name(pdata) + ".fits")
-    return True
+
+    out_filename = path_output + get_base_file_name(pdata) + ".fits"
+    write_ndcube_to_fits(pdata, out_filename)
+    return out_filename
 
 def generate_l3_ctm(input_tb: str,
                     path_output: str,
                     time_obs: datetime,
                     time_delta: timedelta,
-                    rotation_stage: int) -> bool:
+                    rotation_stage: int) -> str:
     """Generate CTM - PUNCH Level-3 Clear Mosaic."""
     # Define the mosaic WCS (helio)
     mosaic_shape = (4096, 4096)
@@ -208,8 +210,10 @@ def generate_l3_ctm(input_tb: str,
 
     pdata = update_spacecraft_location(pdata, time_obs)
     pdata = generate_uncertainty(pdata)
-    write_ndcube_to_fits(pdata, path_output + get_base_file_name(pdata) + ".fits")
-    return True
+
+    out_filename = path_output + get_base_file_name(pdata) + ".fits"
+    write_ndcube_to_fits(pdata, out_filename)
+    return out_filename
 
 @flow
 def generate_l3_all(datadir: str, outdir: str, start_time: datetime, num_repeats: int = 1, n_workers: int = 64) -> bool:

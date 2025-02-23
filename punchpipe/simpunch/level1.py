@@ -3,6 +3,7 @@ import copy
 import glob
 import os
 from math import floor
+from typing import List
 
 import astropy.units as u
 import numpy as np
@@ -231,7 +232,7 @@ def add_distortion(input_data: NDCube) -> NDCube:
     return input_data
 
 
-def generate_l1_pmzp(input_file: str, path_output: str, rotation_stage: int, spacecraft_id: str) -> bool:
+def generate_l1_pmzp(input_file: str, path_output: str, rotation_stage: int, spacecraft_id: str) -> List[str]:
     """Generate level 1 polarized synthetic data."""
     input_pdata = load_ndcube_from_fits(input_file)
 
@@ -299,9 +300,12 @@ def generate_l1_pmzp(input_file: str, path_output: str, rotation_stage: int, spa
     write_ndcube_to_fits(output_mdata, path_output + get_base_file_name(output_mdata) + ".fits")
     write_ndcube_to_fits(output_zdata, path_output + get_base_file_name(output_zdata) + ".fits")
     write_ndcube_to_fits(output_pdata, path_output + get_base_file_name(output_pdata) + ".fits")
-    return True
+    return [path_output + get_base_file_name(output_mdata) + ".fits",
+            path_output + get_base_file_name(output_zdata) + ".fits",
+            path_output + get_base_file_name(output_pdata) + ".fits"
+            ]
 
-def generate_l1_cr(input_file: str, path_output: str, rotation_stage: int, spacecraft_id: str) -> bool:
+def generate_l1_cr(input_file: str, path_output: str, rotation_stage: int, spacecraft_id: str) -> str:
     """Generate level 1 clear synthetic data."""
     input_pdata = load_ndcube_from_fits(input_file)
 
@@ -342,8 +346,9 @@ def generate_l1_cr(input_file: str, path_output: str, rotation_stage: int, space
     output_cdata = update_spacecraft_location(output_cdata, output_cdata.meta.astropy_time)
 
     # Write out
-    write_ndcube_to_fits(output_cdata, path_output + get_base_file_name(output_cdata) + ".fits")
-    return True
+    out_path =  path_output + get_base_file_name(output_cdata) + ".fits"
+    write_ndcube_to_fits(output_cdata, out_path)
+    return out_path
 
 @flow
 def generate_l1_all(datadir: str, outdir: str, n_workers: int = 64) -> bool:

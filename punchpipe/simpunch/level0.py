@@ -118,7 +118,7 @@ def starfield_misalignment(input_data: NDCube,
     return input_data, original_wcs
 
 
-def generate_l0_pmzp(input_file: NDCube,
+def generate_l0_pmzp(input_file: str,
                      path_output: str,
                      psf_model_path: str,  # ArrayPSFTransform,
                      wfi_quartic_coeffs_path: str,  # np.ndarray,
@@ -205,7 +205,7 @@ def generate_l0_pmzp(input_file: NDCube,
     original_wcs.to_header().tofile(path_output + get_base_file_name(output_data) + "_original_wcs.txt")
     return True
 
-def generate_l0_cr(input_file: NDCube, path_output: str,
+def generate_l0_cr(input_file: str, path_output: str,
                    psf_model_path: str,  # ArrayPSFTransform,
                    wfi_quartic_coeffs_path: str,  # np.ndarray,
                    nfi_quartic_coeffs_path: str,  # np.ndarray,

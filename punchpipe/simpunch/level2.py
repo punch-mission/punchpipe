@@ -124,7 +124,7 @@ def remix_polarization(input_data: NDCube) -> NDCube:
     return NDCube(data=new_data, wcs=new_wcs, uncertainty=new_uncertainty, meta=input_data.meta)
 
 
-def generate_l2_ptm(input_file: str, path_output: str) -> bool:
+def generate_l2_ptm(input_file: str, path_output: str) -> str:
     """Generate level 2 PTM synthetic data."""
     # Read in the input data
     input_pdata = load_ndcube_from_fits(input_file)
@@ -152,11 +152,12 @@ def generate_l2_ptm(input_file: str, path_output: str) -> bool:
     output_pdata = update_spacecraft_location(output_pdata, input_pdata.meta.astropy_time)
 
     # Write out
-    write_ndcube_to_fits(output_pdata, path_output + get_base_file_name(output_pdata) + ".fits")
-    return True
+    out_path = path_output + get_base_file_name(output_pdata) + ".fits"
+    write_ndcube_to_fits(output_pdata, out_path)
+    return out_path
 
 
-def generate_l2_ctm(input_file: str, path_output: str) -> bool:
+def generate_l2_ctm(input_file: str, path_output: str) -> str:
     """Generate level 2 CTM synthetic data."""
     # Read in the input data
     input_pdata = load_ndcube_from_fits(input_file)
@@ -182,10 +183,9 @@ def generate_l2_ctm(input_file: str, path_output: str) -> bool:
     # Package into a PUNCHdata object
     output_pdata = NDCube(data=output_data.data.astype(np.float32), wcs=output_wcs, meta=output_meta)
     output_pdata = update_spacecraft_location(output_pdata, input_pdata.meta.astropy_time)
-
-    # Write out
-    write_ndcube_to_fits(output_pdata, path_output + get_base_file_name(output_pdata) + ".fits")
-    return True
+    out_path = path_output + get_base_file_name(output_pdata) + ".fits"
+    write_ndcube_to_fits(output_pdata, out_path)
+    return out_path
 
 
 @flow
