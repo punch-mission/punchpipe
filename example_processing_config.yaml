@@ -16,21 +16,22 @@ quality_check:
 scheduler:
   max_start: 10
 
-launcher:
-  schedule: "* * * * *"
-  max_flows_running: 25
-
-levels:
-  level0_process_flow:
-    priority:
-      initial: 5
-      seconds: [ 30, 120, 600 ]
-      escalation: [ 10, 20, 30 ]
+control:
+  launcher:
     schedule: "* * * * *"
-    options:
-      num_quads: 100
+    max_flows_running: 25
 
-  level1_process_flow:
+flows:
+#  level0:
+#    priority:
+#      initial: 5
+#      seconds: [ 30, 120, 600 ]
+#      escalation: [ 10, 20, 30 ]
+#    schedule: "* * * * *"
+#    options:
+#      num_quads: 100
+
+  level1:
     priority:
       initial: 6
       seconds: [ 30, 120, 600 ]
@@ -38,7 +39,7 @@ levels:
     schedule: "* * * * *"
     options:
 
-  level2_process_flow:
+  level2:
     priority:
       initial: 1000
       seconds: [ 3000, 12000, 60000 ]
@@ -46,7 +47,7 @@ levels:
     schedule: "* * * * *"
     options:
 
-  levelq_process_flow:
+  levelq:
     priority:
       initial: 1000
       seconds: [ 3000, 12000, 60000 ]
