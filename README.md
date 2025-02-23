@@ -1,6 +1,6 @@
 # punchpipe
 
-![example simulated image](example.png)
+![example simulated image](example_synthetic.png)
 
 `punchpipe` is the data processing pipeline for [the PUNCH mission](https://punch.space.swri.edu/).
 All the science code and actual calibration functionality lives in `punchbowl`. This package
