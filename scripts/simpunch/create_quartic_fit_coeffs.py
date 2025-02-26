@@ -9,7 +9,7 @@ from punchbowl.data import NormalizedMetadata, write_ndcube_to_fits
 from punchbowl.data.io import load_ndcube_from_fits
 from punchbowl.level1.quartic_fit import create_constant_quartic_coefficients
 
-inputs_path = "/home/jmbhughes/data/simpunch/inputs/"
+inputs_path = "/d0/punchsoc/gamera_data/inputs/"
 wfi_vignetting_model_path = os.path.join(inputs_path, "PUNCH_L1_GM1_20240817174727_v2.fits")
 nfi_vignetting_model_path = os.path.join(inputs_path, "PUNCH_L1_GM4_20240819045110_v1.fits")
 

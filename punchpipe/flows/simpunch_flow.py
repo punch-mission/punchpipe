@@ -5,7 +5,9 @@ import shutil
 from datetime import datetime, timedelta
 
 import numpy as np
-from prefect import flow
+from prefect import flow, task
+from prefect.futures import wait
+from prefect_ray import RayTaskRunner
 
 from punchpipe.simpunch.level0 import generate_l0_all, generate_l0_pmzp, generate_l0_cr
 from punchpipe.simpunch.level1 import generate_l1_all, generate_l1_pmzp, generate_l1_cr
@@ -13,7 +15,6 @@ from punchpipe.simpunch.level2 import generate_l2_all, generate_l2_ptm, generate
 from punchpipe.simpunch.level3 import generate_l3_all, generate_l3_all_fixed, generate_l3_ptm, generate_l3_ctm
 
 
-@flow
 def generate_flow(file_tb: str,
                   file_pb: str,
                   out_dir: str,
@@ -24,9 +25,10 @@ def generate_flow(file_tb: str,
                   transient_probability: float = 0.03,
                   shift_pointing: bool = False) -> bool:
     """Generate all the products in the reverse pipeline."""
-    i = int(file_tb.split("_")[5][4:])
+    i = int(file_tb.split("_")[6][4:])
     rotation_indices = np.array([0, 0, 1, 1, 2, 2, 3, 3])
     rotation_stage = rotation_indices[i % 8]
+    print(i, rotation_stage)
     time_obs = start_time + timedelta(minutes=i*4)
     l3_ptm = generate_l3_ptm(file_tb, file_pb, out_dir, time_obs, timedelta(minutes=4), rotation_stage)
     l3_ctm = generate_l3_ctm(file_tb, out_dir, time_obs, timedelta(minutes=4), rotation_stage)
@@ -138,18 +140,28 @@ def generate_flow(file_tb: str,
     #
     # return True
 
-if __name__ == "__main__":
-    gamera_directory = "/home/jmbhughes/data/simpunch/"
+@task
+def wrapper(i):
+    gamera_directory = "/d0/punchsoc/gamera_data/"
     files_tb = sorted(glob.glob(gamera_directory + "/synthetic_cme/*_TB.fits"))
     files_pb = sorted(glob.glob(gamera_directory + "/synthetic_cme/*_PB.fits"))
+
     generate_flow(
-        file_tb= files_tb[0],
-        file_pb=files_pb[0],
-        out_dir = "/home/jmbhughes/data/simpunch/outputs/",
-        start_time=datetime(2020, 1, 1),
-        backward_psf_model_path="/home/jmbhughes/data/simpunch/inputs/synthetic_backward_psf.fits",
-        wfi_quartic_backward_model_path="/home/jmbhughes/data/simpunch/inputs/wfi_quartic_backward_coeffs.fits",
-        nfi_quartic_backward_model_path="/home/jmbhughes/data/simpunch/inputs/nfi_quartic_backward_coeffs.fits",
+        file_tb = files_tb[i],
+        file_pb = files_pb[i],
+        out_dir = "/d0/punchsoc/gamera_data/outputs/",
+        start_time=datetime(2020, 1, 1) + timedelta(days=i),
+        backward_psf_model_path="/d0/punchsoc/gamera_data/inputs/synthetic_backward_psf.fits",
+        wfi_quartic_backward_model_path="/d0/punchsoc/gamera_data/inputs/wfi_quartic_backward_coeffs.fits",
+        nfi_quartic_backward_model_path="/d0/punchsoc/gamera_data/inputs/nfi_quartic_backward_coeffs.fits",
         transient_probability=0.0,
         shift_pointing=False,
     )
+
+@flow(task_runner=RayTaskRunner())
+def looper():
+    futures = [wrapper.submit(i) for i in range(200)]
+    wait(futures)
+
+if __name__ == "__main__":
+    looper()

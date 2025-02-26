@@ -8,10 +8,10 @@ from matplotlib import pyplot as plt
 from punchbowl.level3.f_corona_model import construct_polarized_f_corona_model
 from punchbowl.data import write_ndcube_to_fits, load_ndcube_from_fits
 
-filenames = glob("/home/jmbhughes/data/simpunch/2/PTM/**/*.fits", recursive=True)
+filenames = glob("/d0/punchsoc/gamera_data/2/PTM/**/*.fits", recursive=True)
 
 for filename in filenames:
-    fcorona_model = load_ndcube_from_fits("fcorona2.fits")
+    fcorona_model = load_ndcube_from_fits("fcorona.fits")
 
     # fig, ax = plt.subplots()
     # ax.imshow(fcorona_model.data[0], vmin=1E-13, vmax=1E-12,  interpolation='None')

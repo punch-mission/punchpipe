@@ -9,8 +9,9 @@ def do_it(cube_path, starfield_path):
     subtracted = subtract_starfield_background_task(cube, starfield_path)
     return subtracted
 
-pim_paths = sorted(glob("/home/jmbhughes/data/simpunch/3/PIM/**/*.fits", recursive=True))
-subtracted = do_it(pim_paths[10], "starfield.fits")
-new_path = pim_paths[10].replace("PIM", "PTM")
+i = 20
+pim_paths = sorted(glob("/d0/punchsoc/gamera_data/3/PIM/**/*.fits", recursive=True))
+subtracted = do_it(pim_paths[i], "starfield.fits")
+new_path = pim_paths[i].replace("PIM", "PTM")
 os.makedirs(os.path.dirname(new_path), exist_ok=True)
 write_ndcube_to_fits(subtracted, new_path)

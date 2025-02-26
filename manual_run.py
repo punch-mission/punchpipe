@@ -8,11 +8,11 @@ from punchpipe import __version__
 from punchpipe.control.db import File
 from punchpipe.control.util import get_database_session
 
-paths = glob("/home/jmbhughes/data/simpunch/outputs_sleep/*L0_P*_v1.fits")
-output_directory = "/home/jmbhughes/data/simpunch/"
-forward_psf_model_path = "/home/jmbhughes/data/simpunch/inputs/synthetic_forward_psf.fits"
-wfi_quartic_model_path = "/home/jmbhughes/data/simpunch/inputs/wfi_quartic_coeffs.fits"
-nfi_quartic_model_path = "/home/jmbhughes/data/simpunch/inputs/nfi_quartic_coeffs.fits"
+paths = glob("/d0/punchsoc/gamera_data/outputs/*L0_P*_v1.fits")
+output_directory = "/d0/punchsoc/gamera_data/"
+forward_psf_model_path = "/d0/punchsoc/gamera_data/inputs/synthetic_forward_psf.fits"
+wfi_quartic_model_path = "/d0/punchsoc/gamera_data/inputs/wfi_quartic_coeffs.fits"
+nfi_quartic_model_path = "/d0/punchsoc/gamera_data/inputs/nfi_quartic_coeffs.fits"
 model_time = datetime(2000, 1, 1)
 
 os.makedirs(os.path.join(output_directory, "synthetic_l0"), exist_ok=True)
