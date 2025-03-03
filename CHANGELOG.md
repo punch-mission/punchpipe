@@ -2,6 +2,13 @@
 
 [This is available in GitHub](https://github.com/punch-mission/punchpipe/releases)
 
+## Latest: unreleased
+
+* Prepares punchpipe for SOC2NOAA Interface by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/94
+* specify path for codecov by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/95
+* Update issue templates by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/97
+* Update README.md by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/98
+
 ## Version 0.0.5: Jan 3, 2025
 
 - if sequence counters don't increase properly, call it a bad image by @jmbhughes in #90
