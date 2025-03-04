@@ -17,7 +17,7 @@ SCIENCE_LEVEL1_TYPE_CODES = ["PM", "PZ", "PP"]# , "CR"] # TODO handle CR in a se
 @task
 def level2_query_ready_files(session, pipeline_config: dict, reference_time=None):
     logger = get_run_logger()
-    all_ready_files = (session.query(File).filter(File.state == "created")
+    all_ready_files = (session.query(File).filter(File.state == "quickpunched")
                        .filter(File.level == "1")
                        .filter(File.file_type.in_(SCIENCE_LEVEL1_TYPE_CODES)).all())
     logger.info(f"{len(all_ready_files)} ready files")

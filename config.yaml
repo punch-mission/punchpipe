@@ -16,21 +16,26 @@ quality_check:
 scheduler:
   max_start: 10
 
-launcher:
-  schedule: "* * * * *"
-  max_flows_running: 25
+control:
+  launcher:
+    description: "Kick off new flows for processing."
+    max_flows_running: 50
+  health_monitor:
+    description: "Monitor the health of the pipeline."
 
-levels:
-  level0_process_flow:
-    priority:
-      initial: 5
-      seconds: [ 30, 120, 600 ]
-      escalation: [ 10, 20, 30 ]
-    schedule: "* * * * *"
-    options:
-      num_quads: 100
+flows:
+#  level0:
+#    priority:
+#      initial: 5
+#      seconds: [ 30, 120, 600 ]
+#      escalation: [ 10, 20, 30 ]
+#    schedule: "* * * * *"
+#    options:
+#      num_quads: 100
 
-  level1_process_flow:
+  level1:
+    description: "Creates Level 1 files."
+    tags: ["L1"]
     priority:
       initial: 6
       seconds: [ 30, 120, 600 ]
@@ -38,7 +43,9 @@ levels:
     schedule: "* * * * *"
     options:
 
-  level2_process_flow:
+  level2:
+    description: "Creates Level 2 files."
+    tags: [ "L2" ]
     priority:
       initial: 1000
       seconds: [ 3000, 12000, 60000 ]
@@ -46,7 +53,39 @@ levels:
     schedule: "* * * * *"
     options:
 
-  levelq_process_flow:
+  levelq:
+    description: "Creates Level Q CTM and CNN data files."
+    tags: [ "LQ" ]
+    priority:
+      initial: 1000
+      seconds: [ 3000, 12000, 60000 ]
+      escalation: [ 1000, 1000, 1000 ]
+    schedule: "* * * * *"
+    options:
+
+  levelq_upload:
+    description: "Uploads Level Q files."
+    tags: [ "LQ" ]
+    priority:
+      initial: 1000
+      seconds: [ 3000, 12000, 60000 ]
+      escalation: [ 1000, 1000, 1000 ]
+    schedule: "* * * * *"
+    options:
+
+  levelq_CFM:
+    description: "Makes Level Q CFM files."
+    tags: [ "LQ" ]
+    priority:
+      initial: 1000
+      seconds: [ 3000, 12000, 60000 ]
+      escalation: [ 1000, 1000, 1000 ]
+    schedule: "* * * * *"
+    options:
+
+  levelq_CFN:
+    description: "Makes Level Q CFN files."
+    tags: [ "LQ" ]
     priority:
       initial: 1000
       seconds: [ 3000, 12000, 60000 ]
@@ -55,6 +94,8 @@ levels:
     options:
 
   L3_PTM:
+    description: "Creates Level 3 PTM files."
+    tags: [ "L3" ]
     priority:
       initial: 10000
       seconds: [1]
@@ -63,6 +104,8 @@ levels:
     options:
 
   L3_PIM:
+    description: "Creates Level 3 PIM files."
+    tags: [ "L3" ]
     priority:
       initial: 10000
       seconds: [1]
@@ -71,6 +114,8 @@ levels:
     options:
 
   f_corona:
+    description: "Creates Level 3 f corona model files."
+    tags: [ "L3" ]
     priority:
       initial: 10000
       seconds: [1]
@@ -79,6 +124,8 @@ levels:
     options:
 
   starfield:
+    description: "Creates Level 3 starfield files."
+    tags: [ "L3" ]
     priority:
       initial: 10000
       seconds: [1]
