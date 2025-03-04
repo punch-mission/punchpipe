@@ -1,16 +1,16 @@
-import json
 import os
-from datetime import datetime, timedelta, UTC
+import json
 from typing import List
+from datetime import UTC, datetime, timedelta
 
 from prefect import flow, get_run_logger, task
 from punchbowl.level3.velocity import track_velocity
 
 from punchpipe import __version__
-from punchpipe.control.db import File, Flow, get_closest_after_file, get_closest_before_file, get_closest_file
+from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
-from punchpipe.control.util import get_database_session
+
 
 @task
 def level3_vam_query_ready_files(session, pipeline_config: dict, reference_time: datetime):
