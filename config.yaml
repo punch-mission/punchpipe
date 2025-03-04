@@ -2,6 +2,7 @@ root: "/Users/jhughes/Desktop/d0/"
 input_drop: "dropzone/"
 tlm_directory: "dropzone/"
 file_version: "1"
+bucket_name: "output_bucket_name"
 
 plate_scale:
   1: 88 / 3600
@@ -132,3 +133,23 @@ flows:
       escalation: [10000]
     schedule: "* * * * *"
     options:
+
+  simpunch:
+    description: "Runs simpunch."
+    tags: [ "sim" ]
+    priority:
+      initial: 1E10
+      seconds: [1]
+      escalation: [1E10]
+    schedule: "0 */8 * * *"
+    options:
+      gamera_directory: "/home/jmbhughes/data/synthetic_cme/"
+      output_directory: "/home/jmbhughes/data/synthetic_cme/"
+      forward_psf_model_path: "/home/jmbhughes/data/simpunch/inputs/synthetic_forward_psf.fits"
+      backward_psf_model_path: "/home/jmbhughes/data/simpunch/inputs/synthetic_backward_psf.fits"
+      wfi_quartic_backward_model_path: "/home/jmbhughes/data/simpunch/inputs/wfi_quartic_backward_coeffs.fits"
+      nfi_quartic_backward_model_path: "/home/jmbhughes/data/simpunch/inputs/nfi_quartic_backward_coeffs.fits"
+      wfi_quartic_model_path: "/home/jmbhughes/data/simpunch/inputs/wfi_quartic_coeffs.fits"
+      nfi_quartic_model_path: "/home/jmbhughes/data/simpunch/inputs/nfi_quartic_coeffs.fits"
+      transient_probability: 0.0
+      shift_pointing: false
