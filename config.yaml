@@ -2,6 +2,7 @@ root: "/Users/jhughes/Desktop/d0/"
 input_drop: "dropzone/"
 tlm_directory: "dropzone/"
 file_version: "1"
+bucket_name: "output_bucket_name"
 
 plate_scale:
   1: 88 / 3600
@@ -16,21 +17,26 @@ quality_check:
 scheduler:
   max_start: 10
 
-launcher:
-  schedule: "* * * * *"
-  max_flows_running: 25
+control:
+  launcher:
+    description: "Kick off new flows for processing."
+    max_flows_running: 50
+  health_monitor:
+    description: "Monitor the health of the pipeline."
 
-levels:
-  level0_process_flow:
-    priority:
-      initial: 5
-      seconds: [ 30, 120, 600 ]
-      escalation: [ 10, 20, 30 ]
-    schedule: "* * * * *"
-    options:
-      num_quads: 100
+flows:
+#  level0:
+#    priority:
+#      initial: 5
+#      seconds: [ 30, 120, 600 ]
+#      escalation: [ 10, 20, 30 ]
+#    schedule: "* * * * *"
+#    options:
+#      num_quads: 100
 
-  level1_process_flow:
+  level1:
+    description: "Creates Level 1 files."
+    tags: ["L1"]
     priority:
       initial: 6
       seconds: [ 30, 120, 600 ]
@@ -38,7 +44,9 @@ levels:
     schedule: "* * * * *"
     options:
 
-  level2_process_flow:
+  level2:
+    description: "Creates Level 2 files."
+    tags: [ "L2" ]
     priority:
       initial: 1000
       seconds: [ 3000, 12000, 60000 ]
@@ -46,7 +54,39 @@ levels:
     schedule: "* * * * *"
     options:
 
-  levelq_process_flow:
+  levelq:
+    description: "Creates Level Q CTM and CNN data files."
+    tags: [ "LQ" ]
+    priority:
+      initial: 1000
+      seconds: [ 3000, 12000, 60000 ]
+      escalation: [ 1000, 1000, 1000 ]
+    schedule: "* * * * *"
+    options:
+
+  levelq_upload:
+    description: "Uploads Level Q files."
+    tags: [ "LQ" ]
+    priority:
+      initial: 1000
+      seconds: [ 3000, 12000, 60000 ]
+      escalation: [ 1000, 1000, 1000 ]
+    schedule: "* * * * *"
+    options:
+
+  levelq_CFM:
+    description: "Makes Level Q CFM files."
+    tags: [ "LQ" ]
+    priority:
+      initial: 1000
+      seconds: [ 3000, 12000, 60000 ]
+      escalation: [ 1000, 1000, 1000 ]
+    schedule: "* * * * *"
+    options:
+
+  levelq_CFN:
+    description: "Makes Level Q CFN files."
+    tags: [ "LQ" ]
     priority:
       initial: 1000
       seconds: [ 3000, 12000, 60000 ]
@@ -55,6 +95,8 @@ levels:
     options:
 
   L3_PTM:
+    description: "Creates Level 3 PTM files."
+    tags: [ "L3" ]
     priority:
       initial: 10000
       seconds: [1]
@@ -63,6 +105,8 @@ levels:
     options:
 
   L3_PIM:
+    description: "Creates Level 3 PIM files."
+    tags: [ "L3" ]
     priority:
       initial: 10000
       seconds: [1]
@@ -71,6 +115,8 @@ levels:
     options:
 
   f_corona:
+    description: "Creates Level 3 f corona model files."
+    tags: [ "L3" ]
     priority:
       initial: 10000
       seconds: [1]
@@ -79,9 +125,31 @@ levels:
     options:
 
   starfield:
+    description: "Creates Level 3 starfield files."
+    tags: [ "L3" ]
     priority:
       initial: 10000
       seconds: [1]
       escalation: [10000]
     schedule: "* * * * *"
     options:
+
+  simpunch:
+    description: "Runs simpunch."
+    tags: [ "sim" ]
+    priority:
+      initial: 1E10
+      seconds: [1]
+      escalation: [1E10]
+    schedule: "0 */8 * * *"
+    options:
+      gamera_directory: "/home/jmbhughes/data/synthetic_cme/"
+      output_directory: "/home/jmbhughes/data/synthetic_cme/"
+      forward_psf_model_path: "/home/jmbhughes/data/simpunch/inputs/synthetic_forward_psf.fits"
+      backward_psf_model_path: "/home/jmbhughes/data/simpunch/inputs/synthetic_backward_psf.fits"
+      wfi_quartic_backward_model_path: "/home/jmbhughes/data/simpunch/inputs/wfi_quartic_backward_coeffs.fits"
+      nfi_quartic_backward_model_path: "/home/jmbhughes/data/simpunch/inputs/nfi_quartic_backward_coeffs.fits"
+      wfi_quartic_model_path: "/home/jmbhughes/data/simpunch/inputs/wfi_quartic_coeffs.fits"
+      nfi_quartic_model_path: "/home/jmbhughes/data/simpunch/inputs/nfi_quartic_coeffs.fits"
+      transient_probability: 0.0
+      shift_pointing: false

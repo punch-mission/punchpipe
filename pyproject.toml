@@ -9,6 +9,7 @@ dynamic = ["version"]
 dependencies = [
     "ccsdspy",
     "punchbowl",
+    "simpunch",
     "prefect[sqlalchemy]",
     "pymysql",
     "pandas",
@@ -25,7 +26,6 @@ dependencies = [
     "pylibjpeg[libjpeg]",
     "psutil",
     "gunicorn",
-    "boto3"
 ]
 requires-python = ">=3.11"
 authors = [

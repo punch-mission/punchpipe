@@ -106,6 +106,7 @@ def level1_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
         pipeline_config_path,
         reference_time=reference_time,
         session=session,
+        new_input_file_state="quickpunched"
     )
 
 

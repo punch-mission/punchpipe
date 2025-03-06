@@ -2,12 +2,9 @@ import os
 import json
 import random
 import typing as t
-import logging
 from datetime import datetime, timedelta
 from functools import partial
 
-import boto3
-from botocore.exceptions import ClientError
 from prefect import flow, get_run_logger, task
 from punchbowl.level2.flow import levelq_core_flow
 from punchbowl.levelq.f_corona_model import construct_qp_f_corona_model
@@ -98,20 +95,6 @@ def levelq_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, levelq_core_flow, pipeline_config_path, session=session)
 
 
-def upload_file_to_s3(file_name, bucket, object_name=None):
-    # If S3 object_name was not specified, use file_name
-    if object_name is None:
-        object_name = os.path.basename(file_name)
-
-    # Upload the file
-    s3_client = boto3.client('s3')
-    try:
-        s3_client.upload_file(file_name, bucket, object_name)
-    except ClientError as e:
-        logging.error(e)
-        return False
-    return True
-
 @task
 def levelq_upload_query_ready_files(session, pipeline_config: dict, reference_time=None):
     logger = get_run_logger()
@@ -135,7 +118,8 @@ def levelq_upload_construct_flow_info(levelq_files: list[File], intentionally_em
             "data_list": [
                 os.path.join(levelq_file.directory(pipeline_config["root"]), levelq_file.filename())
                 for levelq_file in levelq_files
-            ]
+            ],
+            "bucket_name": pipeline_config["bucket_name"],
         }
     )
     return Flow(
@@ -164,9 +148,9 @@ def levelq_upload_scheduler_flow(pipeline_config_path=None, session=None, refere
     )
 
 @flow
-def levelq_upload_core_flow():
-    pass
-    # TODO implement
+def levelq_upload_core_flow(data_list, bucket_name):
+    for file_name in data_list:
+        os.system(f"aws --profile noaa s3 cp {file_name} {bucket_name}")
 
 @flow
 def levelq_upload_process_flow(flow_id, pipeline_config_path=None, session=None):
@@ -175,9 +159,8 @@ def levelq_upload_process_flow(flow_id, pipeline_config_path=None, session=None)
 
 @task
 def levelq_CFM_query_ready_files(session, pipeline_config: dict, reference_time: datetime, use_n: int = 50):
-    before = reference_time - timedelta(weeks=2)
-    after = reference_time + timedelta(weeks=2)
-    # TODO: update window!!!
+    before = reference_time - timedelta(weeks=4)
+    after = reference_time + timedelta(weeks=0)
 
     logger = get_run_logger()
     all_ready_files = (session.query(File)
@@ -258,8 +241,8 @@ def levelq_CFM_process_flow(flow_id, pipeline_config_path=None, session=None):
 
 @task
 def levelq_CFN_query_ready_files(session, pipeline_config: dict, reference_time: datetime, use_n: int = 50):
-    before = reference_time - timedelta(weeks=2)
-    after = reference_time + timedelta(weeks=2)
+    before = reference_time - timedelta(weeks=4)
+    after = reference_time + timedelta(weeks=0)
 
     logger = get_run_logger()
     all_ready_files = (session.query(File)
