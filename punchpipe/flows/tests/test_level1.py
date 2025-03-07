@@ -54,7 +54,7 @@ def session_fn(session):
                        file_version='none',
                        software_version='none',
                        date_obs=datetime.now()-timedelta(days=1))
-    
+
     vignetting_function = File(level="1",
                        file_type="GM",
                        observatory='0',
