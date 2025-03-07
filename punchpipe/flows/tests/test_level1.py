@@ -54,11 +54,20 @@ def session_fn(session):
                        file_version='none',
                        software_version='none',
                        date_obs=datetime.now()-timedelta(days=1))
+    
+    vignetting_function = File(level="1",
+                       file_type="GM",
+                       observatory='0',
+                       state='created',
+                       file_version='none',
+                       software_version='none',
+                       date_obs=datetime.now()-timedelta(days=1))
 
     session.add(level0_file)
     session.add(level1_file)
     session.add(psf_model)
     session.add(quartic_fit_coeffs)
+    session.add(vignetting_function)
 
 db = create_mysql_fixture(Base, session_fn, session=True)
 
