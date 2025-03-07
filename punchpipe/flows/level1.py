@@ -21,9 +21,24 @@ def level1_query_ready_files(session, pipeline_config: dict, reference_time=None
     actually_ready = []
     for f in ready:
         if (get_psf_model_path(f, pipeline_config, session=session) is not None
-                and get_quartic_model_path(f, pipeline_config, session=session) is not None):
+                and get_quartic_model_path(f, pipeline_config, session=session) is not None
+                and get_vignetting_function_path(f, pipeline_config, session=session) is not None):
             actually_ready.append([f.file_id])
     return actually_ready
+
+@task
+def get_vignetting_function_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
+    corresponding_vignetting_function_type = {"PM": "GM",
+                                              "PZ": "GZ",
+                                              "PP": "GP",
+                                              "CR": "GR"}
+    vignetting_function_type = corresponding_vignetting_function_type[level0_file.file_type]
+    best_function = (session.query(File)
+                     .filter(File.file_type == vignetting_function_type)
+                     .filter(File.observatory == level0_file.observatory)
+                     .where(File.date_obs <= level0_file.date_obs)
+                     .order_by(File.date_obs.desc()).first())
+    return best_function
 
 @task
 def get_psf_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
@@ -56,6 +71,7 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
+    best_vignetting_function = get_vignetting_function_path(level0_files[0], pipeline_config, session=session)
     best_psf_model = get_psf_model_path(level0_files[0], pipeline_config, session=session)
     best_quartic_model = get_quartic_model_path(level0_files[0], pipeline_config, session=session)
 
@@ -65,6 +81,8 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
                 os.path.join(level0_file.directory(pipeline_config["root"]), level0_file.filename())
                 for level0_file in level0_files
             ],
+            "vignetting_function_path": os.path.join(best_vignetting_function.directory(pipeline_config['root']),
+                                                     best_vignetting_function.filename()),
             "psf_model_path": os.path.join(best_psf_model.directory(pipeline_config['root']),
                                            best_psf_model.filename()),
             "quartic_coefficient_path": os.path.join(best_quartic_model.directory(pipeline_config['root']),
