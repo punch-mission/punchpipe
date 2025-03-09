@@ -8,6 +8,7 @@
 * specify path for codecov by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/95
 * Update issue templates by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/97
 * Update README.md by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/98
+* Adds vignetting to level 1 processing by @lowderchris in https://github.com/punch-mission/punchpipe/pull/103
 
 ## Version 0.0.5: Jan 3, 2025
 
