@@ -148,9 +148,9 @@ def levelq_upload_scheduler_flow(pipeline_config_path=None, session=None, refere
     )
 
 @flow
-def levelq_upload_core_flow(data_list, bucket_name):
+def levelq_upload_core_flow(data_list, bucket_name, aws_profile="noaa-prod"):
     for file_name in data_list:
-        os.system(f"aws --profile noaa s3 cp {file_name} {bucket_name}")
+        os.system(f"aws --profile {aws_profile} s3 cp {file_name} {bucket_name}")
 
 @flow
 def levelq_upload_process_flow(flow_id, pipeline_config_path=None, session=None):
