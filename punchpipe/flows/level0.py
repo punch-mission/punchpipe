@@ -3,12 +3,13 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 from ndcube import NDCube
 from prefect import flow, get_run_logger
 from prefect.blocks.core import Block
 from prefect.blocks.fields import SecretDict
 from punchbowl.data import get_base_file_name
-from punchbowl.data.io import write_ndcube_to_fits
+from punchbowl.data.punch_io import write_ndcube_to_fits
 from punchbowl.data.meta import NormalizedMetadata
 from sqlalchemy import and_
 
@@ -26,7 +27,7 @@ from punchpipe.level0.core import (
     process_telemetry_file,
     update_tlm_database,
 )
-from punchpipe.level0.meta import POSITIONS_TO_CODES, convert_pfw_position_to_polarizer
+from punchpipe.level0.meta import POSITIONS_TO_CODES, convert_pfw_position_to_polarizer, eci_quaternion_to_ra_dec
 
 
 class SpacecraftMapping(Block):
@@ -198,3 +199,79 @@ def level0_form_images(session=None, pipeline_config_path=None):
         df_path = os.path.join(config['root'], 'REPLAY', f'PUNCH_{str(spacecraft[0])}_REPLAY_{date_str}.csv')
         os.makedirs(os.path.dirname(df_path), exist_ok=True)
         df_errors.to_csv(df_path, index=False)
+
+
+if __name__ == '__main__':
+    from glob import glob
+    import itertools
+
+    tlm_paths = sorted(glob("/home/jmbhughes/data/raw_packets/*.tlm"))
+    for i, tlm_path in enumerate(tlm_paths):
+        print(i, tlm_path)
+
+    i = 5
+
+    print(i, tlm_paths[i])
+    parsed_tlm = parse_new_tlm_files(tlm_paths[i])
+    print(parsed_tlm[105].keys())
+
+    packet_j = 730
+    metadata = {
+        'spacecraft_id': "1",
+        'datetime': datetime.now(),
+        'ATT_DET_Q_BODY_WRT_ECI1': parsed_tlm[105]['ATT_DET_Q_BODY_WRT_ECI1'][packet_j],
+        'ATT_DET_Q_BODY_WRT_ECI2': parsed_tlm[105]['ATT_DET_Q_BODY_WRT_ECI2'][packet_j],
+        'ATT_DET_Q_BODY_WRT_ECI3': parsed_tlm[105]['ATT_DET_Q_BODY_WRT_ECI3'][packet_j],
+        'ATT_DET_Q_BODY_WRT_ECI4': parsed_tlm[105]['ATT_DET_Q_BODY_WRT_ECI4'][packet_j]}
+    q = np.array([metadata['ATT_DET_Q_BODY_WRT_ECI2'] * 0.5E-10,
+                           metadata['ATT_DET_Q_BODY_WRT_ECI1'] * 0.5E-10,
+                           metadata['ATT_DET_Q_BODY_WRT_ECI3'] * 0.5E-10,
+                           metadata['ATT_DET_Q_BODY_WRT_ECI4'] * 0.5E-10])
+    w = form_preliminary_wcs(metadata, 0.0225)
+
+    ras = []
+    decs = []
+    for p in itertools.permutations([0, 1, 2, 3]):
+        p = np.array(p)
+        print(p)
+        print(np.array(q[p]))
+        print(np.array(eci_quaternion_to_ra_dec(q[p])))
+        print("-"*80)
+
+    p = np.array([3, 1, 2, 0])
+    all_ras = []
+    all_decs = []
+    for p in [[0, 1, 2, 3], [3, 1, 2, 0]]: #itertools.permutations([0, 1, 2, 3]):
+        ras, decs = [], []
+        for packet_j in range(len(parsed_tlm[105])):
+            metadata = {
+                'spacecraft_id': "1",
+                'datetime': datetime.now(),
+                'ATT_DET_Q_BODY_WRT_ECI1': parsed_tlm[105]['ATT_DET_Q_BODY_WRT_ECI1'][packet_j],
+                'ATT_DET_Q_BODY_WRT_ECI2': parsed_tlm[105]['ATT_DET_Q_BODY_WRT_ECI2'][packet_j],
+                'ATT_DET_Q_BODY_WRT_ECI3': parsed_tlm[105]['ATT_DET_Q_BODY_WRT_ECI3'][packet_j],
+                'ATT_DET_Q_BODY_WRT_ECI4': parsed_tlm[105]['ATT_DET_Q_BODY_WRT_ECI4'][packet_j]}
+            q = np.array([metadata['ATT_DET_Q_BODY_WRT_ECI2'] * 0.5E-10,
+                          metadata['ATT_DET_Q_BODY_WRT_ECI1'] * 0.5E-10,
+                          metadata['ATT_DET_Q_BODY_WRT_ECI3'] * 0.5E-10,
+                          metadata['ATT_DET_Q_BODY_WRT_ECI4'] * 0.5E-10])[np.array(p)]
+            cc = np.array(eci_quaternion_to_ra_dec(q))
+            ras.append(360 - cc[0])
+            decs.append(cc[1])
+        all_ras.append(ras)
+        all_decs.append(decs)
+
+
+    fig, axs = plt.subplots(nrows=2)
+    # axs[0].plot(all_ras[0], 'r')
+    # axs[1].plot(all_decs[0], 'r')
+
+    axs[0].plot(all_ras[1], 'b')
+    axs[1].plot(all_decs[1], 'b')
+
+    axs[0].set_ylabel("RA [deg]")
+    axs[1].set_ylabel("Dec [deg]")
+    axs[1].set_xlabel("Packet number")
+
+    plt.show()
+    # print(w)
