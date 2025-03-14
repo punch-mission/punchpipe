@@ -16,6 +16,8 @@ File State Progression
     created --> progressed;
     created --> quickpunched;
     quickpunched --> progressed;
+    created --> visualized;
+    progressed --> visualized;
 
 For files, they always begin in the ``planned`` state.
 Once the flow to create them is kicked off, they enter the ``creating`` state.
