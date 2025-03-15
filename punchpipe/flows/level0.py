@@ -9,8 +9,8 @@ from prefect import flow, get_run_logger
 from prefect.blocks.core import Block
 from prefect.blocks.fields import SecretDict
 from punchbowl.data import get_base_file_name
-from punchbowl.data.punch_io import write_ndcube_to_fits
 from punchbowl.data.meta import NormalizedMetadata
+from punchbowl.data.punch_io import write_ndcube_to_fits
 from sqlalchemy import and_
 
 from punchpipe import __version__ as software_version
@@ -202,8 +202,8 @@ def level0_form_images(session=None, pipeline_config_path=None):
 
 
 if __name__ == '__main__':
-    from glob import glob
     import itertools
+    from glob import glob
 
     tlm_paths = sorted(glob("/home/jmbhughes/data/raw_packets/*.tlm"))
     for i, tlm_path in enumerate(tlm_paths):

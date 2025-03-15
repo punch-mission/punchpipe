@@ -29,7 +29,7 @@ Once files are ``created`` they wait in that state until a later flow picks them
 to the next level. Since level 3 is the last level, they never will become ``progressed``.
 
 For Level 0 products, they advance to a ``levelh`` state from ``created``. This extra intermediate state
-allows them to be processed into a calibration format that is used for deriving pipeline parameters. 
+allows them to be processed into a calibration format that is used for deriving pipeline parameters.
 
 For Level 1 products, they advanced to a ``quickpunched`` state from ``created``.
 This extra intermediate state allows the faster production of QuickPUNCH products before
