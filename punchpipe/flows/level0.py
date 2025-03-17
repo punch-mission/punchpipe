@@ -118,9 +118,8 @@ def level0_form_images(session=None, pipeline_config_path=None):
                 error = {'start_time': image_packets_entries[0].timestamp.isoformat(),
                          'start_block': image_packets_entries[0].flash_block,
                          'replay_length': image_packets_entries[-1].flash_block
-                                          - image_packets_entries[0].flash_block}
-                if error['replay_length'] != 0:
-                    errors.append(error)
+                                          - image_packets_entries[0].flash_block + 1}
+                errors.append(error)
 
             if image_compression[0]['CMP_BYP'] == 0 and image_compression[0]['JPEG'] == 1:  # this assumes the image compression is static for an image
                 try:
@@ -131,9 +130,8 @@ def level0_form_images(session=None, pipeline_config_path=None):
                     error = {'start_time': image_packets_entries[0].timestamp.isoformat(),
                              'start_block': image_packets_entries[0].flash_block,
                              'replay_length': image_packets_entries[-1].flash_block
-                                              - image_packets_entries[0].flash_block}
-                    if error['replay_length'] != 0:
-                        errors.append(error)
+                                              - image_packets_entries[0].flash_block + 1}
+                    errors.append(error)
             elif image_compression[0]['CMP_BYP'] == 1:
                 try:
                     ordered_image_content = np.concatenate(ordered_image_content)
@@ -144,9 +142,8 @@ def level0_form_images(session=None, pipeline_config_path=None):
                     error = {'start_time': image_packets_entries[0].timestamp.isoformat(),
                              'start_block': image_packets_entries[0].flash_block,
                              'replay_length': image_packets_entries[-1].flash_block
-                                              - image_packets_entries[0].flash_block}
-                    if error['replay_length'] != 0:
-                        errors.append(error)
+                                              - image_packets_entries[0].flash_block + 1}
+                    errors.append(error)
             else:
                 skip_image = True
                 print("Not implemented")
