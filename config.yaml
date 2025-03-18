@@ -134,6 +134,16 @@ flows:
     schedule: "* * * * *"
     options:
 
+  visualize:
+    description: "Creates quicklook movies."
+    tags: [ "LQ" ]
+    priority:
+      initial: 10
+      seconds: [60*60*24]
+      escalation: [1000]
+    schedule: "0 0 * * *"
+    options:
+
   simpunch:
     description: "Runs simpunch."
     tags: [ "sim" ]
