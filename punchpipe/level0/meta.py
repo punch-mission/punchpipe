@@ -31,23 +31,15 @@ def eci_quaternion_to_ra_dec(q):
 
     w, x, y, z = q
     # Calculate the rotation matrix from the quaternion
-    # R = np.array([
-    #     [1 - 2 * (q[2]**2 + q[3]**2), 2 * (q[1] * q[2] - q[0] * q[3]), 2 * (q[1] * q[3] + q[0] * q[2])],
-    #     [2 * (q[1] * q[2] + q[0] * q[3]), 1 - 2 * (q[1]**2 + q[3]**2), 2 * (q[2] * q[3] - q[0] * q[1])],
-    #     [2 * (q[1] * q[3] - q[0] * q[2]), 2 * (q[2] * q[3] + q[0] * q[1]), 1 - 2 * (q[1]**2 + q[2]**2)]
-    # ])
     R = np.array([[1 - 2*(y**2 + z**2), 2*(x*y - z*w), 2*(x*z + y*w)],
          [2*(x*y + z*w), 1 - 2*(x**2 + z**2), 2*(y*z - x*w)],
          [2*(x*z - y*w), 2*(y*z + x*w), 1 - 2*(x**2 + y**2)]])
 
-    # Extract the unit vector pointing in the z-direction (ECI frame)
-    z_eci = np.array([1, 0, 0])
-
-    # Rotate the z-vector to the body frame
-    z_body = R @ z_eci
+    axis_eci = np.array([1, 0, 0])
+    body = R @ axis_eci
 
     # Calculate RA and Dec from the rotated z-vector
-    c = SkyCoord(z_body[0], z_body[1], z_body[2], representation_type='cartesian', unit='m').fk5
+    c = SkyCoord(body[0], body[1], body[2], representation_type='cartesian', unit='m').fk5
     ra = c.ra.deg
     dec = c.dec.deg
     roll = np.arctan2(q[1] * q[2] - q[0] * q[3], 1 / 2 - (q[2] ** 2 + q[3] ** 2))
