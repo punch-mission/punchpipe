@@ -94,7 +94,7 @@ flows:
     schedule: "* * * * *"
     options:
 
-  L3_PTM:
+  level3_PTM:
     description: "Creates Level 3 PTM files."
     tags: [ "L3" ]
     priority:
@@ -104,7 +104,7 @@ flows:
     schedule: "* * * * *"
     options:
 
-  L3_PIM:
+  level3_PIM:
     description: "Creates Level 3 PIM files."
     tags: [ "L3" ]
     priority:
@@ -114,7 +114,7 @@ flows:
     schedule: "* * * * *"
     options:
 
-  f_corona:
+  construct_f_corona_background:
     description: "Creates Level 3 f corona model files."
     tags: [ "L3" ]
     priority:
@@ -124,7 +124,7 @@ flows:
     schedule: "* * * * *"
     options:
 
-  starfield:
+  construct_starfield_background:
     description: "Creates Level 3 starfield files."
     tags: [ "L3" ]
     priority:
@@ -134,22 +134,22 @@ flows:
     schedule: "* * * * *"
     options:
 
-  simpunch:
-    description: "Runs simpunch."
-    tags: [ "sim" ]
-    priority:
-      initial: 1E10
-      seconds: [1]
-      escalation: [1E10]
-    schedule: "0 */8 * * *"
-    options:
-      gamera_directory: "/home/jmbhughes/data/synthetic_cme/"
-      output_directory: "/home/jmbhughes/data/synthetic_cme/"
-      forward_psf_model_path: "/home/jmbhughes/data/simpunch/inputs/synthetic_forward_psf.fits"
-      backward_psf_model_path: "/home/jmbhughes/data/simpunch/inputs/synthetic_backward_psf.fits"
-      wfi_quartic_backward_model_path: "/home/jmbhughes/data/simpunch/inputs/wfi_quartic_backward_coeffs.fits"
-      nfi_quartic_backward_model_path: "/home/jmbhughes/data/simpunch/inputs/nfi_quartic_backward_coeffs.fits"
-      wfi_quartic_model_path: "/home/jmbhughes/data/simpunch/inputs/wfi_quartic_coeffs.fits"
-      nfi_quartic_model_path: "/home/jmbhughes/data/simpunch/inputs/nfi_quartic_coeffs.fits"
-      transient_probability: 0.0
-      shift_pointing: false
+#  simpunch:
+#    description: "Runs simpunch."
+#    tags: [ "sim" ]
+#    priority:
+#      initial: 1E10
+#      seconds: [1]
+#      escalation: [1E10]
+#    schedule: "0 */8 * * *"
+#    options:
+#      gamera_directory: "/home/jmbhughes/data/synthetic_cme/"
+#      output_directory: "/home/jmbhughes/data/synthetic_cme/"
+#      forward_psf_model_path: "/home/jmbhughes/data/simpunch/inputs/synthetic_forward_psf.fits"
+#      backward_psf_model_path: "/home/jmbhughes/data/simpunch/inputs/synthetic_backward_psf.fits"
+#      wfi_quartic_backward_model_path: "/home/jmbhughes/data/simpunch/inputs/wfi_quartic_backward_coeffs.fits"
+#      nfi_quartic_backward_model_path: "/home/jmbhughes/data/simpunch/inputs/nfi_quartic_backward_coeffs.fits"
+#      wfi_quartic_model_path: "/home/jmbhughes/data/simpunch/inputs/wfi_quartic_coeffs.fits"
+#      nfi_quartic_model_path: "/home/jmbhughes/data/simpunch/inputs/nfi_quartic_coeffs.fits"
+#      transient_probability: 0.0
+#      shift_pointing: false

@@ -8,8 +8,8 @@ from prefect import flow, get_run_logger
 from prefect.blocks.core import Block
 from prefect.blocks.fields import SecretDict
 from punchbowl.data import get_base_file_name
-from punchbowl.data.io import write_ndcube_to_fits
 from punchbowl.data.meta import NormalizedMetadata
+from punchbowl.data.punch_io import write_ndcube_to_fits
 from sqlalchemy import and_
 
 from punchpipe import __version__ as software_version
@@ -118,7 +118,7 @@ def level0_form_images(session=None, pipeline_config_path=None):
                 error = {'start_time': image_packets_entries[0].timestamp.isoformat(),
                          'start_block': image_packets_entries[0].flash_block,
                          'replay_length': image_packets_entries[-1].flash_block
-                                          - image_packets_entries[0].flash_block}
+                                          - image_packets_entries[0].flash_block + 1}
                 errors.append(error)
 
             if image_compression[0]['CMP_BYP'] == 0 and image_compression[0]['JPEG'] == 1:  # this assumes the image compression is static for an image
@@ -130,7 +130,7 @@ def level0_form_images(session=None, pipeline_config_path=None):
                     error = {'start_time': image_packets_entries[0].timestamp.isoformat(),
                              'start_block': image_packets_entries[0].flash_block,
                              'replay_length': image_packets_entries[-1].flash_block
-                                              - image_packets_entries[0].flash_block}
+                                              - image_packets_entries[0].flash_block + 1}
                     errors.append(error)
             elif image_compression[0]['CMP_BYP'] == 1:
                 try:
@@ -142,7 +142,7 @@ def level0_form_images(session=None, pipeline_config_path=None):
                     error = {'start_time': image_packets_entries[0].timestamp.isoformat(),
                              'start_block': image_packets_entries[0].flash_block,
                              'replay_length': image_packets_entries[-1].flash_block
-                                              - image_packets_entries[0].flash_block}
+                                              - image_packets_entries[0].flash_block + 1}
                     errors.append(error)
             else:
                 skip_image = True
@@ -193,6 +193,7 @@ def level0_form_images(session=None, pipeline_config_path=None):
         session.add(history)
         session.commit()
 
+        # TODO: split into multiple files and append updates instead of making a new file each time
         df_errors = pd.DataFrame(errors)
         date_str = datetime.now().strftime("%Y_%j")
         df_path = os.path.join(config['root'], 'REPLAY', f'PUNCH_{str(spacecraft[0])}_REPLAY_{date_str}.csv')
