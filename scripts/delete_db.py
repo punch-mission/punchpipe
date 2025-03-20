@@ -1,5 +1,4 @@
 from prefect_sqlalchemy import SqlAlchemyConnector
-from sqlalchemy import create_engine, text
 
 from punchpipe.control.db import Base
 

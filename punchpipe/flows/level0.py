@@ -1,19 +1,21 @@
 import os
+import json
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
 from ndcube import NDCube
-from prefect import flow, get_run_logger
+from prefect import flow, get_run_logger, task
 from prefect.blocks.core import Block
 from prefect.blocks.fields import SecretDict
+from prefect.context import get_run_context
 from punchbowl.data import get_base_file_name
 from punchbowl.data.meta import NormalizedMetadata
 from punchbowl.data.punch_io import write_ndcube_to_fits
 from sqlalchemy import and_
 
 from punchpipe import __version__ as software_version
-from punchpipe.control.db import File, PacketHistory, SciPacket, TLMFiles
+from punchpipe.control.db import File, Flow, PacketHistory, SciPacket, TLMFiles
 from punchpipe.control.util import get_database_session, load_pipeline_configuration
 from punchpipe.level0.ccsds import unpack_compression_settings
 from punchpipe.level0.core import (
@@ -33,11 +35,16 @@ class SpacecraftMapping(Block):
     mapping: SecretDict
 
 @flow
-def level0_ingest_raw_packets(pipeline_config_path: str | None = None, session=None):
+def level0_ingest_raw_packets(pipeline_config: str | dict | None = None, session=None):
     logger = get_run_logger()
     if session is None:
         session = get_database_session()
-    config = load_pipeline_configuration(pipeline_config_path)
+    if isinstance(pipeline_config, str):
+        config = load_pipeline_configuration(pipeline_config)
+    elif isinstance(pipeline_config, dict):
+        config = pipeline_config
+    else:
+        raise RuntimeError("Empty pipeline config.")
     logger.info(f"Querying {config['tlm_directory']}.")
     paths = detect_new_tlm_files(config, session=session)
     logger.info(f"Preparing to process {len(paths)} files.")
@@ -62,13 +69,18 @@ def level0_ingest_raw_packets(pipeline_config_path: str | None = None, session=N
             logger.error(f"Failed to ingest {tlm_file.path}: {e}")
 
 @flow
-def level0_form_images(session=None, pipeline_config_path=None):
+def level0_form_images(session=None, pipeline_config: str | dict | None = None):
     logger = get_run_logger()
 
     if session is None:
         session = get_database_session()
 
-    config = load_pipeline_configuration(pipeline_config_path)
+    if isinstance(pipeline_config, str):
+        config = load_pipeline_configuration(pipeline_config)
+    elif isinstance(pipeline_config, dict):
+        config = pipeline_config
+    else:
+        raise RuntimeError("Empty pipeline config.")
 
     distinct_times = session.query(SciPacket.timestamp).filter(~SciPacket.is_used).distinct().all()
     distinct_spacecraft = session.query(SciPacket.spacecraft_id).filter(~SciPacket.is_used).distinct().all()
@@ -157,7 +169,7 @@ def level0_form_images(session=None, pipeline_config_path=None):
                                                       image_packets_entries[0].spacecraft_id,
                                                       session)
                 file_type = POSITIONS_TO_CODES[convert_pfw_position_to_polarizer(metadata_contents['POSITION_CURR'])]
-                preliminary_wcs = form_preliminary_wcs(metadata_contents, float(config['plate_scale'][spacecraft_id]))
+                preliminary_wcs = form_preliminary_wcs(metadata_contents, float(config['plate_scale'][str(spacecraft_id)]))
                 meta = NormalizedMetadata.load_template(file_type + str(spacecraft_id), "0")
                 # TODO : activate later
                 # for meta_key, meta_value in metadata_contents.items():
@@ -199,3 +211,79 @@ def level0_form_images(session=None, pipeline_config_path=None):
         df_path = os.path.join(config['root'], 'REPLAY', f'PUNCH_{str(spacecraft[0])}_REPLAY_{date_str}.csv')
         os.makedirs(os.path.dirname(df_path), exist_ok=True)
         df_errors.to_csv(df_path, index=False)
+
+
+@task
+def level0_construct_flow_info(pipeline_config: dict):
+    flow_type = "level0"
+    state = "planned"
+    creation_time = datetime.now()
+    priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
+
+    call_data = json.dumps(
+        {
+            "pipeline_config": pipeline_config,
+            "session": None
+        }
+    )
+    return Flow(
+        flow_type=flow_type,
+        flow_level="0",
+        state=state,
+        creation_time=creation_time,
+        priority=priority,
+        call_data=call_data,
+    )
+
+
+@flow
+def level0_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
+    pipeline_config = load_pipeline_configuration(pipeline_config_path)
+    new_flow = level0_construct_flow_info(pipeline_config)
+
+    if session is None:
+        session = get_database_session()
+
+    session.add(new_flow)
+    session.commit()
+
+@flow
+def level0_core_flow(pipeline_config: str | dict | None = None, session=None):
+    level0_ingest_raw_packets(pipeline_config=pipeline_config, session=session)
+    level0_form_images(pipeline_config=pipeline_config, session=session)
+
+
+@flow
+def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
+    logger = get_run_logger()
+
+    if session is None:
+        session = get_database_session()
+
+    # fetch the appropriate flow db entry
+    flow_db_entry = session.query(Flow).where(Flow.flow_id == flow_id).one()
+    logger.info(f"Running on flow db entry with id={flow_db_entry.flow_id}.")
+
+    # update the processing flow name with the flow run name from Prefect
+    flow_run_context = get_run_context()
+    flow_db_entry.flow_run_name = flow_run_context.flow_run.name
+    flow_db_entry.flow_run_id = flow_run_context.flow_run.id
+    flow_db_entry.state = "running"
+    flow_db_entry.start_time = datetime.now()
+    session.commit()
+
+    # load the call data and launch the core flow
+    flow_call_data = json.loads(flow_db_entry.call_data)
+    logger.info(f"Running with {flow_call_data}")
+    try:
+        level0_core_flow(**flow_call_data)
+    except Exception as e:
+        flow_db_entry.state = "failed"
+        flow_db_entry.end_time = datetime.now()
+        session.commit()
+        raise e
+    else:
+        flow_db_entry.state = "completed"
+        flow_db_entry.end_time = datetime.now()
+        # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
+        session.commit()
