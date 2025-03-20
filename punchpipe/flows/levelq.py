@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 from functools import partial
 
 from prefect import flow, get_run_logger, task
-from punchbowl.level2.flow import levelq_core_flow
 from punchbowl.levelq.f_corona_model import construct_qp_f_corona_model
+from punchbowl.levelq.flow import levelq_core_flow
 
 from punchpipe import __version__
 from punchpipe.control.db import File, Flow
