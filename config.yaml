@@ -24,16 +24,16 @@ control:
     description: "Monitor the health of the pipeline."
 
 flows:
-  level0:
-    description: "Creates Level 0 files from raw packets."
-    tags: ["L0"]
-    concurrency_limit: 1
-    priority:
-      initial: 5
-      seconds: [ 30, 120, 600 ]
-      escalation: [ 10, 20, 30 ]
-    schedule: "*/30 * * * *"
-    options:
+#  level0:
+#    description: "Creates Level 0 files from raw packets."
+#    tags: ["L0"]
+#    concurrency_limit: 1
+#    priority:
+#      initial: 5
+#      seconds: [ 30, 120, 600 ]
+#      escalation: [ 10, 20, 30 ]
+#    schedule: "*/30 * * * *"
+#    options:
 #
 #  level1:
 #    description: "Creates Level 1 files."
@@ -165,22 +165,22 @@ flows:
 #    schedule: "* * * * *"
 #    options:
 #
-#  simpunch:
-#    description: "Runs simpunch."
-#    tags: [ "sim" ]
-#    priority:
-#      initial: 1E10
-#      seconds: [1]
-#      escalation: [1E10]
-#    schedule: "0 */8 * * *"
-#    options:
-#      gamera_directory: "/home/jmbhughes/data/synthetic_cme/"
-#      output_directory: "/home/jmbhughes/data/synthetic_cme/"
-#      forward_psf_model_path: "/home/jmbhughes/data/simpunch/inputs/synthetic_forward_psf.fits"
-#      backward_psf_model_path: "/home/jmbhughes/data/simpunch/inputs/synthetic_backward_psf.fits"
-#      wfi_quartic_backward_model_path: "/home/jmbhughes/data/simpunch/inputs/wfi_quartic_backward_coeffs.fits"
-#      nfi_quartic_backward_model_path: "/home/jmbhughes/data/simpunch/inputs/nfi_quartic_backward_coeffs.fits"
-#      wfi_quartic_model_path: "/home/jmbhughes/data/simpunch/inputs/wfi_quartic_coeffs.fits"
-#      nfi_quartic_model_path: "/home/jmbhughes/data/simpunch/inputs/nfi_quartic_coeffs.fits"
-#      transient_probability: 0.0
-#      shift_pointing: false
+  simpunch:
+    description: "Runs simpunch."
+    tags: [ "sim" ]
+    priority:
+      initial: 1E10
+      seconds: [1]
+      escalation: [1E10]
+    schedule: "0 */8 * * *"
+    options:
+      gamera_directory: "/Users/mhughes/data/punch_simulation/synthetic_cme/"
+      output_directory: "/Users/mhughes/data/punch_simulation/synthetic_cme/"
+      forward_psf_model_path: "/Users/mhughes/data/punch_simulation/inputs/synthetic_forward_psf.fits"
+      backward_psf_model_path: "/Users/mhughes/data/punch_simulation/inputs/synthetic_backward_psf.fits"
+      wfi_quartic_backward_model_path: "/Users/mhughes/data/punch_simulation/inputs/wfi_quartic_backward_coeffs.fits"
+      nfi_quartic_backward_model_path: "/Users/mhughes/data/punch_simulation/inputs/nfi_quartic_backward_coeffs.fits"
+      wfi_quartic_model_path: "/Users/mhughes/data/punch_simulation/inputs/wfi_quartic_coeffs.fits"
+      nfi_quartic_model_path: "/Users/mhughes/data/punch_simulation/inputs/nfi_quartic_coeffs.fits"
+      transient_probability: 0.0
+      shift_pointing: false
