@@ -175,7 +175,7 @@ flows:
     schedule: "0 */8 * * *"
     options:
       gamera_files_dir: "/Users/mhughes/data/punch_simulation/synthetic_cme/"
-      out_dir: "/Users/mhughes/data/punch_simulation/synthetic_cme/"
+      out_dir: "/Users/mhughes/data/punch_simulation/outputs/"
       start_window: "2025-03-20T08:00:00"
       end_window: "2025-03-21T08:00:00"
       backward_psf_model_path: "/Users/mhughes/data/punch_simulation/inputs/synthetic_backward_psf.fits"
