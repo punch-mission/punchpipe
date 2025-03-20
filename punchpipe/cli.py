@@ -71,15 +71,17 @@ def construct_flows_to_serve(configuration_path):
         # then we deploy the corresponding process flow
         specific_name = flow_name + "_process_flow"
         flow_function = find_flow(specific_name)
+        concurrency_value = config["flows"][flow_name].get("concurrency_limit", None)
+        concurrency_config = ConcurrencyLimitConfig(
+                limit=concurrency_value,
+                collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW
+            ) if concurrency_value else None
         flow_deployment = flow_function.to_deployment(
             name=specific_name,
             description="Process: " + specific_description,
             tags = ["process"] + specific_tags,
             parameters={"pipeline_config_path": configuration_path},
-            concurrency_limit=ConcurrencyLimitConfig(
-                limit=config["flows"][flow_name].get("concurrency_limit", None),
-                collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW
-            )
+            concurrency_limit=concurrency_config
         )
         flows_to_serve.append(flow_deployment)
 
