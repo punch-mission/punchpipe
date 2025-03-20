@@ -104,11 +104,11 @@ def simpunch_core_flow(
         transient_probability: float = 0.03,
         shift_pointing: bool = False):
     if isinstance(date_obs, str):
-        date_obs = parse_datetime_str(date_obs)
+        date_obs = parse_datetime_str(date_obs).replace(tzinfo=UTC)
     if isinstance(start_window, str):
-        start_window = parse_datetime_str(start_window)
+        start_window = parse_datetime_str(start_window).replace(tzinfo=UTC)
     if isinstance(end_window, str):
-        end_window = parse_datetime_str(end_window)
+        end_window = parse_datetime_str(end_window).replace(tzinfo=UTC)
 
     tb_files = sorted(glob.glob(gamera_files_dir + "/*_TB.fits"))
     pb_files = sorted(glob.glob(gamera_files_dir + "/*_PB.fits"))
