@@ -28,7 +28,7 @@ def simulate_flow(file_tb: str,
                   transient_probability: float = 0.03,
                   shift_pointing: bool = False) -> bool:
     """Generate all the products in the reverse pipeline."""
-    i = int(os.path.basename(file_tb).split("_")[6][4:])
+    i = int(os.path.basename(file_tb).split("_")[4][4:])  # get the index from the filename to determine the rotation
     rotation_indices = np.array([0, 0, 1, 1, 2, 2, 3, 3])
     rotation_stage = rotation_indices[i % 8]
     l3_ptm = generate_l3_ptm(file_tb, file_pb, out_dir, time_obs, timedelta(minutes=4), rotation_stage)
