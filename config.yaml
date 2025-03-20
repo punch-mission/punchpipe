@@ -55,6 +55,16 @@ flows:
 #    schedule: "* * * * *"
 #    options:
 #
+#  level2_clear:
+#    description: "Creates Level 2 clear files."
+#    tags: [ "L2" ]
+#    priority:
+#      initial: 1000
+#      seconds: [ 3000, 12000, 60000 ]
+#      escalation: [ 1000, 1000, 1000 ]
+#    schedule: "* * * * *"
+#    options:
+#
 #  levelq:
 #    description: "Creates Level Q CTM and CNN data files."
 #    tags: [ "LQ" ]
@@ -115,6 +125,26 @@ flows:
 #    schedule: "* * * * *"
 #    options:
 #
+#  level3_CTM:
+#    description: "Creates Level 3 CTM files."
+#    tags: [ "L3" ]
+#    priority:
+#      initial: 10000
+#      seconds: [1]
+#      escalation: [10000]
+#    schedule: "* * * * *"
+#    options:
+#
+#  level3_CIM:
+#    description: "Creates Level 3 CIM files."
+#    tags: [ "L3" ]
+#    priority:
+#      initial: 10000
+#      seconds: [1]
+#      escalation: [10000]
+#    schedule: "* * * * *"
+#    options:
+#
 #  construct_f_corona_background:
 #    description: "Creates Level 3 f corona model files."
 #    tags: [ "L3" ]
@@ -134,7 +164,7 @@ flows:
 #      escalation: [10000]
 #    schedule: "* * * * *"
 #    options:
-
+#
 #  simpunch:
 #    description: "Runs simpunch."
 #    tags: [ "sim" ]
