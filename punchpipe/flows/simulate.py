@@ -65,7 +65,7 @@ def simpunch_scheduler_flow(pipeline_config_path=None, session=None, reference_t
         {
             "date_obs": reference_time or str(datetime.now(UTC)),
             "simulation_start": pipeline_config["flows"][flow_type]["options"].get("simulation_start", ""),
-            "simulation_cadence_minutes": pipeline_config["flows"][flow_type]["options"].get("simulation_cadence_minutes", ""),
+            "simulation_cadence_minutes": pipeline_config["flows"][flow_type]["options"].get("simulation_cadence_minutes", 4.0),
             "gamera_files_dir": pipeline_config["flows"][flow_type]["options"].get("gamera_files_dir", ""),
             "out_dir": pipeline_config["flows"][flow_type]["options"].get("out_dir", ""),
             "backward_psf_model_path": pipeline_config["flows"][flow_type]["options"].get("backward_psf_model_path", ""),
