@@ -2,7 +2,6 @@
 import os
 import glob
 import json
-import math
 from datetime import UTC, datetime, timedelta
 
 import numpy as np
@@ -94,8 +93,8 @@ def simpunch_scheduler_flow(pipeline_config_path=None, session=None, reference_t
 @flow
 def simpunch_core_flow(
         date_obs: datetime | str,
-        start_window: datetime | str,
-        end_window: datetime | str,
+        simulation_start: datetime | str,
+        simulation_cadence_minutes: float,
         gamera_files_dir: str,
         out_dir: str,
         backward_psf_model_path: str,
@@ -103,27 +102,28 @@ def simpunch_core_flow(
         nfi_quartic_backward_model_path: str,
         transient_probability: float = 0.03,
         shift_pointing: bool = False):
+
+    logger = get_run_logger()
+
     if isinstance(date_obs, str):
         date_obs = parse_datetime_str(date_obs).replace(tzinfo=UTC)
-    if isinstance(start_window, str):
-        start_window = parse_datetime_str(start_window).replace(tzinfo=UTC)
-    if isinstance(end_window, str):
-        end_window = parse_datetime_str(end_window).replace(tzinfo=UTC)
+    if isinstance(simulation_start, str):
+        simulation_start = parse_datetime_str(simulation_start).replace(tzinfo=UTC)
+
 
     tb_files = sorted(glob.glob(gamera_files_dir + "/*_TB.fits"))
     pb_files = sorted(glob.glob(gamera_files_dir + "/*_PB.fits"))
+    simulation_frame_count = len(tb_files)
 
-    minutes_after_start = (date_obs - start_window).total_seconds() / 60
-    minutes_after_end = (end_window - date_obs).total_seconds() / 60
-    if minutes_after_start < 0:
-        index = 0
-    elif minutes_after_end > 0:
-        index = len(tb_files) - 1
-    else:
-        index = math.floor(minutes_after_start / 4)
+    minutes_after_start = (date_obs - simulation_start).total_seconds() / 60
+    raw_index = minutes_after_start / simulation_cadence_minutes
+    index = int(raw_index % simulation_frame_count)
+    logger.info(f"Running on index {index}")
 
     file_tb = tb_files[index]
     file_pb = pb_files[index]
+    logger.info(f"file_tb = {file_tb}")
+    logger.info(f"file_pb = {file_pb}")
 
     simulate_flow(file_tb, file_pb, out_dir, date_obs, backward_psf_model_path,wfi_quartic_backward_model_path,
                   nfi_quartic_backward_model_path, transient_probability, shift_pointing)
