@@ -64,8 +64,8 @@ def simpunch_scheduler_flow(pipeline_config_path=None, session=None, reference_t
     call_data = json.dumps(
         {
             "date_obs": reference_time or str(datetime.now(UTC)),
-            "start_window": pipeline_config["flows"][flow_type]["options"].get("start_window", ""),
-            "end_window": pipeline_config["flows"][flow_type]["options"].get("end_window", ""),
+            "simulation_start": pipeline_config["flows"][flow_type]["options"].get("simulation_start", ""),
+            "simulation_cadence_minutes": pipeline_config["flows"][flow_type]["options"].get("simulation_cadence_minutes", ""),
             "gamera_files_dir": pipeline_config["flows"][flow_type]["options"].get("gamera_files_dir", ""),
             "out_dir": pipeline_config["flows"][flow_type]["options"].get("out_dir", ""),
             "backward_psf_model_path": pipeline_config["flows"][flow_type]["options"].get("backward_psf_model_path", ""),
@@ -110,6 +110,7 @@ def simpunch_core_flow(
     if isinstance(simulation_start, str):
         simulation_start = parse_datetime_str(simulation_start).replace(tzinfo=UTC)
 
+    logger.info(f"Running for {date_obs}")
 
     tb_files = sorted(glob.glob(gamera_files_dir + "/*_TB.fits"))
     pb_files = sorted(glob.glob(gamera_files_dir + "/*_PB.fits"))
