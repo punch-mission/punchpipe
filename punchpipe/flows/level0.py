@@ -90,6 +90,11 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
     skip_count, success_count = 0, 0
     for spacecraft in distinct_spacecraft:
         errors = []
+        distinct_times = (session.query(SciPacket.timestamp)
+                          .filter(~SciPacket.is_used)
+                          .filter(SciPacket.spacecraft_id == spacecraft[0])
+                          .distinct()
+                          .all())
 
         for t in distinct_times:
             image_packets_entries = (session.query(SciPacket)
@@ -158,7 +163,7 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
                     errors.append(error)
             else:
                 skip_image = True
-                print("Not implemented")
+                raise NotImplementedError("Not implemented image format")
 
             if not skip_image:
                 spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
