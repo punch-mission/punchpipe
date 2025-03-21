@@ -6,3 +6,4 @@ if __name__ == "__main__":
     credentials = SqlAlchemyConnector.load("mariadb-creds")
     engine = credentials.get_engine()
     Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(engine)
