@@ -201,8 +201,8 @@ def update_tlm_database(packets, tlm_id: int, session=None):
                                                     i, tlm_id)
                     if this_packet is not None:
                         session.add(this_packet)
-                except (sqlalchemy.exc.DataError, pymysql.err.DataError) as e:
-                    warnings.warn(f"Unable to add packet to database, {e}.", CCSDSPacketDatabaseUpdateWarning)
+                except (sqlalchemy.exc.DataError, pymysql.err.DataError):
+                    raise RuntimeError("FAILED ADDING PACKET")
         session.commit()
 
 
