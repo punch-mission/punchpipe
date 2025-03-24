@@ -2,55 +2,16 @@
 import os
 import glob
 import json
-from datetime import UTC, datetime, timedelta
+from typing import List
+from datetime import UTC, datetime
 
-import numpy as np
 from dateutil.parser import parse as parse_datetime_str
 from prefect import flow, get_run_logger
 from prefect.context import get_run_context
-from simpunch.level0 import generate_l0_cr, generate_l0_pmzp
-from simpunch.level1 import generate_l1_cr, generate_l1_pmzp
-from simpunch.level2 import generate_l2_ctm, generate_l2_ptm
-from simpunch.level3 import generate_l3_ctm, generate_l3_ptm
+from simpunch.flow import generate_flow
 
-from punchpipe.control.db import Flow
+from punchpipe.control.db import File, Flow
 from punchpipe.control.util import get_database_session, load_pipeline_configuration
-
-
-def simulate_flow(file_tb: str,
-                  file_pb: str,
-                  out_dir: str,
-                  time_obs: datetime,
-                  backward_psf_model_path: str,
-                  wfi_quartic_backward_model_path: str,
-                  nfi_quartic_backward_model_path: str,
-                  transient_probability: float = 0.03,
-                  shift_pointing: bool = False) -> bool:
-    """Generate all the products in the reverse pipeline."""
-    i = int(os.path.basename(file_tb).split("_")[4][4:])  # get the index from the filename to determine the rotation
-    rotation_indices = np.array([0, 0, 1, 1, 2, 2, 3, 3])
-    rotation_stage = rotation_indices[i % 8]
-    l3_ptm = generate_l3_ptm(file_tb, file_pb, out_dir, time_obs, timedelta(minutes=4), rotation_stage)
-    l3_ctm = generate_l3_ctm(file_tb, out_dir, time_obs, timedelta(minutes=4), rotation_stage)
-    l2_ptm = generate_l2_ptm(l3_ptm, out_dir)
-    l2_ctm = generate_l2_ctm(l3_ctm, out_dir)
-
-    l1_polarized = []
-    l1_clear = []
-    for spacecraft in ["1", "2", "3", "4"]:
-        l1_polarized.extend(generate_l1_pmzp(l2_ptm, out_dir, rotation_stage, spacecraft))
-        l1_clear.append(generate_l1_cr(l2_ctm, out_dir, rotation_stage, spacecraft))
-
-    for filename in l1_polarized:
-        generate_l0_pmzp(filename, out_dir, backward_psf_model_path,
-                                               wfi_quartic_backward_model_path, nfi_quartic_backward_model_path,
-                                               transient_probability, shift_pointing)
-
-    for filename in l1_clear:
-        generate_l0_cr(filename, out_dir, backward_psf_model_path,
-                                               wfi_quartic_backward_model_path, nfi_quartic_backward_model_path,
-                                               transient_probability, shift_pointing)
-    return True
 
 
 @flow
@@ -101,7 +62,7 @@ def simpunch_core_flow(
         wfi_quartic_backward_model_path: str,
         nfi_quartic_backward_model_path: str,
         transient_probability: float = 0.03,
-        shift_pointing: bool = False):
+        shift_pointing: bool = False) -> List[str]:
 
     logger = get_run_logger()
 
@@ -126,8 +87,9 @@ def simpunch_core_flow(
     logger.info(f"file_tb = {file_tb}")
     logger.info(f"file_pb = {file_pb}")
 
-    simulate_flow(file_tb, file_pb, out_dir, date_obs, backward_psf_model_path,wfi_quartic_backward_model_path,
+    return generate_flow(file_tb, file_pb, out_dir, date_obs, backward_psf_model_path,wfi_quartic_backward_model_path,
                   nfi_quartic_backward_model_path, transient_probability, shift_pointing)
+
 
 
 @flow
@@ -153,13 +115,28 @@ def simpunch_process_flow(flow_id: int, pipeline_config_path=None, session=None)
     flow_call_data = json.loads(flow_db_entry.call_data)
     logger.info(f"Running with {flow_call_data}")
     try:
-        simpunch_core_flow(**flow_call_data)
+        out_filenames = simpunch_core_flow(**flow_call_data)
     except Exception as e:
         flow_db_entry.state = "failed"
         flow_db_entry.end_time = datetime.now()
         session.commit()
         raise e
     else:
+        file_db_entries = []
+        for filename in out_filenames:
+            base_filename = os.path.basename(filename)
+            file_db_entries.append(File(
+                level="0",
+                file_type=base_filename[9:11],
+                observatory=base_filename[11],
+                file_version=base_filename[:-5].split("_")[-1][1:],
+                software_version="synth",
+                date_created=datetime.now(UTC),
+                date_obs=datetime.strptime(base_filename[13:27], "%Y%m%d%H%M%S"),
+                state="created"
+            ))
+        session.add_all(file_db_entries)
+
         flow_db_entry.state = "completed"
         flow_db_entry.end_time = datetime.now()
         # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
