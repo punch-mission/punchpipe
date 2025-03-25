@@ -10,4 +10,4 @@ if __name__ == "__main__":
     pipeline_config_path = "/Users/mhughes/repos/punchpipe/config.yaml"
 
     for date_obs in pd.date_range(start_date, end_date, freq=timedelta(minutes=4)):
-        simpunch_scheduler_flow(pipeline_config_path=pipeline_config_path, reference_time=date_obs)
+        simpunch_scheduler_flow(pipeline_config_path=pipeline_config_path, reference_time=str(date_obs))
