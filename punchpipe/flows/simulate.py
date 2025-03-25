@@ -87,7 +87,7 @@ def simpunch_core_flow(
     logger.info(f"file_tb = {file_tb}")
     logger.info(f"file_pb = {file_pb}")
 
-    return generate_flow(file_tb, file_pb, out_dir, date_obs, backward_psf_model_path,wfi_quartic_backward_model_path,
+    return generate_flow(file_tb, file_pb, date_obs, out_dir, backward_psf_model_path,wfi_quartic_backward_model_path,
                   nfi_quartic_backward_model_path, transient_probability, shift_pointing)
 
 
