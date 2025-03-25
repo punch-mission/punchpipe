@@ -194,8 +194,8 @@ def update_tlm_database(packets, tlm_id: int, session=None):
         session = get_database_session()
 
     for apid, this_apid_packets in packets.items():
-        for i in range(len(this_apid_packets['CCSDS_APID'])):
-            if apid in PACKET_APID2NAME:
+        if apid in PACKET_APID2NAME:
+            for i in range(len(this_apid_packets['CCSDS_APID'])):
                 try:
                     this_packet = form_packet_entry(apid, get_single_packet(this_apid_packets, i),
                                                     i, tlm_id)
