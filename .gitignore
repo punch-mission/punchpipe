@@ -7,3 +7,4 @@ punchpipe.egg-info
 .idea
 /punchpipe/level0/decoding_tables/
 /scripts/create_credentials.py
+__pycache__
