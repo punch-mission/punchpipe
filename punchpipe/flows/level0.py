@@ -163,7 +163,9 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
                     errors.append(error)
             else:
                 skip_image = True
-                raise NotImplementedError("Not implemented image format")
+                # raise NotImplementedError("Not implemented image format")  # TODO : reactivate
+                warnings.warn("Not implemented image format")
+
 
             if not skip_image:
                 spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
