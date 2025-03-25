@@ -15,40 +15,43 @@ from punchpipe.control.util import get_database_session, load_pipeline_configura
 
 
 @flow
-def simpunch_scheduler_flow(pipeline_config_path=None, session=None, reference_time: datetime | str | None = None):
+def simpunch_scheduler_flow(pipeline_config_path=None, session=None, reference_time: datetime | str | None | list = None):
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
     flow_type = "simpunch"
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
-    call_data = json.dumps(
-        {
-            "date_obs": reference_time or str(datetime.now(UTC)),
-            "simulation_start": pipeline_config["flows"][flow_type]["options"].get("simulation_start", ""),
-            "simulation_cadence_minutes": pipeline_config["flows"][flow_type]["options"].get("simulation_cadence_minutes", 4.0),
-            "gamera_files_dir": pipeline_config["flows"][flow_type]["options"].get("gamera_files_dir", ""),
-            "out_dir": pipeline_config["flows"][flow_type]["options"].get("out_dir", ""),
-            "backward_psf_model_path": pipeline_config["flows"][flow_type]["options"].get("backward_psf_model_path", ""),
-            "wfi_quartic_backward_model_path": pipeline_config["flows"][flow_type]["options"].get("wfi_quartic_backward_model_path", ""),
-            "nfi_quartic_backward_model_path": pipeline_config["flows"][flow_type]["options"].get("nfi_quartic_backward_model_path", ""),
-            "transient_probability": pipeline_config["flows"][flow_type]["options"].get("transient_probability", 0),
-            "shift_pointing": pipeline_config["flows"][flow_type]["options"].get("shift_pointing", False)
-        }
-    )
-    new_flow = Flow(
-        flow_type=flow_type,
-        flow_level="S",
-        state=state,
-        creation_time=creation_time,
-        priority=priority,
-        call_data=call_data,
-    )
-
     if session is None:
         session = get_database_session()
 
-    session.add(new_flow)
+    if not isinstance(reference_time, list):
+        reference_time = [reference_time]
+    for ref_time in reference_time:
+        call_data = json.dumps(
+            {
+                "date_obs": ref_time or str(datetime.now(UTC)),
+                "simulation_start": pipeline_config["flows"][flow_type]["options"].get("simulation_start", ""),
+                "simulation_cadence_minutes": pipeline_config["flows"][flow_type]["options"].get("simulation_cadence_minutes", 4.0),
+                "gamera_files_dir": pipeline_config["flows"][flow_type]["options"].get("gamera_files_dir", ""),
+                "out_dir": pipeline_config["flows"][flow_type]["options"].get("out_dir", ""),
+                "backward_psf_model_path": pipeline_config["flows"][flow_type]["options"].get("backward_psf_model_path", ""),
+                "wfi_quartic_backward_model_path": pipeline_config["flows"][flow_type]["options"].get("wfi_quartic_backward_model_path", ""),
+                "nfi_quartic_backward_model_path": pipeline_config["flows"][flow_type]["options"].get("nfi_quartic_backward_model_path", ""),
+                "transient_probability": pipeline_config["flows"][flow_type]["options"].get("transient_probability", 0),
+                "shift_pointing": pipeline_config["flows"][flow_type]["options"].get("shift_pointing", False)
+            }
+        )
+        new_flow = Flow(
+            flow_type=flow_type,
+            flow_level="S",
+            state=state,
+            creation_time=creation_time,
+            priority=priority,
+            call_data=call_data,
+        )
+
+        session.add(new_flow)
     session.commit()
 
 @flow
