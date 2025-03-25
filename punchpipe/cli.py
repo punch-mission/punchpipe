@@ -59,7 +59,7 @@ def construct_flows_to_serve(configuration_path):
             name=specific_name,
             description="Scheduler: " + specific_description,
             tags = ["scheduler"] + specific_tags,
-            cron=config['flows'][flow_name].get("schedule", "* * * * *"),
+            cron=config['flows'][flow_name].get("schedule", None),
             concurrency_limit=ConcurrencyLimitConfig(
                 limit=1,
                 collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW
