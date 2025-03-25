@@ -83,7 +83,6 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
     else:
         raise RuntimeError("Empty pipeline config.")
 
-    distinct_times = session.query(SciPacket.timestamp).filter(~SciPacket.is_used).distinct().all()
     distinct_spacecraft = session.query(SciPacket.spacecraft_id).filter(~SciPacket.is_used).distinct().all()
 
     already_parsed_tlms = {} # tlm_path maps to the parsed contents
@@ -169,42 +168,46 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
 
 
             if not skip_image:
-                spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
-                moc_index = spacecraft_secrets["moc"].index(image_packets_entries[0].spacecraft_id)
-                spacecraft_id = spacecraft_secrets["soc"][moc_index]
+                try:
+                    spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
+                    moc_index = spacecraft_secrets["moc"].index(image_packets_entries[0].spacecraft_id)
+                    spacecraft_id = spacecraft_secrets["soc"][moc_index]
 
-                metadata_contents = get_fits_metadata(image_packets_entries[0].timestamp,
-                                                      image_packets_entries[0].spacecraft_id,
-                                                      session)
-                file_type = POSITIONS_TO_CODES[convert_pfw_position_to_polarizer(metadata_contents['POSITION_CURR'])]
-                preliminary_wcs = form_preliminary_wcs(metadata_contents, float(config['plate_scale'][str(spacecraft_id)]))
-                meta = NormalizedMetadata.load_template(file_type + str(spacecraft_id), "0")
-                # TODO : activate later
-                # for meta_key, meta_value in metadata_contents.items():
-                #     meta[meta_key] = meta_value
-                meta['DATE-OBS'] = str(t[0])
-                cube = NDCube(data=image, meta=meta, wcs=preliminary_wcs)
+                    metadata_contents = get_fits_metadata(image_packets_entries[0].timestamp,
+                                                          image_packets_entries[0].spacecraft_id,
+                                                          session)
+                    file_type = POSITIONS_TO_CODES[convert_pfw_position_to_polarizer(metadata_contents['POSITION_CURR'])]
+                    preliminary_wcs = form_preliminary_wcs(metadata_contents, float(config['plate_scale'][str(spacecraft_id)]))
+                    meta = NormalizedMetadata.load_template(file_type + str(spacecraft_id), "0")
+                    # TODO : activate later
+                    # for meta_key, meta_value in metadata_contents.items():
+                    #     meta[meta_key] = meta_value
+                    meta['DATE-OBS'] = str(t[0])
+                    cube = NDCube(data=image, meta=meta, wcs=preliminary_wcs)
 
-                l0_db_entry = File(level="0",
-                                   file_type=file_type,
-                                   observatory=str(spacecraft_id),
-                                   file_version="1",  # TODO: increment the file version
-                                   software_version=software_version,
-                                   date_created=datetime.now(),
-                                   date_obs=t[0],
-                                   date_beg=t[0],
-                                   date_end=t[0],
-                                   state="created")
+                    l0_db_entry = File(level="0",
+                                       file_type=file_type,
+                                       observatory=str(spacecraft_id),
+                                       file_version="1",  # TODO: increment the file version
+                                       software_version=software_version,
+                                       date_created=datetime.now(),
+                                       date_obs=t[0],
+                                       date_beg=t[0],
+                                       date_end=t[0],
+                                       state="created")
 
-                out_path =  os.path.join(l0_db_entry.directory(config['root']), get_base_file_name(cube)) + ".fits"
-                os.makedirs(os.path.dirname(out_path), exist_ok=True)
-                write_ndcube_to_fits(cube,out_path)
-                # TODO: write a jp2
-                for image_packets_entries in image_packets_entries:
-                    image_packets_entries.is_used = True
-                session.add(l0_db_entry)
-                session.commit()
-                success_count += 1
+                    out_path =  os.path.join(l0_db_entry.directory(config['root']), get_base_file_name(cube)) + ".fits"
+                    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+                    write_ndcube_to_fits(cube,out_path)
+                    # TODO: write a jp2
+                    for image_packets_entries in image_packets_entries:
+                        image_packets_entries.is_used = True
+                    session.add(l0_db_entry)
+                    session.commit()
+                    success_count += 1
+                except Exception as e:
+                    logger.error(e)
+                    skip_count += 1
             else:
                 skip_count += 1
         history = PacketHistory(datetime=datetime.now(),
@@ -295,3 +298,12 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
         flow_db_entry.end_time = datetime.now()
         # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
         session.commit()
+
+if __name__ == "__main__":
+    config = load_pipeline_configuration("/Users/mhughes/repos/punchpipe/process_local_config.yaml")
+    config['plate_scale']['1'] = 0.02444444444
+    config['plate_scale']['2'] = 0.02444444444
+    config['plate_scale']['3'] = 0.02444444444
+    config['plate_scale']['4'] = 0.008333333333
+
+    level0_form_images(pipeline_config=config)
