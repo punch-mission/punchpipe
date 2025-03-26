@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 from freezegun import freeze_time
 from prefect.logging import disable_run_logger
@@ -62,7 +62,7 @@ def test_level2_construct_file_info():
                        state='created',
                        file_version='none',
                        software_version='none',
-                       date_obs=datetime.now())]
+                       date_obs=datetime.now(timezone.utc))]
     constructed_file_info = level2_construct_file_info.fn(level1_file, pipeline_config)[0]
     assert constructed_file_info.level == 2
     assert constructed_file_info.file_type == level1_file[0].file_type
@@ -83,7 +83,7 @@ def test_level2_construct_flow_info():
                        state='created',
                        file_version='none',
                        software_version='none',
-                       date_obs=datetime.now())]
+                       date_obs=datetime.now(timezone.utc))]
     level2_file = level2_construct_file_info.fn(level1_file, pipeline_config)
     flow_info = level2_construct_flow_info.fn(level1_file, level2_file, pipeline_config)
 

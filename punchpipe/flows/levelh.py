@@ -1,7 +1,7 @@
 # import os
 # import json
 # import typing as t
-# from datetime import datetime
+# from datetime import datetime, timezone
 #
 # from prefect import flow, task
 # from punchbowl.level1.flow import levelh_core_flow
@@ -45,7 +45,7 @@
 #                                pipeline_config: dict, session=None, reference_time=None):
 #     flow_type = "level1"
 #     state = "planned"
-#     creation_time = datetime.now()
+#     creation_time = datetime.now(timezone.utc)
 #     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 #
 #     best_vignetting_function = get_vignetting_function_path(level0_files[0], pipeline_config, session=session)

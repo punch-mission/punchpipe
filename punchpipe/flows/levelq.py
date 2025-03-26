@@ -2,7 +2,7 @@ import os
 import json
 import random
 import typing as t
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from functools import partial
 
 from prefect import flow, get_run_logger, task
@@ -35,7 +35,7 @@ def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None
 def levelq_construct_flow_info(level1_files: list[File], levelq_file: File, pipeline_config: dict, session=None, reference_time=None):
     flow_type = "levelq"
     state = "planned"
-    creation_time = datetime.now()
+    creation_time = datetime.now(timezone.utc)
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
@@ -111,7 +111,7 @@ def levelq_upload_query_ready_files(session, pipeline_config: dict, reference_ti
 def levelq_upload_construct_flow_info(levelq_files: list[File], intentionally_empty: File, pipeline_config: dict, session=None, reference_time=None):
     flow_type = "levelQ_upload"
     state = "planned"
-    creation_time = datetime.now()
+    creation_time = datetime.now(timezone.utc)
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
@@ -186,7 +186,7 @@ def construct_levelq_CFM_flow_info(levelq_CTM_files: list[File],
                                             ):
     flow_type = "levelQ_CFM"
     state = "planned"
-    creation_time = datetime.now()
+    creation_time = datetime.now(timezone.utc)
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
@@ -222,7 +222,7 @@ def construct_levelq_CFM_background_file_info(levelq_files: t.List[File], pipeli
 
 @flow
 def levelq_CFM_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
-    reference_time = reference_time or datetime.now()
+    reference_time = reference_time or datetime.now(timezone.utc)
 
     generic_scheduler_flow_logic(
         levelq_CFM_query_ready_files,
@@ -268,7 +268,7 @@ def construct_levelq_CFN_flow_info(levelq_CNN_files: list[File],
                                             ):
     flow_type = "levelQ_CFN"
     state = "planned"
-    creation_time = datetime.now()
+    creation_time = datetime.now(timezone.utc)
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
@@ -304,7 +304,7 @@ def construct_levelq_CFN_background_file_info(levelq_files: t.List[File], pipeli
 
 @flow
 def levelq_CFN_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
-    reference_time = reference_time or datetime.now()
+    reference_time = reference_time or datetime.now(timezone.utc)
 
     generic_scheduler_flow_logic(
         levelq_CFN_query_ready_files,

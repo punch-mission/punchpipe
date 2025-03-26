@@ -71,7 +71,7 @@ def level3_vam_construct_file_info(level3_files: List[File], pipeline_config: di
 
 @flow
 def level3_vam_scheduler_flow(pipeline_config_path=None, session=None, reference_time: datetime | None = None):
-    reference_time = reference_time or datetime.now()
+    reference_time = reference_time or datetime.now(timezone.utc)
 
     generic_scheduler_flow_logic(
         level3_vam_query_ready_files,
@@ -151,7 +151,7 @@ def level3_van_construct_file_info(level3_files: List[File], pipeline_config: di
 
 @flow
 def level3_van_scheduler_flow(pipeline_config_path=None, session=None, reference_time: datetime | None = None):
-    reference_time = reference_time or datetime.now()
+    reference_time = reference_time or datetime.now(timezone.utc)
 
     generic_scheduler_flow_logic(
         level3_van_query_ready_files,

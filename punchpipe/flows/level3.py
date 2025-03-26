@@ -1,7 +1,7 @@
 import os
 import json
 import typing as t
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 from prefect import flow, get_run_logger, task
 from punchbowl.level3.flow import level3_core_flow, level3_PIM_flow
@@ -67,7 +67,7 @@ def level3_PTM_construct_flow_info(level2_files: list[File], level3_file: File,
 
     flow_type = "level3_PTM"
     state = "planned"
-    creation_time = datetime.now()
+    creation_time = datetime.now(timezone.utc)
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
     f_corona_before = get_closest_before_file(level2_files[0],
@@ -169,7 +169,7 @@ def level3_PIM_construct_flow_info(level2_files: list[File], level3_file: File, 
 
     flow_type = "level3_PIM"
     state = "planned"
-    creation_time = datetime.now()
+    creation_time = datetime.now(timezone.utc)
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     before_models = get_valid_fcorona_models(session,
                                                                              level2_files[0],
