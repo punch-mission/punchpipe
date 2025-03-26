@@ -1,7 +1,7 @@
 import os
 import json
 from typing import List
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timezone, timedelta
 
 from prefect import flow, get_run_logger, task
 from punchbowl.level3.velocity import track_velocity
