@@ -1,7 +1,7 @@
 import os
 import json
 import typing as t
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 from prefect import flow, get_run_logger, task
 from punchbowl.level3.stellar import generate_starfield_background
@@ -35,7 +35,7 @@ def construct_starfield_background_flow_info(level3_fcorona_subtracted_files: li
                                              session=None ):
     flow_type = "construct_starfield_background"
     state = "planned"
-    creation_time = datetime.now(timezone.utc)
+    creation_time = datetime.now(UTC)
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
@@ -73,7 +73,7 @@ def construct_starfield_background_file_info(level3_files: t.List[File], pipelin
 
 @flow
 def construct_starfield_background_scheduler_flow(pipeline_config_path=None, session=None, reference_time: datetime | None = None):
-    reference_time = reference_time or datetime.now(timezone.utc)
+    reference_time = reference_time or datetime.now(UTC)
 
     generic_scheduler_flow_logic(
         starfield_background_query_ready_files,

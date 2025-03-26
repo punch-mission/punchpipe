@@ -2,7 +2,7 @@ import os
 import json
 import random
 import typing as t
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, UTC, timedelta
 
 from prefect import flow, get_run_logger, task
 from punchbowl.level3.f_corona_model import construct_polarized_f_corona_model
@@ -42,7 +42,7 @@ def construct_f_corona_background_flow_info(level3_files: list[File],
                                             ):
     flow_type = "construct_f_corona_background"
     state = "planned"
-    creation_time = datetime.now(timezone.utc)
+    creation_time = datetime.now(UTC)
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
@@ -78,7 +78,7 @@ def construct_f_corona_background_file_info(level2_files: t.List[File], pipeline
 
 @flow
 def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, session=None, reference_time: datetime | None = None):
-    reference_time = reference_time or datetime.now(timezone.utc)
+    reference_time = reference_time or datetime.now(UTC)
 
     generic_scheduler_flow_logic(
         f_corona_background_query_ready_files,
