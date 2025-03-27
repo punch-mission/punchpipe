@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
 from freezegun import freeze_time
 from prefect.logging import disable_run_logger

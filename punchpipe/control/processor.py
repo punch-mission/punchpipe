@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
 from prefect import get_run_logger
 from prefect.context import get_run_context

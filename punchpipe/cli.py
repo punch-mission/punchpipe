@@ -5,7 +5,7 @@ import argparse
 import traceback
 import subprocess
 from pathlib import Path
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from importlib import import_module
 
 from prefect import Flow, serve

@@ -2,7 +2,7 @@ import os
 import json
 import random
 import typing as t
-from datetime import datetime, UTC, timedelta
+from datetime import UTC, datetime, timedelta
 
 from prefect import flow, get_run_logger, task
 from punchbowl.level3.f_corona_model import construct_polarized_f_corona_model

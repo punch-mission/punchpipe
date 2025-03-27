@@ -1,7 +1,7 @@
 import os
 import json
 import typing as t
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
 from prefect import flow, get_run_logger, task
 from punchbowl.level3.stellar import generate_starfield_background

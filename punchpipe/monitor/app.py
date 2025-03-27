@@ -1,4 +1,4 @@
-from datetime import datetime, UTC, timedelta
+from datetime import UTC, datetime, timedelta
 
 import dash_bootstrap_components as dbc
 import pandas as pd

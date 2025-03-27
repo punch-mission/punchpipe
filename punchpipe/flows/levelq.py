@@ -2,7 +2,7 @@ import os
 import json
 import random
 import typing as t
-from datetime import datetime, UTC, timedelta
+from datetime import UTC, datetime, timedelta
 from functools import partial
 
 from prefect import flow, get_run_logger, task

@@ -1,5 +1,5 @@
 from typing import List
-from datetime import datetime, UTC, timedelta
+from datetime import UTC, datetime, timedelta
 
 from prefect import flow, get_run_logger, task
 from prefect.client import get_client
