@@ -1,5 +1,5 @@
 from typing import List
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from prefect import flow, get_run_logger, task
 from prefect.client import get_client
@@ -28,7 +28,7 @@ def escalate_long_waiting_flows(session, pipeline_config):
             pipeline_config["flows"][flow_type]["priority"]["seconds"],
             pipeline_config["flows"][flow_type]["priority"]["escalation"],
         ):
-            since = datetime.now() - timedelta(seconds=max_seconds_waiting)
+            since = datetime.now(UTC) - timedelta(seconds=max_seconds_waiting)
             session.query(Flow).where(
                 and_(Flow.state == "planned", Flow.creation_time < since, Flow.flow_type == flow_type)
             ).update({"priority": escalated_priority})

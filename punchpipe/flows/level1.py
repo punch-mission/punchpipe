@@ -1,7 +1,7 @@
 import os
 import json
 import typing as t
-from datetime import datetime
+from datetime import UTC, datetime
 
 from prefect import flow, task
 from punchbowl.level1.flow import level1_core_flow
@@ -68,7 +68,7 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
                                pipeline_config: dict, session=None, reference_time=None):
     flow_type = "level1"
     state = "planned"
-    creation_time = datetime.now()
+    creation_time = datetime.now(UTC)
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
     best_vignetting_function = get_vignetting_function_path(level0_files[0], pipeline_config, session=session)

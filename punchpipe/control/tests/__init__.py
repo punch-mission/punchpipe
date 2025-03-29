@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 import numpy as np
 import pytest
@@ -41,10 +41,10 @@ def test_match_data_with_file_db_entry(sample_punchdata):
             observatory="Y",
             file_version="0",
             software_version="0",
-            date_created=datetime.now(),
-            date_obs=datetime.now(),
-            date_beg=datetime.now(),
-            date_end=datetime.now(),
+            date_created=datetime.now(UTC),
+            date_obs=datetime.now(UTC),
+            date_beg=datetime.now(UTC),
+            date_end=datetime.now(UTC),
             polarization="ZZ",
             state="created",
             processing_flow=0,
@@ -55,10 +55,10 @@ def test_match_data_with_file_db_entry(sample_punchdata):
             observatory="Y",
             file_version="0",
             software_version="0",
-            date_created=datetime.now(),
-            date_obs=datetime.now(),
-            date_beg=datetime.now(),
-            date_end=datetime.now(),
+            date_created=datetime.now(UTC),
+            date_obs=datetime.now(UTC),
+            date_beg=datetime.now(UTC),
+            date_end=datetime.now(UTC),
             polarization="ZZ",
             state="created",
             processing_flow=0,

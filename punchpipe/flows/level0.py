@@ -1,7 +1,7 @@
 import os
 import json
 import warnings
-from datetime import datetime
+from datetime import UTC, datetime
 
 import numpy as np
 import pandas as pd
@@ -210,7 +210,7 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
                     skip_count += 1
             else:
                 skip_count += 1
-        history = PacketHistory(datetime=datetime.now(),
+        history = PacketHistory(datetime=datetime.now(UTC),
                                num_images_succeeded=success_count,
                                num_images_failed=skip_count)
         session.add(history)
@@ -218,7 +218,7 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
 
         # TODO: split into multiple files and append updates instead of making a new file each time
         df_errors = pd.DataFrame(errors)
-        date_str = datetime.now().strftime("%Y_%j")
+        date_str = datetime.now(UTC).strftime("%Y_%j")
         df_path = os.path.join(config['root'], 'REPLAY', f'PUNCH_{str(spacecraft[0])}_REPLAY_{date_str}.csv')
         os.makedirs(os.path.dirname(df_path), exist_ok=True)
         df_errors.to_csv(df_path, index=False)

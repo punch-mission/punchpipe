@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 
 from prefect import get_run_logger
 from prefect.context import get_run_context
@@ -30,7 +30,7 @@ def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_confi
     flow_db_entry.flow_run_name = flow_run_context.flow_run.name
     flow_db_entry.flow_run_id = flow_run_context.flow_run.id
     flow_db_entry.state = "running"
-    flow_db_entry.start_time = datetime.now()
+    flow_db_entry.start_time = datetime.now(UTC)
     session.commit()
 
     # update the file database entries as being created
@@ -60,13 +60,13 @@ def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_confi
             entry.state = "unreported"
     except Exception as e:
         flow_db_entry.state = "failed"
-        flow_db_entry.end_time = datetime.now()
+        flow_db_entry.end_time = datetime.now(UTC)
         for file_db_entry in file_db_entry_list:
             file_db_entry.state = "failed"
         session.commit()
         raise e
     else:
         flow_db_entry.state = "completed"
-        flow_db_entry.end_time = datetime.now()
+        flow_db_entry.end_time = datetime.now(UTC)
         # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
         session.commit()

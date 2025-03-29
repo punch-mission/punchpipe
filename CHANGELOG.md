@@ -12,6 +12,7 @@
 * Makes AWS profile configurable by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/112
 * Added notes in README about testing in https://github.com/punch-mission/punchpipe/pull/114
 * Creates VAM/VAN flow automation, corrects flash block length, fixes attitude quaternions in https://github.com/punch-mission/punchpipe/pull/102
+* Checked that all times were UTC in https://github.com/punch-mission/punchpipe/pull/119
 
 ## Version 0.0.5: Jan 3, 2025
 

@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from prefect.testing.utilities import prefect_test_harness
@@ -29,7 +29,7 @@ def session_fn(session):
                        state='created',
                        file_version='none',
                        software_version='none',
-                       date_obs=datetime.now())
+                       date_obs=datetime.now(UTC))
 
     level1_file = File(level="1",
                        file_type="PM",
@@ -37,7 +37,7 @@ def session_fn(session):
                        state='created',
                        file_version='none',
                        software_version='none',
-                       date_obs=datetime.now())
+                       date_obs=datetime.now(UTC))
 
     psf_model = File(level="1",
                        file_type="RM",
@@ -45,7 +45,7 @@ def session_fn(session):
                        state='created',
                        file_version='none',
                        software_version='none',
-                       date_obs=datetime.now()-timedelta(days=1))
+                       date_obs=datetime.now(UTC)-timedelta(days=1))
 
     quartic_fit_coeffs = File(level="1",
                        file_type="FQ",
@@ -53,7 +53,7 @@ def session_fn(session):
                        state='created',
                        file_version='none',
                        software_version='none',
-                       date_obs=datetime.now()-timedelta(days=1))
+                       date_obs=datetime.now(UTC)-timedelta(days=1))
 
     vignetting_function = File(level="1",
                        file_type="GM",
@@ -61,7 +61,7 @@ def session_fn(session):
                        state='created',
                        file_version='none',
                        software_version='none',
-                       date_obs=datetime.now()-timedelta(days=1))
+                       date_obs=datetime.now(UTC)-timedelta(days=1))
 
     session.add(level0_file)
     session.add(level1_file)
@@ -88,7 +88,7 @@ def test_level1_construct_file_info():
                        state='created',
                        file_version='none',
                        software_version='none',
-                       date_obs=datetime.now())]
+                       date_obs=datetime.now(UTC))]
     constructed_file_info = level1_construct_file_info.fn(level0_file, pipeline_config)[0]
     assert constructed_file_info.level == "1"
     assert constructed_file_info.file_type == level0_file[0].file_type
@@ -109,7 +109,7 @@ def test_level1_construct_flow_info(db):
                        state='created',
                        file_version='none',
                        software_version='none',
-                       date_obs=datetime.now())]
+                       date_obs=datetime.now(UTC))]
     level1_file = level1_construct_file_info.fn(level0_file, pipeline_config)
     flow_info = level1_construct_flow_info.fn(level0_file, level1_file, pipeline_config, session=db)
 
