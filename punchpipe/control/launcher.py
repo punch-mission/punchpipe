@@ -7,21 +7,22 @@ from prefect.variables import Variable
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
+from prefect.cache_policies import NO_CACHE
 from punchpipe.control.db import Flow
 from punchpipe.control.util import get_database_session, load_pipeline_configuration
 
 
-@task
+@task(cache_policy=NO_CACHE)
 def gather_planned_flows(session):
     return [f.flow_id for f in session.query(Flow).where(Flow.state == "planned").order_by(Flow.priority.desc()).all()]
 
 
-@task
+@task(cache_policy=NO_CACHE)
 def count_running_flows(session):
     return len(session.query(Flow).where(Flow.state == "running").all())
 
 
-@task
+@task(cache_policy=NO_CACHE)
 def escalate_long_waiting_flows(session, pipeline_config):
     for flow_type in pipeline_config["flows"]:
         for max_seconds_waiting, escalated_priority in zip(
@@ -37,6 +38,7 @@ def escalate_long_waiting_flows(session, pipeline_config):
 
 @task
 def filter_for_launchable_flows(planned_flows, running_flow_count, max_flows_running):
+@task(cache_policy=NO_CACHE)
     logger = get_run_logger()
 
     number_to_launch = max_flows_running - running_flow_count
@@ -51,7 +53,7 @@ def filter_for_launchable_flows(planned_flows, running_flow_count, max_flows_run
         return []
 
 
-@task
+@task(cache_policy=NO_CACHE)
 async def launch_ready_flows(session: Session, flow_ids: List[int]) -> List:
     """Given a list of ready-to-launch flow_ids, this task creates flow runs in Prefect for them.
     These flow runs are automatically marked as scheduled in Prefect and will be picked up by a work queue and
