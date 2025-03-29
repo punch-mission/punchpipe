@@ -194,15 +194,15 @@ def update_tlm_database(packets, tlm_id: int, session=None):
         session = get_database_session()
 
     for apid, this_apid_packets in packets.items():
-        for i in range(len(this_apid_packets['CCSDS_APID'])):
-            if apid in PACKET_APID2NAME:
+        if apid in PACKET_APID2NAME:
+            for i in range(len(this_apid_packets['CCSDS_APID'])):
                 try:
                     this_packet = form_packet_entry(apid, get_single_packet(this_apid_packets, i),
                                                     i, tlm_id)
                     if this_packet is not None:
                         session.add(this_packet)
-                except (sqlalchemy.exc.DataError, pymysql.err.DataError) as e:
-                    warnings.warn(f"Unable to add packet to database, {e}.", CCSDSPacketDatabaseUpdateWarning)
+                except (sqlalchemy.exc.DataError, pymysql.err.DataError):
+                    raise RuntimeError("FAILED ADDING PACKET")
         session.commit()
 
 
@@ -245,10 +245,10 @@ def get_fits_metadata(observation_time, spacecraft_id, session):
 
 def form_preliminary_wcs(metadata, plate_scale):
     """Create the preliminary WCS for punchbowl"""
-    quaternion = np.array([metadata['ATT_DET_Q_BODY_WRT_ECI1'] * 0.5E-10,
+    quaternion = np.array([metadata['ATT_DET_Q_BODY_WRT_ECI4'] * 0.5E-10,
+                           metadata['ATT_DET_Q_BODY_WRT_ECI1'] * 0.5E-10,
                            metadata['ATT_DET_Q_BODY_WRT_ECI2'] * 0.5E-10,
-                           metadata['ATT_DET_Q_BODY_WRT_ECI3'] * 0.5E-10,
-                           metadata['ATT_DET_Q_BODY_WRT_ECI4'] * 0.5E-10])
+                           metadata['ATT_DET_Q_BODY_WRT_ECI3'] * 0.5E-10])
     ra, dec, roll = eci_quaternion_to_ra_dec(quaternion)
     projection = "ARC" if metadata['spacecraft_id'] == '4' else 'AZP'
     celestial_wcs = WCS(naxis=2)

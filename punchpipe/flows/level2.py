@@ -11,15 +11,15 @@ from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
-SCIENCE_LEVEL1_TYPE_CODES = ["PM", "PZ", "PP"]# , "CR"] # TODO handle CR in a separate flow maybe
-
+SCIENCE_POLARIZED_LEVEL1_TYPES = ["PM", "PZ", "PP"]
+SCIENCE_CLEAR_LEVEL1_TYPES = ["CR"]
 
 @task
 def level2_query_ready_files(session, pipeline_config: dict, reference_time=None):
     logger = get_run_logger()
     all_ready_files = (session.query(File).filter(File.state == "quickpunched")
                        .filter(File.level == "1")
-                       .filter(File.file_type.in_(SCIENCE_LEVEL1_TYPE_CODES)).all())
+                       .filter(File.file_type.in_(SCIENCE_POLARIZED_LEVEL1_TYPES)).all())
     logger.info(f"{len(all_ready_files)} ready files")
     unique_times = set(f.date_obs for f in all_ready_files)
     logger.info(f"{len(unique_times)} unique times: {unique_times}")
@@ -31,8 +31,23 @@ def level2_query_ready_files(session, pipeline_config: dict, reference_time=None
 
 
 @task
+def level2_query_ready_clear_files(session, pipeline_config: dict, reference_time=None):
+    logger = get_run_logger()
+    all_ready_files = (session.query(File).filter(File.state == "quickpunched")
+                       .filter(File.level == "1")
+                       .filter(File.file_type.in_(SCIENCE_CLEAR_LEVEL1_TYPES)).all())
+    logger.info(f"{len(all_ready_files)} ready files")
+    unique_times = set(f.date_obs for f in all_ready_files)
+    logger.info(f"{len(unique_times)} unique times: {unique_times}")
+    grouped_ready_files = [[f.file_id for f in all_ready_files if f.date_obs == time] for time in unique_times]
+    logger.info(f"{len(grouped_ready_files)} grouped ready files")
+    out = [g for g in grouped_ready_files if len(g) == 12]
+    logger.info(f"{len(out)} groups heading out")
+    return out
+
+@task
 def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipeline_config: dict, session=None, reference_time=None):
-    flow_type = "level2"
+    flow_type = "level2_clear" if level1_files[0].file_type == "CR" else "level2"
     state = "planned"
     creation_time = datetime.now(UTC)
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
@@ -54,12 +69,11 @@ def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipe
         call_data=call_data,
     )
 
-
 @task
 def level2_construct_file_info(level1_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
     return [File(
                 level=2,
-                file_type="PT",
+                file_type="CT" if level1_files[0].file_type == "CR" else "PT",
                 observatory="M",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
@@ -81,5 +95,21 @@ def level2_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
 
 
 @flow
+def level2_clear_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
+    generic_scheduler_flow_logic(
+        level2_query_ready_clear_files,
+        level2_construct_file_info,
+        level2_construct_flow_info,
+        pipeline_config_path,
+        reference_time=reference_time,
+        session=session,
+    )
+
+@flow
 def level2_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+    generic_process_flow_logic(flow_id, level2_core_flow, pipeline_config_path, session=session)
+
+
+@flow
+def level2_clear_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, level2_core_flow, pipeline_config_path, session=session)
