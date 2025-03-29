@@ -36,13 +36,14 @@ def escalate_long_waiting_flows(session, pipeline_config):
             session.commit()
 
 
-@task
-def filter_for_launchable_flows(planned_flows, running_flow_count, max_flows_running):
 @task(cache_policy=NO_CACHE)
+def filter_for_launchable_flows(planned_flows, running_flow_count, max_flows_running, max_to_launch):
     logger = get_run_logger()
 
     number_to_launch = max_flows_running - running_flow_count
     logger.info(f"{number_to_launch} flows can be launched at this time.")
+    number_to_launch = min(number_to_launch, max_to_launch)
+    logger.info(f"Will launch {number_to_launch} flows")
 
     if number_to_launch > 0:
         if planned_flows:  # there are flows to run
@@ -116,7 +117,10 @@ async def launcher(pipeline_config_path=None):
     queued_flows = gather_planned_flows(session)
     logger.info(f"There are {len(queued_flows)} planned flows right now.")
     flows_to_launch = filter_for_launchable_flows(
-        queued_flows, num_running_flows, pipeline_config["control"]["launcher"]["max_flows_running"]
+        queued_flows,
+        num_running_flows,
+        pipeline_config["control"]["launcher"]["max_flows_running"],
+        pipeline_config["control"]["launcher"]["max_flows_to_launch_at_once"],
     )
     logger.info(f"Flows with IDs of {flows_to_launch} will be launched.")
     await launch_ready_flows(session, flows_to_launch)
