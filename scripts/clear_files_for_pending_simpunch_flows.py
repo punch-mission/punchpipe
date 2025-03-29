@@ -1,8 +1,8 @@
-from collections import defaultdict
+import os
+import json
 from datetime import datetime, timedelta
 from functools import cache
-import json
-import os
+from collections import defaultdict
 
 from punchpipe.control.db import Flow
 from punchpipe.control.util import get_database_session
