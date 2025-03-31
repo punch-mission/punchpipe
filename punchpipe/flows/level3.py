@@ -172,13 +172,13 @@ def level3_PIM_construct_flow_info(level2_files: list[File], level3_file: File, 
     creation_time = datetime.now(UTC)
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     before_models = get_valid_fcorona_models(session,
-                                                                             level2_files[0],
-                                                                             before_timedelta=timedelta(days=90),
-                                                                             after_timedelta=timedelta(days=0))
+                                             level2_files[0],
+                                             before_timedelta=timedelta(days=90),
+                                             after_timedelta=timedelta(days=0))
     after_models = get_valid_fcorona_models(session,
-                                                                             level2_files[0],
-                                                                             before_timedelta=timedelta(days=0),
-                                                                             after_timedelta=timedelta(days=90))
+                                            level2_files[0],
+                                            before_timedelta=timedelta(days=0),
+                                            after_timedelta=timedelta(days=90))
     f_corona_before = get_closest_before_file(level2_files[0], before_models)
     f_corona_after = get_closest_after_file(level2_files[0], after_models)
     call_data = json.dumps(
@@ -249,9 +249,9 @@ def level3_CIM_query_ready_files(session, pipeline_config: dict, reference_time=
                                                                after_timedelta=timedelta(days=0),
                                                                file_type="CF")
         valid_after_fcorona_models = get_valid_fcorona_models(session, f,
-                                                               before_timedelta=timedelta(days=0),
-                                                               after_timedelta=timedelta(days=90),
-                                                               file_type="CF")
+                                                              before_timedelta=timedelta(days=0),
+                                                              after_timedelta=timedelta(days=90),
+                                                              file_type="CF")
         logger.info(f"valid before f corona: {valid_before_fcorona_models}")
         logger.info(f"valid after f corona: {valid_after_fcorona_models}")
         if len(valid_before_fcorona_models) >= 1 and len(valid_after_fcorona_models) >= 1:
@@ -271,15 +271,15 @@ def level3_CIM_construct_flow_info(level2_files: list[File], level3_file: File, 
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     before_models = get_valid_fcorona_models(session,
-                                                                             level2_files[0],
-                                                                             before_timedelta=timedelta(days=90),
-                                                                             after_timedelta=timedelta(days=0),
-                                                                             file_type="CF")
+                                             level2_files[0],
+                                             before_timedelta=timedelta(days=90),
+                                             after_timedelta=timedelta(days=0),
+                                             file_type="CF")
     after_models = get_valid_fcorona_models(session,
-                                                                             level2_files[0],
-                                                                             before_timedelta=timedelta(days=0),
-                                                                             after_timedelta=timedelta(days=90),
-                                                                             file_type="CF")
+                                            level2_files[0],
+                                            before_timedelta=timedelta(days=0),
+                                            after_timedelta=timedelta(days=90),
+                                            file_type="CF")
     f_corona_before = get_closest_before_file(level2_files[0], before_models)
     f_corona_after = get_closest_after_file(level2_files[0], after_models)
     call_data = json.dumps(
@@ -378,22 +378,22 @@ def level3_CTM_construct_flow_info(level2_files: list[File], level3_file: File,
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
     f_corona_before = get_closest_before_file(level2_files[0],
-                                                                  get_valid_fcorona_models(session,
-                                                                             level2_files[0],
-                                                                             before_timedelta=timedelta(days=90),
-                                                                             after_timedelta=timedelta(days=0),
-                                                                                           file_type="CF"))
+                                              get_valid_fcorona_models(session,
+                                                                       level2_files[0],
+                                                                       before_timedelta=timedelta(days=90),
+                                                                       after_timedelta=timedelta(days=0),
+                                                                       file_type="CF"))
     f_corona_after = get_closest_after_file(level2_files[0],
-                                                                get_valid_fcorona_models(session,
-                                                                             level2_files[0],
-                                                                             before_timedelta=timedelta(days=0),
-                                                                             after_timedelta=timedelta(days=90),
-                                                                                         file_type="CF"))
+                                            get_valid_fcorona_models(session,
+                                                                     level2_files[0],
+                                                                     before_timedelta=timedelta(days=0),
+                                                                     after_timedelta=timedelta(days=90),
+                                                                     file_type="CF"))
     starfield = get_closest_file(level2_files[0],
-                                                          get_valid_starfields(session,
-                                                                             level2_files[0],
-                                                                             timedelta_window=timedelta(days=90),
-                                                                               file_type="CS"))
+                                 get_valid_starfields(session,
+                                                      level2_files[0],
+                                                      timedelta_window=timedelta(days=90),
+                                                      file_type="CS"))
     call_data = json.dumps(
         {
             "data_list": [
