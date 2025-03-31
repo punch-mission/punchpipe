@@ -71,19 +71,19 @@ def level3_PTM_construct_flow_info(level2_files: list[File], level3_file: File,
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
     f_corona_before = get_closest_before_file(level2_files[0],
-                                                                  get_valid_fcorona_models(session,
-                                                                             level2_files[0],
-                                                                             before_timedelta=timedelta(days=90),
-                                                                             after_timedelta=timedelta(days=0)))
+                                              get_valid_fcorona_models(session,
+                                                                       level2_files[0],
+                                                                       before_timedelta=timedelta(days=90),
+                                                                       after_timedelta=timedelta(days=0)))
     f_corona_after = get_closest_after_file(level2_files[0],
-                                                                get_valid_fcorona_models(session,
-                                                                             level2_files[0],
-                                                                             before_timedelta=timedelta(days=0),
-                                                                             after_timedelta=timedelta(days=90)))
+                                            get_valid_fcorona_models(session,
+                                                                     level2_files[0],
+                                                                     before_timedelta=timedelta(days=0),
+                                                                     after_timedelta=timedelta(days=90)))
     starfield = get_closest_file(level2_files[0],
-                                                          get_valid_starfields(session,
-                                                                             level2_files[0],
-                                                                             timedelta_window=timedelta(days=90)))
+                                 get_valid_starfields(session,
+                                                      level2_files[0],
+                                                      timedelta_window=timedelta(days=90)))
     call_data = json.dumps(
         {
             "data_list": [
