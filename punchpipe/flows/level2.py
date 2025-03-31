@@ -1,7 +1,7 @@
 import os
 import json
 import typing as t
-from datetime import datetime
+from datetime import UTC, datetime
 
 from prefect import flow, get_run_logger, task
 from punchbowl.level2.flow import level2_core_flow
@@ -49,7 +49,7 @@ def level2_query_ready_clear_files(session, pipeline_config: dict, reference_tim
 def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipeline_config: dict, session=None, reference_time=None):
     flow_type = "level2_clear" if level1_files[0].file_type == "CR" else "level2"
     state = "planned"
-    creation_time = datetime.now()
+    creation_time = datetime.now(UTC)
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {

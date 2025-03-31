@@ -20,6 +20,7 @@ control:
   launcher:
     description: "Kick off new flows for processing."
     max_flows_running: 50
+    max_flows_to_launch_at_once: 20
   health_monitor:
     description: "Monitor the health of the pipeline."
 
