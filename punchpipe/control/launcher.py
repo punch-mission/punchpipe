@@ -2,12 +2,12 @@ from typing import List
 from datetime import UTC, datetime, timedelta
 
 from prefect import flow, get_run_logger, task
+from prefect.cache_policies import NO_CACHE
 from prefect.client import get_client
 from prefect.variables import Variable
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from prefect.cache_policies import NO_CACHE
 from punchpipe.control.db import Flow
 from punchpipe.control.util import get_database_session, load_pipeline_configuration
 
