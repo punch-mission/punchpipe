@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 from prefect import flow, get_run_logger, task
 from punchbowl.data.meta import construct_all_product_codes
-from punchbowl.data.punch_io import write_jp2_to_mp4
+from punchbowl.data.punch_io import write_quicklook_to_mp4
 
 from punchpipe import __version__
 from punchpipe.control.db import File, Flow
@@ -107,4 +107,4 @@ def visualize_scheduler(pipeline_config_path=None, session=None, reference_time:
 # TODO - make a helper function to iterate over list of list of file inputs and list of outputs to call the write_jp2 function each time
 @flow
 def movie_process(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, write_jp2_to_mp4, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, write_quicklook_to_mp4, pipeline_config_path, session=session)
