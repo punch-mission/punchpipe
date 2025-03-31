@@ -18,18 +18,17 @@ from sqlalchemy import and_
 from punchpipe import __version__ as software_version
 from punchpipe.control.db import File, Flow, PacketHistory, SciPacket, TLMFiles
 from punchpipe.control.util import get_database_session, load_pipeline_configuration
-from punchpipe.level0.ccsds import unpack_compression_settings
+from punchpipe.level0.ccsds import unpack_acquisition_settings, unpack_compression_settings
 from punchpipe.level0.core import (
     detect_new_tlm_files,
     form_from_jpeg_compressed,
     form_from_raw,
     form_preliminary_wcs,
-    get_fits_metadata,
+    get_metadata,
     parse_new_tlm_files,
     process_telemetry_file,
     update_tlm_database,
 )
-from punchpipe.level0.meta import POSITIONS_TO_CODES, convert_pfw_position_to_polarizer
 
 
 class SpacecraftMapping(Block):
@@ -59,8 +58,8 @@ def level0_ingest_raw_packets(pipeline_config: str | dict | None = None, session
     session.commit()
 
     # Actually performing processing
-    for tlm_file in tlm_files:
-        logger.info(f"Ingesting {tlm_file.path}.")
+    for i, tlm_file in enumerate(tlm_files):
+        logger.info(f"{i}/{len(tlm_files)}: Ingesting {tlm_file.path}.")
         try:
             packets = parse_new_tlm_files(tlm_file.path)
             tlm_file.is_processed = True
@@ -97,22 +96,26 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
                           .all())
 
         for t in distinct_times:
+            logger.info(f"Processing spacecraft={spacecraft[0]} at time={t[0]}")
             image_packets_entries = (session.query(SciPacket)
                                      .where(and_(SciPacket.timestamp == t[0],
                                                                 SciPacket.spacecraft_id == spacecraft[0])).all())
+            logger.info(f"len(packets) = {len(image_packets_entries)}")
             image_compression = [unpack_compression_settings(packet.compression_settings)
                                  for packet in image_packets_entries]
-
+            logger.info(f"image_compression = {image_compression[0]}")
             # Read all the relevant TLM files
             needed_tlm_ids = set([image_packet.source_tlm_file for image_packet in image_packets_entries])
             tlm_id_to_tlm_path = {tlm_id: session.query(TLMFiles.path).where(TLMFiles.tlm_id == tlm_id).one().path
                                   for tlm_id in needed_tlm_ids}
             needed_tlm_paths = list(session.query(TLMFiles.path).where(TLMFiles.tlm_id.in_(needed_tlm_ids)).all())
             needed_tlm_paths = [p.path for p in needed_tlm_paths]
+            logger.info(f"Will use data from {needed_tlm_paths}")
 
             # parse any new TLM files needed
             for tlm_path in needed_tlm_paths:
                 if tlm_path not in already_parsed_tlms:
+                    logger.info(f"Loading {tlm_path}...")
                     already_parsed_tlms[tlm_path] = process_telemetry_file(tlm_path)
 
             # make it easy to grab the right TLM files
@@ -131,6 +134,7 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
             skip_image = False
             sequence_counter_diff = np.diff(np.array(sequence_counter))
             if not np.all(np.isin(sequence_counter_diff, [1, 255])):
+                logger.error("Packets are out of order so skipping")
                 skip_image = True
                 error = {'start_time': image_packets_entries[0].timestamp.isoformat(),
                          'start_block': image_packets_entries[0].flash_block,
@@ -143,6 +147,7 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
                     ordered_image_content = np.concatenate(ordered_image_content)
                     image = form_from_jpeg_compressed(ordered_image_content)
                 except (RuntimeError, ValueError):
+                    logger.error("Could not form image")
                     skip_image = True
                     error = {'start_time': image_packets_entries[0].timestamp.isoformat(),
                              'start_block': image_packets_entries[0].flash_block,
@@ -155,6 +160,7 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
                     logger.info(f"Packet shape {ordered_image_content.shape[0]}", )
                     image = form_from_raw(ordered_image_content)
                 except (RuntimeError, ValueError):
+                    logger.error("Could not form image")
                     skip_image = True
                     error = {'start_time': image_packets_entries[0].timestamp.isoformat(),
                              'start_block': image_packets_entries[0].flash_block,
@@ -164,6 +170,7 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
             else:
                 skip_image = True
                 # raise NotImplementedError("Not implemented image format")  # TODO : reactivate
+                logger.error("Encountered a non-implemented image format.")
                 warnings.warn("Not implemented image format")
 
 
@@ -173,16 +180,21 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
                     moc_index = spacecraft_secrets["moc"].index(image_packets_entries[0].spacecraft_id)
                     spacecraft_id = spacecraft_secrets["soc"][moc_index]
 
-                    metadata_contents = get_fits_metadata(image_packets_entries[0].timestamp,
-                                                          image_packets_entries[0].spacecraft_id,
-                                                          session)
-                    file_type = POSITIONS_TO_CODES[convert_pfw_position_to_polarizer(metadata_contents['POSITION_CURR'])]
-                    preliminary_wcs = form_preliminary_wcs(metadata_contents, float(config['plate_scale'][str(spacecraft_id)]))
+                    position_info, fits_info = get_metadata(image_packets_entries[0].timestamp,
+                                                     image_packets_entries[0].spacecraft_id,
+                                                     image.shape,
+                                                     session)
+                    file_type = fits_info["TYPECODE"]
+                    acquisition_settings = unpack_acquisition_settings(image_packets_entries[0].acquisition_settings)
+                    preliminary_wcs = form_preliminary_wcs(position_info, float(config['plate_scale'][str(spacecraft_id)]))
                     meta = NormalizedMetadata.load_template(file_type + str(spacecraft_id), "0")
-                    # TODO : activate later
-                    # for meta_key, meta_value in metadata_contents.items():
-                    #     meta[meta_key] = meta_value
+
+                    # TODO: FILL THE METADATA NOW!
+                    for meta_key, meta_value in fits_info.items():
+                        meta[meta_key] = meta_value
                     meta['DATE-OBS'] = str(t[0])
+                    meta['EXPTIME'] = acquisition_settings['EXPOSURE'] / 10.0
+
                     cube = NDCube(data=image, meta=meta, wcs=preliminary_wcs)
 
                     l0_db_entry = File(level="0",
@@ -198,6 +210,8 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
 
                     out_path =  os.path.join(l0_db_entry.directory(config['root']), get_base_file_name(cube)) + ".fits"
                     os.makedirs(os.path.dirname(out_path), exist_ok=True)
+
+                    logger.info(f"Writing to {out_path}")
                     write_ndcube_to_fits(cube,out_path)
                     # TODO: write a jp2
                     for image_packets_entries in image_packets_entries:
@@ -206,7 +220,7 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
                     session.commit()
                     success_count += 1
                 except Exception as e:
-                    logger.error(e)
+                    logger.error(f"Failed writing image because: {e}")
                     skip_count += 1
             else:
                 skip_count += 1

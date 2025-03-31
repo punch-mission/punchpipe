@@ -185,6 +185,23 @@ class ENGPFWPacket(Base):
     REDUNDANT_RESOLVER_POSITION_4 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Resolver Position 4
     REDUNDANT_RESOLVER_POSITION_5 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Resolver Position 5
 
+class EngLEDPacket(Base):
+    __tablename__ = "eng_led"
+    packet_id = Column(Integer, primary_key=True)
+    apid = Column(Integer, nullable=False, index=True)
+    sequence_count = Column(Integer, nullable=False)
+    length = Column(Integer, nullable=False)
+    spacecraft_id = Column(Integer, nullable=False, index=True)
+    flash_block = Column(Integer, nullable=False)
+    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
+    packet_num = Column(Integer, nullable=False)
+    source_tlm_file = Column(Integer, nullable=False)
+
+    LED1_ACTIVE_STATE	= Column(Boolean, nullable=False)
+    LED_CFG_NUM_PLS	= Column(Integer, nullable=False)
+    LED2_ACTIVE_STATE	= Column(Boolean, nullable=False)
+    LED_CFG_PLS_DLY	= Column(Integer, nullable=False)
+    LED_CFG_PLS_WIDTH = Column(Integer, nullable=False)
 
 class TLMFiles(Base):
     __tablename__ = "tlm_files"

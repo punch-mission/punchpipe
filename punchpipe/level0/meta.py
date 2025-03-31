@@ -1,5 +1,6 @@
 import numpy as np
 from astropy.coordinates import SkyCoord
+from prefect import task
 
 PFW_POSITIONS = {"M": 960,
                  "opaque": 720,
@@ -9,9 +10,23 @@ PFW_POSITIONS = {"M": 960,
 
 POSITIONS_TO_CODES = {"Clear": "CR", "P": "PP", "M": "PM", "Z": "PZ"}
 
+PFW_POSITION_MAPPING = ["Manual", "M", "opaque", "Z", "P", "Clear"]
+
 def convert_pfw_position_to_polarizer(pfw_position):
     differences = {key: abs(pfw_position - reference_position) for key, reference_position in PFW_POSITIONS.items()}
     return min(differences, key=differences.get)
+
+
+@task
+def determine_file_type(polarizer_position, led_info, image_shape) -> str:
+    if led_info.LED1_ACTIVE_STATE or led_info.LED2_ACTIVE_STATE:
+        return "DY"
+    elif image_shape != (2048, 2048):
+        return "OV"
+    elif polarizer_position == 0 or polarizer_position == 2:  # TODO: position = 0 is manual pointing... it shouldn't be DK
+        return "DK"
+    else:
+        return POSITIONS_TO_CODES[PFW_POSITION_MAPPING[polarizer_position]]
 
 
 def eci_quaternion_to_ra_dec(q):
