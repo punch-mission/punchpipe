@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from importlib import import_module
 
 from prefect import Flow, serve
+from prefect.client.schemas.objects import ConcurrencyLimitConfig, ConcurrencyLimitStrategy
 from prefect.variables import Variable
 
 from punchpipe.control.util import load_pipeline_configuration
@@ -43,12 +44,13 @@ def find_flow(target_flow, subpackage="flows") -> Flow:
     else:
         raise RuntimeError(f"No flow found for {target_flow}")
 
-def serve_flows(configuration_path):
+def construct_flows_to_serve(configuration_path):
     config = load_pipeline_configuration.fn(configuration_path)
 
     # create each kind of flow. add both the scheduler and process flow variant of it.
     flows_to_serve = []
     for flow_name in config["flows"]:
+        # first we deploy the scheduler flow
         specific_name = flow_name + "_scheduler_flow"
         specific_tags = config["flows"][flow_name].get("tags", [])
         specific_description = config["flows"][flow_name].get("description", "")
@@ -57,18 +59,29 @@ def serve_flows(configuration_path):
             name=specific_name,
             description="Scheduler: " + specific_description,
             tags = ["scheduler"] + specific_tags,
-            cron=config['flows'][flow_name].get("schedule", "* * * * *"),
+            cron=config['flows'][flow_name].get("schedule", None),
+            concurrency_limit=ConcurrencyLimitConfig(
+                limit=1,
+                collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW
+            ),
             parameters={"pipeline_config_path": configuration_path}
         )
         flows_to_serve.append(flow_deployment)
 
+        # then we deploy the corresponding process flow
         specific_name = flow_name + "_process_flow"
         flow_function = find_flow(specific_name)
+        concurrency_value = config["flows"][flow_name].get("concurrency_limit", None)
+        concurrency_config = ConcurrencyLimitConfig(
+                limit=concurrency_value,
+                collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW
+            ) if concurrency_value else None
         flow_deployment = flow_function.to_deployment(
             name=specific_name,
             description="Process: " + specific_description,
             tags = ["process"] + specific_tags,
-            parameters={"pipeline_config_path": configuration_path}
+            parameters={"pipeline_config_path": configuration_path},
+            concurrency_limit=concurrency_config
         )
         flows_to_serve.append(flow_deployment)
 
@@ -85,7 +98,6 @@ def serve_flows(configuration_path):
         )
         flows_to_serve.append(flow_deployment)
     return flows_to_serve
-    # serve(*flows_to_serve, limit=1000)
 
 def run(configuration_path):
     now = datetime.now(UTC)
@@ -113,7 +125,7 @@ def run(configuration_path):
             print("Launched punchpipe monitor on http://localhost:8050/")
             print("Use ctrl-c to exit.")
 
-            serve(*serve_flows(configuration_path), limit=1000)
+            serve(*construct_flows_to_serve(configuration_path))
 
             prefect_process.wait()
             monitor_process.wait()
