@@ -313,11 +313,3 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
         # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
         session.commit()
 
-if __name__ == "__main__":
-    config = load_pipeline_configuration("/Users/mhughes/repos/punchpipe/process_local_config.yaml")
-    config['plate_scale']['1'] = 0.02444444444
-    config['plate_scale']['2'] = 0.02444444444
-    config['plate_scale']['3'] = 0.02444444444
-    config['plate_scale']['4'] = 0.008333333333
-
-    level0_form_images(pipeline_config=config)
