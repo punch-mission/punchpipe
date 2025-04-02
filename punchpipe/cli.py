@@ -115,6 +115,8 @@ def run(configuration_path):
             prefect_process = subprocess.Popen(["prefect", "server", "start"],
                                                stdout=f, stderr=f)
             time.sleep(10)
+            cluster_process = subprocess.Popen(['punchpipe_cluster', configuration_path],
+                                               stdout=f, stderr=f)
             monitor_process = subprocess.Popen(["gunicorn",
                                                 "-b", "0.0.0.0:8050",
                                                 "--chdir", THIS_DIR,
@@ -123,18 +125,23 @@ def run(configuration_path):
             Variable.set("punchpipe_config", configuration_path, overwrite=True)
             print("Launched Prefect dashboard on http://localhost:4200/")
             print("Launched punchpipe monitor on http://localhost:8050/")
+            print("Launched dask cluster on http://localhost:8786/")
+            print("Dask dashboard available at http://localhost:8787/")
             print("Use ctrl-c to exit.")
 
             serve(*construct_flows_to_serve(configuration_path))
 
             prefect_process.wait()
             monitor_process.wait()
+            cluster_process.wait()
         except KeyboardInterrupt:
             print("Shutting down.")
             prefect_process.terminate()
             prefect_process.wait()
             time.sleep(5)
+            cluster_process.terminate()
             monitor_process.terminate()
+            cluster_process.wait()
             monitor_process.wait()
             print()
             print("punchpipe safely shut down.")
@@ -144,7 +151,9 @@ def run(configuration_path):
             prefect_process.terminate()
             prefect_process.wait()
             time.sleep(5)
+            cluster_process.terminate()
             monitor_process.terminate()
+            cluster_process.wait()
             monitor_process.wait()
             print()
             print("punchpipe abruptly shut down.")
