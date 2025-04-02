@@ -1,15 +1,16 @@
 """
 This process starts a Dask cluster and then monitors for changes to the cluster size in the configuration file
 """
-import argparse
 import os
 import time
+import argparse
 import traceback
 from pathlib import Path
 
 from dask.distributed import LocalCluster
 
 from punchpipe.control.util import load_pipeline_configuration
+
 
 def main():
     """Run a Dask cluster for the pipeline"""
