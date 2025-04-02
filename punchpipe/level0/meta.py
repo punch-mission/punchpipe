@@ -19,7 +19,7 @@ def convert_pfw_position_to_polarizer(pfw_position):
 
 @task
 def determine_file_type(polarizer_position, led_info, image_shape) -> str:
-    if led_info.LED1_ACTIVE_STATE or led_info.LED2_ACTIVE_STATE:
+    if led_info is not None:
         return "DY"
     elif image_shape != (2048, 2048):
         return "OV"
