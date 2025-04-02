@@ -9,6 +9,16 @@ plate_scale:
   3: 0.02444444444
   4: 0.008333333333
 
+ccd_gain:
+  nfi1_left: 4.98
+  nfi1_right: 4.92
+  wfi1_left: 4.93
+  wfi1_right: 4.92
+  wfi2_left: 4.90
+  wfi2_right: 5.04
+  wfi3_left: 4.94
+  wfi3_right: 4.89
+
 quality_check:
   mean_low: 0
   mean_high: 65000
