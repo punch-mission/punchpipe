@@ -88,8 +88,8 @@ class SciPacket(Base):
     is_used = Column(Boolean)
     img_pkt_grp = Column(Integer, nullable=False)
     l0_version = Column(Integer)
-    compression_settings = Column(Integer)
-    acquisition_settings = Column(Integer)
+    compression_settings = Column(INTEGER(unsigned=True), nullable=False)
+    acquisition_settings = Column(INTEGER(unsigned=True), nullable=False)
 
 class EngXACTPacket(Base):
     __tablename__ = "eng_xact"
