@@ -25,7 +25,7 @@ def prefect_test_fixture():
 def session_fn(session):
     level0_file = File(level="0",
                        file_type='PM',
-                       observatory='0',
+                       observatory='4',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -33,7 +33,7 @@ def session_fn(session):
 
     level1_file = File(level="1",
                        file_type="PM",
-                       observatory='0',
+                       observatory='4',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -41,7 +41,7 @@ def session_fn(session):
 
     psf_model = File(level="1",
                        file_type="RM",
-                       observatory='0',
+                       observatory='4',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -49,7 +49,7 @@ def session_fn(session):
 
     quartic_fit_coeffs = File(level="1",
                        file_type="FQ",
-                       observatory='0',
+                       observatory='4',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -57,7 +57,7 @@ def session_fn(session):
 
     vignetting_function = File(level="1",
                        file_type="GM",
-                       observatory='0',
+                       observatory='4',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -84,7 +84,7 @@ def test_level1_construct_file_info():
     pipeline_config = load_pipeline_configuration.fn(pipeline_config_path)
     level0_file = [File(level="0",
                        file_type='PM',
-                       observatory='0',
+                       observatory='4',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -105,7 +105,7 @@ def test_level1_construct_flow_info(db):
     pipeline_config = load_pipeline_configuration.fn(pipeline_config_path)
     level0_file = [File(level="0",
                        file_type='PM',
-                       observatory='0',
+                       observatory='4',
                        state='created',
                        file_version='none',
                        software_version='none',
