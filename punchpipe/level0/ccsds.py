@@ -8,24 +8,11 @@ from ccsdspy.utils import split_by_apid
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 PACKET_NAME2APID = {
-    "ENG_LZ": 0x60,
-    "ENG_BOOT": 0x61,
-    "ENG_EVT": 0x62,
-    "ENG_DNLD": 0x63,
-    "ENG_FDC": 0x64,
-    "ENG_SEQ": 0x65,
-    "ENG_HI": 0x66,
-    "ENG_LO": 0x67,
-    "ENG_SSV": 0x68,
     "ENG_XACT": 0x69,
-    "ENG_HYD": 0x6A,
-    "ENG_XTS": 0x6B,
     "ENG_CEB": 0x6C,
     "ENG_PFW": 0x6D,
     "ENG_LED": 0x6E,
     "SCI_XFI": 0x20,
-    "ENG_COMSEC": 0x70,
-    "ENG_FILL": 0x71,
 }
 
 SKIP_APIDS = [96, 0x64, 0x6B, 0x70, 0x6A, 0x67]
@@ -50,9 +37,7 @@ def process_telemetry_file(telemetry_file_path):
     apid_separated_tlm = open_and_split_packet_file(telemetry_file_path)
     parsed_data = {}
     for apid, stream in apid_separated_tlm.items():
-        if apid not in PACKET_APID2NAME or apid in SKIP_APIDS:
-            pass
-        else:
+        if apid in PACKET_APID2NAME and apid not in SKIP_APIDS:
             definition = load_packet_def(PACKET_APID2NAME[apid])
             parsed_data[apid] = definition.load(stream, include_primary_header=True)
     return parsed_data

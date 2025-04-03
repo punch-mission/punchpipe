@@ -1,6 +1,6 @@
 import os
 import json
-import warnings
+import traceback
 from datetime import UTC, datetime
 
 import numpy as np
@@ -122,9 +122,29 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
             tlm_contents = [already_parsed_tlms[tlm_path] for tlm_path in needed_tlm_paths]
 
             # Form the image packet stream for decompression
+            # ordered_image_content = []
+            # sequence_counter = []
+            # for packet_entry in image_packets_entries:
+            #     tlm_content_index = needed_tlm_paths.index(tlm_id_to_tlm_path[packet_entry.source_tlm_file])
+            #     selected_tlm_contents = tlm_contents[tlm_content_index]
+            #     ordered_image_content.append(selected_tlm_contents[0x20]['SCI_XFI_IMG_DATA'][packet_entry.packet_num])
+            #     sequence_counter.append(selected_tlm_contents[0x20]['SCI_XFI_HDR_GRP'][packet_entry.packet_num])
+
+            order_dict = {}
+            packet_entry_mapping = {}
+            for packet_entry in image_packets_entries:
+                packet_num = packet_entry.img_pkt_grp
+                if packet_num in order_dict:
+                    order_dict[packet_num].append(packet_entry.packet_id)
+                else:
+                    order_dict[packet_num] = [packet_entry.packet_id]
+                packet_entry_mapping[packet_entry.packet_id] = packet_entry
+
             ordered_image_content = []
             sequence_counter = []
-            for packet_entry in image_packets_entries:
+            for packet_num in sorted(list(order_dict.keys())):
+                best_packet = max(order_dict[packet_num])
+                packet_entry = packet_entry_mapping[best_packet]
                 tlm_content_index = needed_tlm_paths.index(tlm_id_to_tlm_path[packet_entry.source_tlm_file])
                 selected_tlm_contents = tlm_contents[tlm_content_index]
                 ordered_image_content.append(selected_tlm_contents[0x20]['SCI_XFI_IMG_DATA'][packet_entry.packet_num])
@@ -132,15 +152,6 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
 
             # Get the proper image
             skip_image = False
-            sequence_counter_diff = np.diff(np.array(sequence_counter))
-            if not np.all(np.isin(sequence_counter_diff, [1, 255])):
-                logger.error("Packets are out of order so skipping")
-                skip_image = True
-                error = {'start_time': image_packets_entries[0].timestamp.isoformat(),
-                         'start_block': image_packets_entries[0].flash_block,
-                         'replay_length': image_packets_entries[-1].flash_block
-                                          - image_packets_entries[0].flash_block + 1}
-                errors.append(error)
 
             if image_compression[0]['CMP_BYP'] == 0 and image_compression[0]['JPEG'] == 1:  # this assumes the image compression is static for an image
                 try:
@@ -154,7 +165,7 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
                              'replay_length': image_packets_entries[-1].flash_block
                                               - image_packets_entries[0].flash_block + 1}
                     errors.append(error)
-            elif image_compression[0]['CMP_BYP'] == 1:
+            else:
                 try:
                     ordered_image_content = np.concatenate(ordered_image_content)
                     logger.info(f"Packet shape {ordered_image_content.shape[0]}", )
@@ -167,25 +178,19 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
                              'replay_length': image_packets_entries[-1].flash_block
                                               - image_packets_entries[0].flash_block + 1}
                     errors.append(error)
-            else:
-                skip_image = True
-                # raise NotImplementedError("Not implemented image format")  # TODO : reactivate
-                logger.error("Encountered a non-implemented image format.")
-                warnings.warn("Not implemented image format")
-
 
             if not skip_image:
                 try:
                     spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
                     moc_index = spacecraft_secrets["moc"].index(image_packets_entries[0].spacecraft_id)
                     spacecraft_id = spacecraft_secrets["soc"][moc_index]
-
+                    acquisition_settings = unpack_acquisition_settings(image_packets_entries[0].acquisition_settings)
                     position_info, fits_info = get_metadata(image_packets_entries[0].timestamp,
                                                      image_packets_entries[0].spacecraft_id,
                                                      image.shape,
+                                                     acquisition_settings['EXPOSURE'] / 10,  # exptime in seconds
                                                      session)
                     file_type = fits_info["TYPECODE"]
-                    acquisition_settings = unpack_acquisition_settings(image_packets_entries[0].acquisition_settings)
                     preliminary_wcs = form_preliminary_wcs(position_info, float(config['plate_scale'][str(spacecraft_id)]))
                     meta = NormalizedMetadata.load_template(file_type + str(spacecraft_id), "0")
 
@@ -221,6 +226,7 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
                     success_count += 1
                 except Exception as e:
                     logger.error(f"Failed writing image because: {e}")
+                    logger.error(traceback.format_exc())
                     skip_count += 1
             else:
                 skip_count += 1
@@ -312,3 +318,13 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
         flow_db_entry.end_time = datetime.now()
         # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
         session.commit()
+
+if __name__ == "__main__":
+    session = get_database_session()
+    pipeline_config = load_pipeline_configuration("/Users/mhughes/repos/punchpipe/process_local_config.yaml")
+    pipeline_config['plate_scale']['1'] = 0.02444444444
+    pipeline_config['plate_scale']['2'] = 0.02444444444
+    pipeline_config['plate_scale']['3'] = 0.02444444444
+    pipeline_config['plate_scale']['4'] = 0.008333333333
+    # level0_ingest_raw_packets(pipeline_config=pipeline_config, session=session)
+    level0_form_images(pipeline_config=pipeline_config, session=session)
