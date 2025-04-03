@@ -9,16 +9,17 @@ from punchpipe.control.util import get_database_session
 
 session = get_database_session()
 
-interrupted_flows = session.query(Flow).where(Flow.state == "running").where(Flow.flow_level == "S").all()
-print()
-print(f"There are {len(interrupted_flows)} flows marked as 'running'.")
-if len(interrupted_flows) and input("Change them to 'planned'? y/N: ").lower() == 'y':
-    for flow in interrupted_flows:
-        flow.state = 'planned'
-        flow.flow_run_name = None
-        flow.flow_run_id = None
-        flow.start_time = None
-    session.commit()
+for state in ['running', 'failed']:
+    interrupted_flows = session.query(Flow).where(Flow.state == state).where(Flow.flow_level == "S").all()
+    print()
+    print(f"There are {len(interrupted_flows)} flows marked as '{state}'.")
+    if len(interrupted_flows) and input("Change them to 'planned'? y/N: ").lower() == 'y':
+        for flow in interrupted_flows:
+            flow.state = 'planned'
+            flow.flow_run_name = None
+            flow.flow_run_id = None
+            flow.start_time = None
+        session.commit()
 
 planned_flows = session.query(Flow).where(Flow.state == "planned").where(Flow.flow_level == "S").all()
 

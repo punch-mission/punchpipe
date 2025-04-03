@@ -8,17 +8,19 @@ from typing import Any, Dict, Tuple
 from datetime import datetime, timedelta
 
 import astropy.time
+import astropy.units as u
 import numpy as np
 import pylibjpeg
 import pymysql
 import sqlalchemy.exc
+from astropy.coordinates import EarthLocation
 from astropy.wcs import WCS
 from prefect import task
 from punchbowl.data.wcs import calculate_helio_wcs_from_celestial, calculate_pc_matrix
 
 from punchpipe.control.db import EngLEDPacket, ENGPFWPacket, EngXACTPacket, SciPacket, TLMFiles, get_closest_eng_packets
 from punchpipe.control.util import get_database_session
-from punchpipe.error import CCSDSPacketConstructionWarning, CCSDSPacketDatabaseUpdateWarning
+from punchpipe.error import CCSDSPacketConstructionWarning
 from punchpipe.level0.ccsds import PACKET_APID2NAME, process_telemetry_file
 from punchpipe.level0.meta import determine_file_type, eci_quaternion_to_ra_dec
 
@@ -126,7 +128,14 @@ def form_packet_entry(apid, packets, packet_num, source_tlm_file_id):
                                  ATT_CMD_CMD_Q_BODY_WRT_ECI1=packets['ATT_CMD_CMD_Q_BODY_WRT_ECI1'][packet_num],
                                  ATT_CMD_CMD_Q_BODY_WRT_ECI2=packets['ATT_CMD_CMD_Q_BODY_WRT_ECI2'][packet_num],
                                  ATT_CMD_CMD_Q_BODY_WRT_ECI3=packets['ATT_CMD_CMD_Q_BODY_WRT_ECI3'][packet_num],
-                                 ATT_CMD_CMD_Q_BODY_WRT_ECI4=packets['ATT_CMD_CMD_Q_BODY_WRT_ECI4'][packet_num], )
+                                 ATT_CMD_CMD_Q_BODY_WRT_ECI4=packets['ATT_CMD_CMD_Q_BODY_WRT_ECI4'][packet_num],
+                                 GPS_POSITION_ECEF1=packets['GPS_POSITION_ECEF1'][packet_num],
+                                 GPS_POSITION_ECEF2=packets['GPS_POSITION_ECEF2'][packet_num],
+                                 GPS_POSITION_ECEF3=packets['GPS_POSITION_ECEF3'][packet_num],
+                                 GPS_VELOCITY_ECEF1=packets['GPS_VELOCITY_ECEF1'][packet_num],
+                                 GPS_VELOCITY_ECEF2=packets['GPS_VELOCITY_ECEF2'][packet_num],
+                                 GPS_VELOCITY_ECEF3=packets['GPS_VELOCITY_ECEF3'][packet_num],
+                                )
         case 'eng_pfw':
             return ENGPFWPacket(
                 apid=apid,
@@ -140,6 +149,7 @@ def form_packet_entry(apid, packets, packet_num, source_tlm_file_id):
                 PFW_STATUS=packets['PFW_STATUS'][packet_num],
                 STEP_CALC=packets['STEP_CALC'][packet_num],
                 LAST_CMD_N_STEPS=packets['LAST_CMD_N_STEPS'][packet_num],
+                HOME_POSITION_OVRD=packets['HOME_POSITION_OVRD'][packet_num],
                 POSITION_CURR=packets['POSITION_CURR'][packet_num],
                 POSITION_CMD=packets['POSITION_CMD'][packet_num],
                 RESOLVER_POS_RAW=packets['RESOLVER_POS_RAW'][packet_num],
@@ -184,6 +194,15 @@ def form_packet_entry(apid, packets, packet_num, source_tlm_file_id):
                 REDUNDANT_RESOLVER_POSITION_5=packets['REDUNDANT_RESOLVER_POSITION_5'][packet_num],
             )
         case "eng_led":
+            start_seconds = int(packets["LED_PLS_START_SEC"][packet_num])
+            start_microseconds = int(packets["LED_PLS_START_USEC"][packet_num])
+            start_timestamp = (datetime(2000, 1, 1)
+                         + timedelta(seconds=start_seconds) + timedelta(microseconds=start_microseconds))
+
+            end_seconds = int(packets["LED_PLS_END_SEC"][packet_num])
+            end_microseconds = int(packets["LED_PLS_END_USEC"][packet_num])
+            end_timestamp = (datetime(2000, 1, 1)
+                                + timedelta(seconds=end_seconds) + timedelta(microseconds=end_microseconds))
             return EngLEDPacket(
                 apid=apid,
                 sequence_count=packets['CCSDS_SEQUENCE_COUNT'][packet_num],
@@ -197,9 +216,12 @@ def form_packet_entry(apid, packets, packet_num, source_tlm_file_id):
                 LED_CFG_NUM_PLS=packets['LED_CFG_NUM_PLS'][packet_num],
                 LED2_ACTIVE_STATE=packets['LED2_ACTIVE_STATE'][packet_num],
                 LED_CFG_PLS_DLY=packets['LED_CFG_PLS_DLY'][packet_num],
-                LED_CFG_PLS_WIDTH=packets['LED_CFG_PLS_WIDTH'][packet_num])
+                LED_CFG_PLS_WIDTH=packets['LED_CFG_PLS_WIDTH'][packet_num],
+                LED_START_TIME=start_timestamp,
+                LED_END_TIME=end_timestamp
+            )
         case _:
-            warnings.warn("Unable to add packet to database.", CCSDSPacketDatabaseUpdateWarning)
+            # this is not a defined packet
             return None
 
 
@@ -235,7 +257,83 @@ def interpolate_value(query_time, before_time, before_value, after_time, after_v
          * ((query_time - before_time) / (after_time - before_time))
          + before_value)
 
-def get_metadata(observation_time, spacecraft_id, image_shape, session) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+def organize_pfw_fits_keywords(pfw_packet: ENGPFWPacket):
+    return {
+        'PFWSTAT': pfw_packet.PFW_STATUS,
+        'STEPCALC': pfw_packet.STEP_CALC,
+        'CMDSTEPS': pfw_packet.LAST_CMD_N_STEPS,
+        'HOMEOVRD': pfw_packet.HOME_POSITION_OVRD,
+        'POSCURR': pfw_packet.POSITION_CURR,
+        'POSCMD': pfw_packet.POSITION_CMD,
+        'POSRAW': pfw_packet.RESOLVER_POS_RAW,
+        'POSRAW2': pfw_packet.RESOLVER_POS_CORR,
+        'READCNT': pfw_packet.RESOLVER_READ_CNT,
+        'LMNSTEP': pfw_packet.LAST_MOVE_N_STEPS,
+        'LMTIME': pfw_packet.LAST_MOVE_EXECUTION_TIME,
+        'LTSTEP': pfw_packet.LIFETIME_STEPS_TAKEN,
+        'LTTIME': pfw_packet.LIFETIME_EXECUTION_TIME,
+        'FSMSTAT': pfw_packet.FSM_CTRL_STATE,
+        'READSTAT': pfw_packet.READ_SUB_STATE,
+        'MOVSTAT': pfw_packet.MOVE_SUB_STATE,
+        'HOMESTAT': pfw_packet.HOME_SUB_STATE,
+        'HOMEPOS': pfw_packet.HOME_POSITION,
+        'RESSEL': pfw_packet.RESOLVER_SELECT,
+        'RESTOLH': pfw_packet.RESOLVER_TOLERANCE_HOME,
+        'RESTOLC': pfw_packet.RESOLVER_TOLERANCE_CURR,
+        'STEPSEL': pfw_packet.STEPPER_SELECT,
+        'STEPDLY': pfw_packet.STEPPER_RATE_DELAY,
+        'STEPRATE': pfw_packet.STEPPER_RATE,
+        'SHORTMV': pfw_packet.SHORT_MOVE_SETTLING_TIME_MS,
+        'LONGMV': pfw_packet.LONG_MOVE_SETTLING_TIME_MS,
+        'PFWOFF1': pfw_packet.PRIMARY_STEP_OFFSET_1,
+        'PFWOFF2': pfw_packet.PRIMARY_STEP_OFFSET_2,
+        'PFWOFF3': pfw_packet.PRIMARY_STEP_OFFSET_3,
+        'PFWOFF4': pfw_packet.PRIMARY_STEP_OFFSET_4,
+        'PFWOFF5': pfw_packet.PRIMARY_STEP_OFFSET_5,
+        'RPFWOFF1': pfw_packet.REDUNDANT_STEP_OFFSET_1,
+        'RPFWOFF2': pfw_packet.REDUNDANT_STEP_OFFSET_2,
+        'RPFWOFF3': pfw_packet.REDUNDANT_STEP_OFFSET_3,
+        'RPFWOFF4': pfw_packet.REDUNDANT_STEP_OFFSET_4,
+        'RPFWOFF5': pfw_packet.REDUNDANT_STEP_OFFSET_5,
+        'PFWPOS1': pfw_packet.PRIMARY_RESOLVER_POSITION_1,
+        'PFWPOS2': pfw_packet.PRIMARY_RESOLVER_POSITION_2,
+        'PFWPOS3': pfw_packet.PRIMARY_RESOLVER_POSITION_3,
+        'PFWPOS4': pfw_packet.PRIMARY_RESOLVER_POSITION_4,
+        'PFWPOS5': pfw_packet.PRIMARY_RESOLVER_POSITION_5,
+        'RPFWPOS1': pfw_packet.REDUNDANT_RESOLVER_POSITION_1,
+        'RPFWPOS2': pfw_packet.REDUNDANT_RESOLVER_POSITION_2,
+        'RPFWPOS3': pfw_packet.REDUNDANT_RESOLVER_POSITION_3,
+        'RPFWPOS4': pfw_packet.REDUNDANT_RESOLVER_POSITION_4,
+        'RPFWPOS5': pfw_packet.REDUNDANT_RESOLVER_POSITION_5
+    }
+
+def organize_led_fits_keywords(led_packet: EngLEDPacket):
+    return {
+        'LED1STAT': led_packet.LED1_ACTIVE_STATE,
+        'LEDPLSN': led_packet.LED_CFG_NUM_PLS,
+        'LED2STAT': led_packet.LED2_ACTIVE_STATE,
+        'LEDPLSD': led_packet.LED_CFG_PLS_DLY,
+        'LEDPLSW': led_packet.LED_CFG_PLS_WIDTH,
+    }
+
+def organize_spacecraft_position_keywords(observation_time, before_xact, after_xact):
+    position = EarthLocation.from_geocentric(before_xact.GPS_POSITION_ECEF1*2E-5*u.km,
+                                             before_xact.GPS_POSITION_ECEF2*2E-5*u.km,
+                                             before_xact.GPS_POSITION_ECEF3*2E-5*u.km)
+    return {
+        'GEOD_LAT': position.geodetic.lat.deg,
+        'GEOD_LON': position.geodetic.lon.deg,
+        'GEOD_ALT': position.geodetic.height.to(u.m).value
+    }
+
+def get_led_packet(timestamp, spacecraft_id, exposure_seconds, session):
+    return (session.query(EngLEDPacket)
+                .filter(EngLEDPacket.spacecraft_id == spacecraft_id)
+                .filter(EngLEDPacket.LED_START_TIME > timestamp)
+                .filter(EngLEDPacket.LED_END_TIME < timestamp + timedelta(seconds=exposure_seconds))
+                .first())
+
+def get_metadata(observation_time, spacecraft_id, image_shape, exposure_time, session) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     before_xact, after_xact = get_closest_eng_packets(EngXACTPacket, observation_time, spacecraft_id, session)
     ATT_DET_Q_BODY_WRT_ECI1 = interpolate_value(observation_time,
                                                 before_xact.timestamp, before_xact.ATT_DET_Q_BODY_WRT_ECI1,
@@ -251,7 +349,7 @@ def get_metadata(observation_time, spacecraft_id, image_shape, session) -> Tuple
                                                 after_xact.timestamp, after_xact.ATT_DET_Q_BODY_WRT_ECI4)
 
     before_pfw, _ = get_closest_eng_packets(ENGPFWPacket, observation_time, spacecraft_id, session)
-    before_led, _ = get_closest_eng_packets(EngLEDPacket, observation_time, spacecraft_id, session)
+    led_packet = get_led_packet(observation_time, spacecraft_id, exposure_time, session)
 
     position_info = {'spacecraft_id': spacecraft_id,
             'datetime': observation_time,
@@ -262,10 +360,17 @@ def get_metadata(observation_time, spacecraft_id, image_shape, session) -> Tuple
             'PFW_POSITION_CURR': before_pfw.POSITION_CURR}
 
     fits_info = {'TYPECODE': determine_file_type(before_pfw.POSITION_CURR,
-                                                 before_led,
-                                                 image_shape),
-                 'LEDSTATE': before_led.LED_CFG_NUM_PLS}
+                                                 led_packet,
+                                                 image_shape)}
 
+    if before_pfw is not None:
+        fits_info |= organize_pfw_fits_keywords(before_pfw)
+
+    if led_packet is not None:
+        fits_info |= organize_led_fits_keywords(led_packet)
+
+    if before_xact is not None and after_xact is not None:
+        fits_info |= organize_spacecraft_position_keywords(observation_time, before_xact, after_xact)
     return position_info, fits_info
 
 
@@ -301,7 +406,10 @@ def form_from_raw(flat_image):
     """Form a raw image from packets"""
     pixel_values = unpack_Nbit_values(flat_image, byteorder=">", N=16)
     nvals = pixel_values.size
-    width = 2048
+    if nvals > 2048 * 2048:
+        width = 2176
+    else:
+        width = 2048
     if nvals % width == 0:
         image = pixel_values.reshape((-1, width))
     else:

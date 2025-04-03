@@ -23,6 +23,10 @@ quality_check:
 scheduler:
   max_start: 10
 
+dask_cluster:
+  n_workers: 40
+  n_threads_per_worker: 1
+
 control:
   launcher:
     description: "Kick off new flows for processing."

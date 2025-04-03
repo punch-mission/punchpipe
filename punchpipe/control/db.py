@@ -4,8 +4,6 @@ from sqlalchemy import TEXT, Boolean, Column, Float, Integer, String
 from sqlalchemy.dialects.mysql import DATETIME, INTEGER
 from sqlalchemy.orm import declarative_base
 
-from punchpipe.error import MissingCCSDSDataError
-
 Base = declarative_base()
 
 
@@ -90,8 +88,8 @@ class SciPacket(Base):
     is_used = Column(Boolean)
     img_pkt_grp = Column(Integer, nullable=False)
     l0_version = Column(Integer)
-    compression_settings = Column(Integer)
-    acquisition_settings = Column(Integer)
+    compression_settings = Column(INTEGER(unsigned=True), nullable=False)
+    acquisition_settings = Column(INTEGER(unsigned=True), nullable=False)
 
 class EngXACTPacket(Base):
     __tablename__ = "eng_xact"
@@ -127,6 +125,14 @@ class EngXACTPacket(Base):
     ATT_CMD_CMD_Q_BODY_WRT_ECI3 = Column(Float, nullable=False) # Commanded Att Quaternion
     ATT_CMD_CMD_Q_BODY_WRT_ECI4	= Column(Float, nullable=False) # Commanded Att Quaternion
 
+    GPS_POSITION_ECEF1 = Column(Integer, nullable=False)
+    GPS_POSITION_ECEF2 = Column(Integer, nullable=False)
+    GPS_POSITION_ECEF3 = Column(Integer, nullable=False)
+
+    GPS_VELOCITY_ECEF1 = Column(Integer, nullable=False)
+    GPS_VELOCITY_ECEF2 = Column(Integer, nullable=False)
+    GPS_VELOCITY_ECEF3 = Column(Integer, nullable=False)
+
 class ENGPFWPacket(Base):
     __tablename__ = "eng_pfw"
     packet_id = Column(Integer, primary_key=True)
@@ -142,15 +148,16 @@ class ENGPFWPacket(Base):
     PFW_STATUS =Column(INTEGER(unsigned=True), nullable=False)  # Current PFW Status (0 - no error, else error)
     STEP_CALC = Column(INTEGER(unsigned=True), nullable=False) # Calculated step (0-1199)
     LAST_CMD_N_STEPS = Column(INTEGER(unsigned=True), nullable=False) # Commanded number of steps (1-1199)
+    HOME_POSITION_OVRD = Column(INTEGER(unsigned=True), nullable=False) # HOME Position OVERRIDE
     POSITION_CURR = Column(INTEGER(unsigned=True), nullable=False) # Current position (1-5, 0 - manual stepping)
     POSITION_CMD = Column(INTEGER(unsigned=True), nullable=False) # Commanded position (1-5, 0 - manual stepping)
     RESOLVER_POS_RAW = Column(INTEGER(unsigned=True), nullable=False) # Resolver position - raw resolver counts (0-65000)
     RESOLVER_POS_CORR = Column(INTEGER(unsigned=True), nullable=False) # Resolver position - error correction applied (0-65000)
     RESOLVER_READ_CNT = Column(INTEGER(unsigned=True), nullable=False) # Accumulative # of resolver reads (resets on boot)
     LAST_MOVE_N_STEPS = Column(INTEGER(unsigned=True), nullable=False)# Number of steps on last move (1-1199)
-    LAST_MOVE_EXECUTION_TIME = Column(Float, nullable=False) # Current move execution time
+    LAST_MOVE_EXECUTION_TIME = Column(INTEGER(unsigned=True), nullable=False) # Current move execution time
     LIFETIME_STEPS_TAKEN = Column(INTEGER(unsigned=True), nullable=False) # Lifetime accumulative number of steps taken
-    LIFETIME_EXECUTION_TIME	= Column(Float, nullable=False) # Lifetime accumulative execution time
+    LIFETIME_EXECUTION_TIME	= Column(INTEGER(unsigned=True), nullable=False) # Lifetime accumulative execution time
     FSM_CTRL_STATE = Column(INTEGER(unsigned=True), nullable=False) # Controller FSM State
     READ_SUB_STATE = Column(INTEGER(unsigned=True), nullable=False) # READ Sub-FSM State
     MOVE_SUB_STATE = Column(INTEGER(unsigned=True), nullable=False) # MOVE Sub-FSM State
@@ -161,7 +168,7 @@ class ENGPFWPacket(Base):
     RESOLVER_TOLERANCE_CURR = Column(INTEGER(unsigned=True), nullable=False) # Resolver Tolerance
     STEPPER_SELECT= Column(INTEGER(unsigned=True), nullable=False) # Stepper Motor Select
     STEPPER_RATE_DELAY = Column(INTEGER(unsigned=True), nullable=False) # Stepper Motor Rate Delay
-    STEPPER_RATE = Column(Float, nullable=False) # Stepper Motor Rate
+    STEPPER_RATE = Column(INTEGER(unsigned=True), nullable=False) # Stepper Motor Rate
     SHORT_MOVE_SETTLING_TIME_MS	= Column(INTEGER(unsigned=True), nullable=False) # Short Move(1-4 steps) Settling time before reading resolver
     LONG_MOVE_SETTLING_TIME_MS = Column(INTEGER(unsigned=True), nullable=False) # Long Move(5-1199 steps) Setting time before reading resolver
     PRIMARY_STEP_OFFSET_1 = Column(INTEGER(unsigned=True), nullable=False) # Primary Step Offset 1
@@ -202,6 +209,8 @@ class EngLEDPacket(Base):
     LED2_ACTIVE_STATE	= Column(Boolean, nullable=False)
     LED_CFG_PLS_DLY	= Column(Integer, nullable=False)
     LED_CFG_PLS_WIDTH = Column(Integer, nullable=False)
+    LED_START_TIME = Column(DATETIME(fsp=6), nullable=False, index=True)
+    LED_END_TIME = Column(DATETIME(fsp=6), nullable=False, index=True)
 
 class TLMFiles(Base):
     __tablename__ = "tlm_files"
@@ -233,14 +242,6 @@ def get_closest_eng_packets(table, timestamp, spacecraft_id, session):
     # find the closest events which are greater/less than the timestamp
     gt_event = session.query(table).filter(table.spacecraft_id == spacecraft_id).filter(table.timestamp > timestamp).order_by(table.timestamp.asc()).first()
     lt_event = session.query(table).filter(table.spacecraft_id == spacecraft_id).filter(table.timestamp < timestamp).order_by(table.timestamp.desc()).first()
-
-    if gt_event is None and lt_event is None:
-        msg = "Could not find packet near that time."
-        raise MissingCCSDSDataError(msg)
-    elif gt_event is not None and lt_event is None:
-        lt_event = gt_event
-    elif gt_event is None and lt_event is not None:
-        gt_event = lt_event
 
     return lt_event, gt_event
 
