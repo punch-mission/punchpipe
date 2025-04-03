@@ -64,6 +64,11 @@ def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, ref
     return best_model
 
 @task
+def get_ccd_parameters(level0_file, pipeline_config: dict, session=None):
+    gain_left, gain_right = pipeline_config['ccd_gain'][int(level0_file.observatory)]
+    return {"gain_left": gain_left, "gain_right": gain_right}
+
+@task
 def level1_construct_flow_info(level0_files: list[File], level1_files: File,
                                pipeline_config: dict, session=None, reference_time=None):
     flow_type = "level1"
@@ -74,6 +79,7 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
     best_vignetting_function = get_vignetting_function_path(level0_files[0], pipeline_config, session=session)
     best_psf_model = get_psf_model_path(level0_files[0], pipeline_config, session=session)
     best_quartic_model = get_quartic_model_path(level0_files[0], pipeline_config, session=session)
+    ccd_parameters = get_ccd_parameters(level0_files[0], pipeline_config, session=session)
 
     call_data = json.dumps(
         {
@@ -87,6 +93,8 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
                                            best_psf_model.filename()),
             "quartic_coefficient_path": os.path.join(best_quartic_model.directory(pipeline_config['root']),
                                                      best_quartic_model.filename()),
+            "gain_left": ccd_parameters['gain_left'],
+            "gain_right": ccd_parameters['gain_right']
         }
     )
     return Flow(

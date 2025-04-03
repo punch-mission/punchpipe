@@ -5,7 +5,7 @@
 ## Latest: unreleased
 
 * Prepares punchpipe for SOC2NOAA Interface by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/94
-* specify path for codecov by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/95
+* Specify path for codecov by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/95
 * Update issue templates by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/97
 * Update README.md by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/98
 * Adds vignetting to level 1 processing by @lowderchris in https://github.com/punch-mission/punchpipe/pull/103
@@ -16,6 +16,7 @@
 * Many automation improvements in https://github.com/punch-mission/punchpipe/pull/115
 * Uses central dask cluster in https://github.com/punch-mission/punchpipe/pull/129
 * Improves level 0 metadata population in https://github.com/punch-mission/punchpipe/pull/128
+* Splits CCD parameters per chip half in https://github.com/punch-mission/punchpipe/pull/131
 * Iterates over sequence count instead of packet index in https://github.com/punch-mission/punchpipe/pull/132
 
 ## Version 0.0.5: Jan 3, 2025
