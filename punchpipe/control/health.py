@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 import psutil
 from prefect import flow
@@ -11,7 +11,7 @@ from punchpipe.control.util import get_database_session, load_pipeline_configura
 def health_monitor(pipeline_config_path: str = None):
     config = load_pipeline_configuration(pipeline_config_path)
 
-    now = datetime.now()
+    now = datetime.now(UTC)
     cpu_usage = psutil.cpu_percent(interval=5)
     memory_usage = psutil.virtual_memory().used / 1E9  # store in GB
     memory_percentage = psutil.virtual_memory().percent

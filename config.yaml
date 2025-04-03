@@ -1,14 +1,13 @@
-root: "/Users/jhughes/Desktop/d0/"
-input_drop: "dropzone/"
-tlm_directory: "dropzone/"
+root: "/Users/mhughes/data/punch_simulation/"
+tlm_directory: "/Users/mhughes/data/punch_simulation/RAW_CCSDS_DATA/"
 file_version: "1"
 bucket_name: "output_bucket_name"
 
 plate_scale:
-  1: 88 / 3600
-  2: 88 / 3600
-  3: 88 / 3600
-  4: 30 / 3600
+  1: 0.02444444444
+  2: 0.02444444444
+  3: 0.02444444444
+  4: 0.008333333333
 
 quality_check:
   mean_low: 0
@@ -21,18 +20,21 @@ control:
   launcher:
     description: "Kick off new flows for processing."
     max_flows_running: 50
+    max_flows_to_launch_at_once: 20
   health_monitor:
     description: "Monitor the health of the pipeline."
 
 flows:
 #  level0:
+#    description: "Creates Level 0 files from raw packets."
+#    tags: ["L0"]
+#    concurrency_limit: 1
 #    priority:
 #      initial: 5
 #      seconds: [ 30, 120, 600 ]
 #      escalation: [ 10, 20, 30 ]
-#    schedule: "* * * * *"
+#    schedule: "*/30 * * * *"
 #    options:
-#      num_quads: 100
 
   level1:
     description: "Creates Level 1 files."
@@ -148,18 +150,17 @@ flows:
     description: "Runs simpunch."
     tags: [ "sim" ]
     priority:
-      initial: 1E10
+      initial: 1
       seconds: [1]
-      escalation: [1E10]
+      escalation: [1]
     schedule: "0 */8 * * *"
     options:
-      gamera_directory: "/home/jmbhughes/data/synthetic_cme/"
-      output_directory: "/home/jmbhughes/data/synthetic_cme/"
-      forward_psf_model_path: "/home/jmbhughes/data/simpunch/inputs/synthetic_forward_psf.fits"
-      backward_psf_model_path: "/home/jmbhughes/data/simpunch/inputs/synthetic_backward_psf.fits"
-      wfi_quartic_backward_model_path: "/home/jmbhughes/data/simpunch/inputs/wfi_quartic_backward_coeffs.fits"
-      nfi_quartic_backward_model_path: "/home/jmbhughes/data/simpunch/inputs/nfi_quartic_backward_coeffs.fits"
-      wfi_quartic_model_path: "/home/jmbhughes/data/simpunch/inputs/wfi_quartic_coeffs.fits"
-      nfi_quartic_model_path: "/home/jmbhughes/data/simpunch/inputs/nfi_quartic_coeffs.fits"
+      gamera_files_dir: "/Users/mhughes/data/punch_simulation/synthetic_cme/"
+      out_dir: "/Users/mhughes/data/punch_simulation/outputs/"
+      simulation_start: "2025-03-21T08:00:00"
+      simulation_cadence_minutes: 4.0
+      backward_psf_model_path: "/Users/mhughes/data/punch_simulation/inputs/synthetic_backward_psf.fits"
+      wfi_quartic_backward_model_path: "/Users/mhughes/data/punch_simulation/inputs/wfi_quartic_backward_coeffs.fits"
+      nfi_quartic_backward_model_path: "/Users/mhughes/data/punch_simulation/inputs/nfi_quartic_backward_coeffs.fits"
       transient_probability: 0.0
       shift_pointing: false

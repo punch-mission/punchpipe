@@ -1,5 +1,6 @@
 import os
-from datetime import datetime
+import math
+from datetime import UTC, datetime
 
 from freezegun import freeze_time
 from prefect.logging import disable_run_logger
@@ -25,7 +26,7 @@ def session_fn(session):
                        state='created',
                        file_version='none',
                        software_version='none',
-                       date_obs=datetime.now())
+                       date_obs=datetime.now(UTC))
 
     level1_file = File(level=1,
                        file_type="XX",
@@ -33,7 +34,7 @@ def session_fn(session):
                        state='created',
                        file_version='none',
                        software_version='none',
-                       date_obs=datetime.now())
+                       date_obs=datetime.now(UTC))
 
     level0_planned_flow = Flow(flow_id=1,
                                flow_level=0,
@@ -99,7 +100,7 @@ def test_filter_for_launchable_flows(db):
         planned_ids = gather_planned_flows.fn(db)
         running_count = count_running_flows.fn(db)
         max_flows_running = 30
-        ready_to_launch_flows = filter_for_launchable_flows.fn(planned_ids, running_count, max_flows_running)
+        ready_to_launch_flows = filter_for_launchable_flows.fn(planned_ids, running_count, max_flows_running, math.inf)
         assert len(ready_to_launch_flows) == 3
 
 
@@ -108,7 +109,7 @@ def test_filter_for_launchable_flows_with_max_of_1(db):
         planned_ids = gather_planned_flows.fn(db)
         running_count = count_running_flows.fn(db)
         max_flows_running = 1
-        ready_to_launch_flows = filter_for_launchable_flows.fn(planned_ids, running_count, max_flows_running)
+        ready_to_launch_flows = filter_for_launchable_flows.fn(planned_ids, running_count, max_flows_running, math.inf)
         assert len(ready_to_launch_flows) == 1
         assert ready_to_launch_flows[0] == 3
 
@@ -118,7 +119,7 @@ def test_filter_for_launchable_flows_with_max_of_0(db):
         planned_ids = gather_planned_flows.fn(db)
         running_count = count_running_flows.fn(db)
         max_flows_running = 0
-        ready_to_launch_flows = filter_for_launchable_flows.fn(planned_ids, running_count, max_flows_running)
+        ready_to_launch_flows = filter_for_launchable_flows.fn(planned_ids, running_count, max_flows_running, math.inf)
         assert len(ready_to_launch_flows) == 0
 
 
@@ -127,7 +128,7 @@ def test_filter_for_launchable_flows_with_empty_db(db_empty):
         planned_ids = gather_planned_flows.fn(db_empty)
         running_count = count_running_flows.fn(db_empty)
         max_flows_running = 30
-        ready_to_launch_flows = filter_for_launchable_flows.fn(planned_ids, running_count, max_flows_running)
+        ready_to_launch_flows = filter_for_launchable_flows.fn(planned_ids, running_count, max_flows_running, math.inf)
         assert len(ready_to_launch_flows) == 0
 
 

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -142,7 +142,7 @@ def create_app():
         Input('interval-component', 'n_intervals'),
     )
     def update_cards(n):
-        now = datetime.now()
+        now = datetime.now(UTC)
         with get_database_session() as session:
             reference_time = now - timedelta(hours=24)
             query = (f"SELECT SUM(num_images_succeeded), SUM(num_images_failed) "
@@ -185,7 +185,7 @@ def create_app():
                        "disk_usage": "Disk Usage[GB]",
                        "disk_percentage": "Disk Usage %",
                        "num_pids": "Process Count"}
-        now = datetime.now()
+        now = datetime.now(UTC)
         with get_database_session() as session:
             reference_time = now - timedelta(hours=24)
             query = f"SELECT datetime, {machine_stat} FROM health WHERE datetime > '{reference_time}';"

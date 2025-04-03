@@ -18,6 +18,8 @@ File State Progression
     quickpunched --> progressed;
     created --> visualized;
     progressed --> visualized;
+    created --> levelh;
+    levelh --> progressed;
 
 For files, they always begin in the ``planned`` state.
 Once the flow to create them is kicked off, they enter the ``creating`` state.
@@ -28,9 +30,12 @@ or ``unreported`` (when the flow that was supposed to update their state doesn't
 Once files are ``created`` they wait in that state until a later flow picks them up as ``progressed``
 to the next level. Since level 3 is the last level, they never will become ``progressed``.
 
+For Level 0 products, they advance to a ``levelh`` state from ``created``. This extra intermediate state
+allows them to be processed into a calibration format that is used for deriving pipeline parameters.
+
 For Level 1 products, they advanced to a ``quickpunched`` state from ``created``.
 This extra intermediate state allows the faster production of QuickPUNCH products before
-they're used to make standard science Level 2 images.
+they're used to make level 2 images.
 
 
 Flow State Progression
