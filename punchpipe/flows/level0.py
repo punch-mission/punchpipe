@@ -144,6 +144,7 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
                 sequence_counter.append(selected_tlm_contents[0x20]['SCI_XFI_HDR_GRP'][packet_entry.packet_num])
 
             skip_image = False
+          
             if image_compression[0]['CMP_BYP'] == 0 and image_compression[0]['JPEG'] == 1:  # this assumes the image compression is static for an image
                 try:
                     ordered_image_content = np.concatenate(ordered_image_content)
@@ -308,3 +309,13 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
         flow_db_entry.end_time = datetime.now()
         # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
         session.commit()
+
+if __name__ == "__main__":
+    session = get_database_session()
+    pipeline_config = load_pipeline_configuration("/Users/mhughes/repos/punchpipe/process_local_config.yaml")
+    pipeline_config['plate_scale']['1'] = 0.02444444444
+    pipeline_config['plate_scale']['2'] = 0.02444444444
+    pipeline_config['plate_scale']['3'] = 0.02444444444
+    pipeline_config['plate_scale']['4'] = 0.008333333333
+    # level0_ingest_raw_packets(pipeline_config=pipeline_config, session=session)
+    level0_form_images(pipeline_config=pipeline_config, session=session)

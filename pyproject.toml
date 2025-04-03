@@ -63,6 +63,7 @@ dev = ["punchpipe[test,docs]", "pre-commit"]
 
 [project.scripts]
 punchpipe = "punchpipe.cli:main"
+punchpipe_cluster = "punchpipe.cluster:main"
 
 [project.urls]
 #Homepage = "https://example.com"
