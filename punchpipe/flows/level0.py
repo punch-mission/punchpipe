@@ -126,17 +126,17 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
             order_dict = {}
             packet_entry_mapping = {}
             for packet_entry in image_packets_entries:
-                packet_num = packet_entry.packet_num
-                if packet_num in order_dict:
-                    order_dict[packet_num].append(packet_entry.packet_id)
+                sequence_count = packet_entry.sequence_count
+                if sequence_count in order_dict:
+                    order_dict[sequence_count].append(packet_entry.packet_id)
                 else:
-                    order_dict[packet_num] = [packet_entry.packet_id]
+                    order_dict[sequence_count] = [packet_entry.packet_id]
                 packet_entry_mapping[packet_entry.packet_id] = packet_entry
 
             ordered_image_content = []
             sequence_counter = []
-            for packet_num in sorted(list(order_dict.keys())):
-                best_packet = max(order_dict[packet_num])
+            for sequence_count in sorted(list(order_dict.keys())):
+                best_packet = max(order_dict[sequence_count])
                 packet_entry = packet_entry_mapping[best_packet]
                 tlm_content_index = needed_tlm_paths.index(tlm_id_to_tlm_path[packet_entry.source_tlm_file])
                 selected_tlm_contents = tlm_contents[tlm_content_index]
