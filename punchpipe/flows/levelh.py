@@ -10,7 +10,7 @@ from punchpipe import __version__
 from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
-from punchpipe.flows.level1 import get_psf_model_path
+from punchpipe.flows.level1 import get_ccd_parameters, get_psf_model_path
 
 SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
 
@@ -35,6 +35,7 @@ def levelh_construct_flow_info(level0_files: list[File], level1_files: File,
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
     best_psf_model = get_psf_model_path(level0_files[0], pipeline_config, session=session)
+    ccd_parameters = get_ccd_parameters(level0_files[0], pipeline_config, session=session)
 
     call_data = json.dumps(
         {
@@ -44,6 +45,8 @@ def levelh_construct_flow_info(level0_files: list[File], level1_files: File,
             ],
             "psf_model_path": os.path.join(best_psf_model.directory(pipeline_config['root']),
                                            best_psf_model.filename()),
+            "gain_left": ccd_parameters['gain_left'],
+            "gain_right": ccd_parameters['gain_right']
         }
     )
     return Flow(
