@@ -5,7 +5,7 @@
 ## Latest: unreleased
 
 * Prepares punchpipe for SOC2NOAA Interface by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/94
-* specify path for codecov by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/95
+* Specify path for codecov by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/95
 * Update issue templates by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/97
 * Update README.md by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/98
 * Adds vignetting to level 1 processing by @lowderchris in https://github.com/punch-mission/punchpipe/pull/103
@@ -14,6 +14,7 @@
 * Creates VAM/VAN flow automation, corrects flash block length, fixes attitude quaternions in https://github.com/punch-mission/punchpipe/pull/102
 * Checked that all times were UTC in https://github.com/punch-mission/punchpipe/pull/119
 * Many automation improvements in https://github.com/punch-mission/punchpipe/pull/115
+* Splits CCD parameters per chip half in https://github.com/punch-mission/punchpipe/pull/131
 
 ## Version 0.0.5: Jan 3, 2025
 
