@@ -317,19 +317,9 @@ def organize_led_fits_keywords(led_packet: EngLEDPacket):
     }
 
 def organize_spacecraft_position_keywords(observation_time, before_xact, after_xact):
-    GPS_POSITION_ECEF1 = interpolate_value(observation_time,
-                                           before_xact.timestamp, before_xact.GPS_POSITION_ECEF1,
-                                           after_xact.timestamp, after_xact.GPS_POSITION_ECEF1)
-    GPS_POSITION_ECEF2 = interpolate_value(observation_time,
-                                           before_xact.timestamp, before_xact.GPS_POSITION_ECEF2,
-                                           after_xact.timestamp, after_xact.GPS_POSITION_ECEF3)
-    GPS_POSITION_ECEF3 = interpolate_value(observation_time,
-                                           before_xact.timestamp, before_xact.GPS_POSITION_ECEF3,
-                                           after_xact.timestamp, after_xact.GPS_POSITION_ECEF3)
-
-    position = EarthLocation.from_geocentric(GPS_POSITION_ECEF1*1000*u.m,
-                                             GPS_POSITION_ECEF2*1000*u.m,
-                                             GPS_POSITION_ECEF3*1000*u.m)
+    position = EarthLocation.from_geocentric(before_xact.GPS_POSITION_ECEF1*2E-5*u.km,
+                                             before_xact.GPS_POSITION_ECEF2*2E-5*u.km,
+                                             before_xact.GPS_POSITION_ECEF3*2E-5*u.km)
     return {
         'GEOD_LAT': position.geodetic.lat.deg,
         'GEOD_LON': position.geodetic.lon.deg,
