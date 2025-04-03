@@ -104,6 +104,7 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
             image_compression = [unpack_compression_settings(packet.compression_settings)
                                  for packet in image_packets_entries]
             logger.info(f"image_compression = {image_compression[0]}")
+
             # Read all the relevant TLM files
             needed_tlm_ids = set([image_packet.source_tlm_file for image_packet in image_packets_entries])
             tlm_id_to_tlm_path = {tlm_id: session.query(TLMFiles.path).where(TLMFiles.tlm_id == tlm_id).one().path
@@ -121,19 +122,11 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
             # make it easy to grab the right TLM files
             tlm_contents = [already_parsed_tlms[tlm_path] for tlm_path in needed_tlm_paths]
 
-            # Form the image packet stream for decompression
-            # ordered_image_content = []
-            # sequence_counter = []
-            # for packet_entry in image_packets_entries:
-            #     tlm_content_index = needed_tlm_paths.index(tlm_id_to_tlm_path[packet_entry.source_tlm_file])
-            #     selected_tlm_contents = tlm_contents[tlm_content_index]
-            #     ordered_image_content.append(selected_tlm_contents[0x20]['SCI_XFI_IMG_DATA'][packet_entry.packet_num])
-            #     sequence_counter.append(selected_tlm_contents[0x20]['SCI_XFI_HDR_GRP'][packet_entry.packet_num])
-
+            # order the packets in the correct order for de-commutation
             order_dict = {}
             packet_entry_mapping = {}
             for packet_entry in image_packets_entries:
-                packet_num = packet_entry.img_pkt_grp
+                packet_num = packet_entry.packet_num
                 if packet_num in order_dict:
                     order_dict[packet_num].append(packet_entry.packet_id)
                 else:
@@ -150,9 +143,7 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
                 ordered_image_content.append(selected_tlm_contents[0x20]['SCI_XFI_IMG_DATA'][packet_entry.packet_num])
                 sequence_counter.append(selected_tlm_contents[0x20]['SCI_XFI_HDR_GRP'][packet_entry.packet_num])
 
-            # Get the proper image
             skip_image = False
-
             if image_compression[0]['CMP_BYP'] == 0 and image_compression[0]['JPEG'] == 1:  # this assumes the image compression is static for an image
                 try:
                     ordered_image_content = np.concatenate(ordered_image_content)
@@ -194,7 +185,6 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
                     preliminary_wcs = form_preliminary_wcs(position_info, float(config['plate_scale'][str(spacecraft_id)]))
                     meta = NormalizedMetadata.load_template(file_type + str(spacecraft_id), "0")
 
-                    # TODO: FILL THE METADATA NOW!
                     for meta_key, meta_value in fits_info.items():
                         meta[meta_key] = meta_value
                     meta['DATE-OBS'] = str(t[0])
@@ -217,7 +207,7 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
                     os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
                     logger.info(f"Writing to {out_path}")
-                    write_ndcube_to_fits(cube,out_path)
+                    write_ndcube_to_fits(cube, out_path)
                     # TODO: write a jp2
                     for image_packets_entries in image_packets_entries:
                         image_packets_entries.is_used = True
@@ -318,13 +308,3 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
         flow_db_entry.end_time = datetime.now()
         # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
         session.commit()
-
-if __name__ == "__main__":
-    session = get_database_session()
-    pipeline_config = load_pipeline_configuration("/Users/mhughes/repos/punchpipe/process_local_config.yaml")
-    pipeline_config['plate_scale']['1'] = 0.02444444444
-    pipeline_config['plate_scale']['2'] = 0.02444444444
-    pipeline_config['plate_scale']['3'] = 0.02444444444
-    pipeline_config['plate_scale']['4'] = 0.008333333333
-    # level0_ingest_raw_packets(pipeline_config=pipeline_config, session=session)
-    level0_form_images(pipeline_config=pipeline_config, session=session)
