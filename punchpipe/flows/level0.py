@@ -144,7 +144,7 @@ def level0_form_images(session=None, pipeline_config: str | dict | None = None):
                 sequence_counter.append(selected_tlm_contents[0x20]['SCI_XFI_HDR_GRP'][packet_entry.packet_num])
 
             skip_image = False
-          
+
             if image_compression[0]['CMP_BYP'] == 0 and image_compression[0]['JPEG'] == 1:  # this assumes the image compression is static for an image
                 try:
                     ordered_image_content = np.concatenate(ordered_image_content)
