@@ -17,13 +17,15 @@ SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
 def level1_query_ready_files(session, pipeline_config: dict, reference_time=None):
     max_start = pipeline_config['scheduler']['max_start']
     ready = [f for f in session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL0_TYPE_CODES))
-    .filter(File.state == "created").filter(File.level == "0").all()][:max_start*3]
+    .filter(File.state == "created").filter(File.level == "0").all()]
     actually_ready = []
     for f in ready:
         if (get_psf_model_path(f, pipeline_config, session=session) is not None
                 and get_quartic_model_path(f, pipeline_config, session=session) is not None
                 and get_vignetting_function_path(f, pipeline_config, session=session) is not None):
             actually_ready.append([f.file_id])
+        if len(actually_ready) >= max_start:
+            break
     return actually_ready
 
 @task
