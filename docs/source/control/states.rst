@@ -16,6 +16,8 @@ File State Progression
     created --> progressed;
     created --> quickpunched;
     quickpunched --> progressed;
+    created --> visualized;
+    progressed --> visualized;
     created --> levelh;
     levelh --> progressed;
 
