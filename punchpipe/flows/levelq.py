@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from functools import partial
 
 from prefect import flow, get_run_logger, task
+from prefect.cache_policies import NO_CACHE
 from punchbowl.levelq.f_corona_model import construct_qp_f_corona_model
 from punchbowl.levelq.flow import levelq_core_flow
 
@@ -15,7 +16,7 @@ from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 
-@task
+@task(cache_policy=NO_CACHE)
 def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None):
     logger = get_run_logger()
     all_ready_files = (session.query(File).filter(File.state == "created")
@@ -31,7 +32,7 @@ def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None
     return out
 
 
-@task
+@task(cache_policy=NO_CACHE)
 def levelq_construct_flow_info(level1_files: list[File], levelq_file: File, pipeline_config: dict, session=None, reference_time=None):
     flow_type = "levelq"
     state = "planned"
