@@ -1,7 +1,7 @@
-from datetime import datetime
 import os
-import shutil
 import sys
+import shutil
+from datetime import datetime
 
 from punchpipe.control.db import File
 from punchpipe.control.util import get_database_session
