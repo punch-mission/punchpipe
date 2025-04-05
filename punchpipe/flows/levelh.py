@@ -4,6 +4,7 @@ import typing as t
 from datetime import UTC, datetime
 
 from prefect import flow, task
+from prefect.cache_policies import NO_CACHE
 from punchbowl.level1.flow import levelh_core_flow
 
 from punchpipe import __version__
@@ -14,7 +15,7 @@ from punchpipe.flows.level1 import get_ccd_parameters, get_psf_model_path
 
 SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
 
-@task
+@task(cache_policy=NO_CACHE)
 def levelh_query_ready_files(session, pipeline_config: dict, reference_time=None):
     max_start = pipeline_config['scheduler']['max_start']
     ready = [f for f in session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL0_TYPE_CODES))
@@ -26,7 +27,7 @@ def levelh_query_ready_files(session, pipeline_config: dict, reference_time=None
     return actually_ready
 
 
-@task
+@task(cache_policy=NO_CACHE)
 def levelh_construct_flow_info(level0_files: list[File], level1_files: File,
                                pipeline_config: dict, session=None, reference_time=None):
     flow_type = "levelh"
