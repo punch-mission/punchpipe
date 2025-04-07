@@ -43,7 +43,7 @@ def filter_for_launchable_flows(planned_flows, running_flow_count, max_flows_run
     number_to_launch = max_flows_running - running_flow_count
     logger.info(f"{number_to_launch} flows can be launched at this time.")
     number_to_launch = min(number_to_launch, max_to_launch)
-    logger.info(f"Will launch {number_to_launch} flows")
+    logger.info(f"Will launch up to {number_to_launch} flows")
 
     if number_to_launch > 0:
         if planned_flows:  # there are flows to run
