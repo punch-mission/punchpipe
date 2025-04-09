@@ -86,7 +86,9 @@ async def launch_ready_flows(session: Session, flow_ids: List[int]) -> List:
             response = await client.create_flow_run_from_deployment(
                 this_deployment_id, parameters={"flow_id": this_flow.flow_id}
             )
+            this_flow.state = "launched"
             responses.append(response)
+    session.commit()
     return responses
 
 
@@ -122,6 +124,6 @@ async def launcher(pipeline_config_path=None):
         pipeline_config["control"]["launcher"]["max_flows_running"],
         pipeline_config["control"]["launcher"]["max_flows_to_launch_at_once"],
     )
-    logger.info(f"Flows with IDs of {flows_to_launch} will be launched.")
+    logger.info(f"{len(flows_to_launch)} flows with IDs of {flows_to_launch} will be launched.")
     await launch_ready_flows(session, flows_to_launch)
     logger.info("Launcher flow exit.")
