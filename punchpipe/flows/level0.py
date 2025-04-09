@@ -949,11 +949,7 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                     logger.error(traceback.format_exc())
                     skip_count += 1
             else:
-                skip_image = True
-                skip_reason = "Terminated before writing the image"
                 skip_count += 1
-                logger.error("Failed!!!!!")
-                logger.error(traceback.format_exc())
 
             # go back and do some clean up if we skipped the image
             if skip_image:
