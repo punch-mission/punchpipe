@@ -26,6 +26,7 @@ dependencies = [
     "pylibjpeg[libjpeg]",
     "psutil",
     "gunicorn",
+    "mysqlclient"
 ]
 requires-python = ">=3.11"
 authors = [
