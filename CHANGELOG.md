@@ -18,6 +18,7 @@
 * Improves level 0 metadata population in https://github.com/punch-mission/punchpipe/pull/128
 * Splits CCD parameters per chip half in https://github.com/punch-mission/punchpipe/pull/131
 * Iterates over sequence count instead of packet index in https://github.com/punch-mission/punchpipe/pull/132
+* Varied improvements to the pipeline, including launching and scheduling in https://github.com/punch-mission/punchpipe/pull/134
 
 ## Version 0.0.5: Jan 3, 2025
 
