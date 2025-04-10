@@ -42,11 +42,13 @@ Flow State Progression
 .. mermaid::
 
     graph LR;
-    planned --> running;
+    planned --> launched;
+    launched --> running;
     running --> failed;
     running --> completed;
 
 Flow behavior is a bit simpler. Flows are ``planned`` by the scheduler.
-They then start ``running`` when the launcher decides its' time.
+The launcher changes them to ``launched`` when they're submitted to Prefect.
+When the flow begins running it updates its status to ``running``.
 From ``running`` they can either enter the ``failed`` or ``completed`` states depending
 on the success of their execution.
