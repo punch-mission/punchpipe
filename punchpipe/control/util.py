@@ -4,6 +4,7 @@ from datetime import datetime
 import yaml
 from ndcube import NDCube
 from prefect import task
+from prefect.cache_policies import NO_CACHE
 from prefect.variables import Variable
 from prefect_sqlalchemy import SqlAlchemyConnector
 from punchbowl.data import get_base_file_name, write_ndcube_to_fits, write_ndcube_to_quicklook
@@ -22,7 +23,7 @@ def get_database_session():
     return session
 
 
-@task
+@task(cache_policy=NO_CACHE)
 def update_file_state(session, file_id, new_state):
     session.query(File).where(File.file_id == file_id).update({"state": new_state})
     session.commit()

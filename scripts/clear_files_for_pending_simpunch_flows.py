@@ -9,7 +9,7 @@ from punchpipe.control.util import get_database_session
 
 session = get_database_session()
 
-for state in ['running', 'failed']:
+for state in ['running', 'failed', 'launched']:
     interrupted_flows = session.query(Flow).where(Flow.state == state).where(Flow.flow_level == "S").all()
     print()
     print(f"There are {len(interrupted_flows)} flows marked as '{state}'.")

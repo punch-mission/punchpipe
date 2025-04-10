@@ -23,6 +23,9 @@ def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_confi
 
     # fetch the appropriate flow db entry
     flow_db_entry = session.query(Flow).where(Flow.flow_id == flow_id).one()
+    if flow_db_entry.state != "launched":
+        logger.warning(f"Flow id {flow_db_entry.flow_id} has state '{flow_db_entry.state}'; not running")
+        return
     logger.info(f"Running on flow db entry with id={flow_db_entry.flow_id}.")
 
     # update the processing flow name with the flow run name from Prefect

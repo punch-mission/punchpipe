@@ -3,7 +3,8 @@ import json
 import typing as t
 from datetime import UTC, datetime
 
-from prefect import flow, task
+from prefect import flow, get_run_logger, task
+from prefect.cache_policies import NO_CACHE
 from punchbowl.level1.flow import level1_core_flow
 
 from punchpipe import __version__
@@ -13,20 +14,30 @@ from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
 
-@task
+@task(cache_policy=NO_CACHE)
 def level1_query_ready_files(session, pipeline_config: dict, reference_time=None):
+    logger = get_run_logger()
     max_start = pipeline_config['scheduler']['max_start']
     ready = [f for f in session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL0_TYPE_CODES))
-    .filter(File.state == "created").filter(File.level == "0").all()][:max_start*3]
+    .filter(File.state == "created").filter(File.level == "0").all()]
     actually_ready = []
     for f in ready:
-        if (get_psf_model_path(f, pipeline_config, session=session) is not None
-                and get_quartic_model_path(f, pipeline_config, session=session) is not None
-                and get_vignetting_function_path(f, pipeline_config, session=session) is not None):
-            actually_ready.append([f.file_id])
+        if get_psf_model_path(f, pipeline_config, session=session) is None:
+            logger.info(f"Missing PSF for {f.filename()}")
+            continue
+        if get_quartic_model_path(f, pipeline_config, session=session) is None:
+            logger.info(f"Missing quartic model for {f.filename()}")
+            continue
+        if get_vignetting_function_path(f, pipeline_config, session=session) is None:
+            logger.info(f"Missing vignetting function for {f.filename()}")
+            continue
+        actually_ready.append([f.file_id])
+        if len(actually_ready) >= max_start:
+            break
     return actually_ready
 
-@task
+
+@task(cache_policy=NO_CACHE)
 def get_vignetting_function_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
     corresponding_vignetting_function_type = {"PM": "GM",
                                               "PZ": "GZ",
@@ -40,7 +51,8 @@ def get_vignetting_function_path(level0_file, pipeline_config: dict, session=Non
                      .order_by(File.date_obs.desc()).first())
     return best_function
 
-@task
+
+@task(cache_policy=NO_CACHE)
 def get_psf_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
     corresponding_psf_model_type = {"PM": "RM",
                                     "PZ": "RZ",
@@ -54,7 +66,8 @@ def get_psf_model_path(level0_file, pipeline_config: dict, session=None, referen
                   .order_by(File.date_obs.desc()).first())
     return best_model
 
-@task
+
+@task(cache_policy=NO_CACHE)
 def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
     best_model = (session.query(File)
                   .filter(File.file_type == 'FQ')
@@ -63,12 +76,14 @@ def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, ref
                   .order_by(File.date_obs.desc()).first())
     return best_model
 
-@task
+
+@task(cache_policy=NO_CACHE)
 def get_ccd_parameters(level0_file, pipeline_config: dict, session=None):
     gain_left, gain_right = pipeline_config['ccd_gain'][int(level0_file.observatory)]
     return {"gain_left": gain_left, "gain_right": gain_right}
 
-@task
+
+@task(cache_policy=NO_CACHE)
 def level1_construct_flow_info(level0_files: list[File], level1_files: File,
                                pipeline_config: dict, session=None, reference_time=None):
     flow_type = "level1"

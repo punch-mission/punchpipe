@@ -4,6 +4,7 @@ import typing as t
 from datetime import UTC, datetime
 
 from prefect import flow, get_run_logger, task
+from prefect.cache_policies import NO_CACHE
 from punchbowl.level2.flow import level2_core_flow
 
 from punchpipe import __version__
@@ -14,7 +15,7 @@ from punchpipe.control.scheduler import generic_scheduler_flow_logic
 SCIENCE_POLARIZED_LEVEL1_TYPES = ["PM", "PZ", "PP"]
 SCIENCE_CLEAR_LEVEL1_TYPES = ["CR"]
 
-@task
+@task(cache_policy=NO_CACHE)
 def level2_query_ready_files(session, pipeline_config: dict, reference_time=None):
     logger = get_run_logger()
     all_ready_files = (session.query(File).filter(File.state == "quickpunched")
@@ -30,7 +31,7 @@ def level2_query_ready_files(session, pipeline_config: dict, reference_time=None
     return out
 
 
-@task
+@task(cache_policy=NO_CACHE)
 def level2_query_ready_clear_files(session, pipeline_config: dict, reference_time=None):
     logger = get_run_logger()
     all_ready_files = (session.query(File).filter(File.state == "quickpunched")
@@ -45,7 +46,8 @@ def level2_query_ready_clear_files(session, pipeline_config: dict, reference_tim
     logger.info(f"{len(out)} groups heading out")
     return out
 
-@task
+
+@task(cache_policy=NO_CACHE)
 def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipeline_config: dict, session=None, reference_time=None):
     flow_type = "level2_clear" if level1_files[0].file_type == "CR" else "level2"
     state = "planned"
@@ -68,6 +70,7 @@ def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipe
         priority=priority,
         call_data=call_data,
     )
+
 
 @task
 def level2_construct_file_info(level1_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:

@@ -19,7 +19,7 @@ def gather_planned_flows(session):
 
 @task(cache_policy=NO_CACHE)
 def count_running_flows(session):
-    return len(session.query(Flow).where(Flow.state == "running").all())
+    return len(session.query(Flow).where(Flow.state.in_(("running", "launched"))).all())
 
 
 @task(cache_policy=NO_CACHE)
@@ -43,7 +43,7 @@ def filter_for_launchable_flows(planned_flows, running_flow_count, max_flows_run
     number_to_launch = max_flows_running - running_flow_count
     logger.info(f"{number_to_launch} flows can be launched at this time.")
     number_to_launch = min(number_to_launch, max_to_launch)
-    logger.info(f"Will launch {number_to_launch} flows")
+    logger.info(f"Will launch up to {number_to_launch} flows")
 
     if number_to_launch > 0:
         if planned_flows:  # there are flows to run
@@ -86,7 +86,9 @@ async def launch_ready_flows(session: Session, flow_ids: List[int]) -> List:
             response = await client.create_flow_run_from_deployment(
                 this_deployment_id, parameters={"flow_id": this_flow.flow_id}
             )
+            this_flow.state = "launched"
             responses.append(response)
+    session.commit()
     return responses
 
 
@@ -122,6 +124,6 @@ async def launcher(pipeline_config_path=None):
         pipeline_config["control"]["launcher"]["max_flows_running"],
         pipeline_config["control"]["launcher"]["max_flows_to_launch_at_once"],
     )
-    logger.info(f"Flows with IDs of {flows_to_launch} will be launched.")
+    logger.info(f"{len(flows_to_launch)} flows with IDs of {flows_to_launch} will be launched.")
     await launch_ready_flows(session, flows_to_launch)
     logger.info("Launcher flow exit.")

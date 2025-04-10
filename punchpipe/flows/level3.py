@@ -4,6 +4,7 @@ import typing as t
 from datetime import UTC, datetime, timedelta
 
 from prefect import flow, get_run_logger, task
+from prefect.cache_policies import NO_CACHE
 from punchbowl.level3.flow import level3_core_flow, level3_PIM_flow
 from sqlalchemy import and_
 
@@ -30,7 +31,7 @@ def get_valid_fcorona_models(session, f: File, before_timedelta: timedelta, afte
                       .filter(File.date_obs <= valid_fcorona_end).all())
 
 
-@task
+@task(cache_policy=NO_CACHE)
 def level3_PTM_query_ready_files(session, pipeline_config: dict, reference_time=None):
     logger = get_run_logger()
     all_ready_files = session.query(File).where(and_(and_(File.state.in_(["progressed", "created"]),
@@ -60,7 +61,7 @@ def level3_PTM_query_ready_files(session, pipeline_config: dict, reference_time=
     return [[f.file_id] for f in actually_ready_files]
 
 
-@task
+@task(cache_policy=NO_CACHE)
 def level3_PTM_construct_flow_info(level2_files: list[File], level3_file: File,
                                    pipeline_config: dict, session=None, reference_time=None):
     session = get_database_session()  # TODO: replace so this works in the tests by passing in a test

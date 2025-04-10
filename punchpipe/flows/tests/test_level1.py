@@ -72,10 +72,10 @@ def session_fn(session):
 db = create_mysql_fixture(Base, session_fn, session=True)
 
 
-def test_query_ready_files(db):
+def test_query_ready_files(db, prefect_test_fixture):
     pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
-    pipeline_config = load_pipeline_configuration.fn(pipeline_config_path)
-    ready_file_ids = level1_query_ready_files.fn(db, pipeline_config)
+    pipeline_config = load_pipeline_configuration(pipeline_config_path)
+    ready_file_ids = level1_query_ready_files(db, pipeline_config)
     assert len(ready_file_ids) == 1
 
 
@@ -100,9 +100,9 @@ def test_level1_construct_file_info():
     assert constructed_file_info.state == "planned"
 
 
-def test_level1_construct_flow_info(db):
+def test_level1_construct_flow_info(db, prefect_test_fixture):
     pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
-    pipeline_config = load_pipeline_configuration.fn(pipeline_config_path)
+    pipeline_config = load_pipeline_configuration(pipeline_config_path)
     level0_file = [File(level="0",
                        file_type='PM',
                        observatory='4',
@@ -110,8 +110,8 @@ def test_level1_construct_flow_info(db):
                        file_version='none',
                        software_version='none',
                        date_obs=datetime.now(UTC))]
-    level1_file = level1_construct_file_info.fn(level0_file, pipeline_config)
-    flow_info = level1_construct_flow_info.fn(level0_file, level1_file, pipeline_config, session=db)
+    level1_file = level1_construct_file_info(level0_file, pipeline_config)
+    flow_info = level1_construct_flow_info(level0_file, level1_file, pipeline_config, session=db)
 
     assert flow_info.flow_type == 'level1'
     assert flow_info.state == "planned"
