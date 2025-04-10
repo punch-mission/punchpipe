@@ -19,7 +19,7 @@ def gather_planned_flows(session):
 
 @task(cache_policy=NO_CACHE)
 def count_running_flows(session):
-    return len(session.query(Flow).where(Flow.state == "running").all())
+    return len(session.query(Flow).where(Flow.state.in_(("running", "launched"))).all())
 
 
 @task(cache_policy=NO_CACHE)

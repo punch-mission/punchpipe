@@ -103,6 +103,10 @@ def test_simple_generic_process_flow_unreported(db):
     assert level1_file.state == "planned"
     del level1_file
 
+    flow = db.query(Flow).where(Flow.flow_id == 1).one()
+    flow.state = 'launched'
+    db.commit()
+    del flow
     with prefect_test_harness():
         empty_flow(1, session=db)
 
@@ -142,6 +146,10 @@ def test_simple_generic_process_flow_normal_return(db):
     assert level1_file.state == "planned"
     del level1_file
 
+    flow = db.query(Flow).where(Flow.flow_id == 1).one()
+    flow.state = 'launched'
+    db.commit()
+    del flow
     with prefect_test_harness():
         normal_flow(1, session=db)
 
