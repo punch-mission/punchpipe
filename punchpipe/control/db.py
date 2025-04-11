@@ -23,6 +23,13 @@ class File(Base):
     state = Column(String(64), nullable=False)
     processing_flow = Column(Integer, nullable=True)
 
+    def summary(self):
+        return (
+            f"File {self.file_id}, level {self.level}, type {self.file_type}{self.observatory}, state {self.state}\n"
+            f"File version {self.file_version}, from software {self.software_version}\n"
+            f"date_obs {self.date_obs}, created {self.date_created}\n"
+        )
+
     def __repr__(self):
         return f"File(id={self.file_id!r})"
 
