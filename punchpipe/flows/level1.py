@@ -19,7 +19,9 @@ def level1_query_ready_files(session, pipeline_config: dict, reference_time=None
     logger = get_run_logger()
     max_start = pipeline_config['scheduler']['max_start']
     ready = [f for f in session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL0_TYPE_CODES))
-    .filter(File.state == "created").filter(File.level == "0").all()]
+                                           .filter(File.state == "created")
+                                           .filter(File.level == "0")
+                                           .order_by(File.date_obs.asc()).all()]
     actually_ready = []
     for f in ready:
         if get_psf_model_path(f, pipeline_config, session=session) is None:

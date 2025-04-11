@@ -36,7 +36,7 @@ def level3_PTM_query_ready_files(session, pipeline_config: dict, reference_time=
     logger = get_run_logger()
     all_ready_files = session.query(File).where(and_(and_(File.state.in_(["progressed", "created"]),
                                                           File.level == "2"),
-                                                     File.file_type == "PT")).all()
+                                                     File.file_type == "PT")).order_by(File.date_obs.asc()).all()
     logger.info(f"{len(all_ready_files)} Level 3 PTM files need to be processed.")
 
     actually_ready_files = []
@@ -143,7 +143,7 @@ def level3_PIM_query_ready_files(session, pipeline_config: dict, reference_time=
     logger = get_run_logger()
     all_ready_files = session.query(File).where(and_(and_(File.state == "created",
                                                           File.level == "2"),
-                                                     File.file_type == "PT")).all()
+                                                     File.file_type == "PT")).order_by(File.date_obs.asc()).all()
     logger.info(f"{len(all_ready_files)} Level 3 PTM files need to be processed.")
 
     actually_ready_files = []
@@ -240,7 +240,7 @@ def level3_CIM_query_ready_files(session, pipeline_config: dict, reference_time=
     logger = get_run_logger()
     all_ready_files = session.query(File).where(and_(and_(File.state == "created",
                                                           File.level == "2"),
-                                                     File.file_type == "CT")).all()
+                                                     File.file_type == "CT")).order_by(File.date_obs.asc()).all()
     logger.info(f"{len(all_ready_files)} Level 3 CTM files need to be processed.")
 
     actually_ready_files = []
@@ -341,7 +341,7 @@ def level3_CTM_query_ready_files(session, pipeline_config: dict, reference_time=
     logger = get_run_logger()
     all_ready_files = session.query(File).where(and_(and_(File.state.in_(["progressed", "created"]),
                                                           File.level == "2"),
-                                                     File.file_type == "CT")).all()
+                                                     File.file_type == "CT")).order_by(File.date_obs.asc()).all()
     logger.info(f"{len(all_ready_files)} Level 2 CTM files need to be processed.")
 
     actually_ready_files = []
