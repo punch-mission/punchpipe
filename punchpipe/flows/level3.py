@@ -32,7 +32,7 @@ def get_valid_fcorona_models(session, f: File, before_timedelta: timedelta, afte
 
 
 @task(cache_policy=NO_CACHE)
-def level3_PTM_query_ready_files(session, pipeline_config: dict, reference_time=None):
+def level3_PTM_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
     all_ready_files = session.query(File).where(and_(and_(File.state.in_(["progressed", "created"]),
                                                           File.level == "2"),
@@ -56,7 +56,9 @@ def level3_PTM_query_ready_files(session, pipeline_config: dict, reference_time=
                 and len(valid_after_fcorona_models) >= 1
                 and len(valid_starfields) >= 1):
             actually_ready_files.append(f)
-    logger.info(f"{len(actually_ready_files)} Level 3 PTM files have necessary calibration data.")
+            if len(actually_ready_files) >= max_n:
+                break
+    logger.info(f"{len(actually_ready_files)} Level 3 PTM files selected with necessary calibration data.")
 
     return [[f.file_id] for f in actually_ready_files]
 
@@ -139,7 +141,7 @@ def level3_PTM_process_flow(flow_id: int, pipeline_config_path=None, session=Non
 
 
 @task
-def level3_PIM_query_ready_files(session, pipeline_config: dict, reference_time=None):
+def level3_PIM_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
     all_ready_files = session.query(File).where(and_(and_(File.state == "created",
                                                           File.level == "2"),
@@ -158,7 +160,9 @@ def level3_PIM_query_ready_files(session, pipeline_config: dict, reference_time=
         logger.info(f"valid after f corona: {valid_after_fcorona_models}")
         if len(valid_before_fcorona_models) >= 1 and len(valid_after_fcorona_models) >= 1:
             actually_ready_files.append(f)
-    logger.info(f"{len(actually_ready_files)} Level 2 PTM files have necessary calibration data.")
+            if len(actually_ready_files) >= max_n:
+                break
+    logger.info(f"{len(actually_ready_files)} Level 2 PTM files selected with necessary calibration data.")
 
     return [[f.file_id] for f in actually_ready_files]
 
@@ -236,7 +240,7 @@ def level3_PIM_process_flow(flow_id: int, pipeline_config_path=None, session=Non
 
 
 @task
-def level3_CIM_query_ready_files(session, pipeline_config: dict, reference_time=None):
+def level3_CIM_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
     all_ready_files = session.query(File).where(and_(and_(File.state == "created",
                                                           File.level == "2"),
@@ -257,7 +261,9 @@ def level3_CIM_query_ready_files(session, pipeline_config: dict, reference_time=
         logger.info(f"valid after f corona: {valid_after_fcorona_models}")
         if len(valid_before_fcorona_models) >= 1 and len(valid_after_fcorona_models) >= 1:
             actually_ready_files.append(f)
-    logger.info(f"{len(actually_ready_files)} Level 2 CTM files have necessary calibration data.")
+            if len(actually_ready_files) >= max_n:
+                break
+    logger.info(f"{len(actually_ready_files)} Level 2 CTM files selected with necessary calibration data.")
 
     return [[f.file_id] for f in actually_ready_files]
 
@@ -337,7 +343,7 @@ def level3_CIM_process_flow(flow_id: int, pipeline_config_path=None, session=Non
 
 
 @task
-def level3_CTM_query_ready_files(session, pipeline_config: dict, reference_time=None):
+def level3_CTM_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
     all_ready_files = session.query(File).where(and_(and_(File.state.in_(["progressed", "created"]),
                                                           File.level == "2"),
@@ -363,7 +369,9 @@ def level3_CTM_query_ready_files(session, pipeline_config: dict, reference_time=
                 and len(valid_after_fcorona_models) >= 1
                 and len(valid_starfields) >= 1):
             actually_ready_files.append(f)
-    logger.info(f"{len(actually_ready_files)} Level 2 CTM files have necessary calibration data.")
+            if len(actually_ready_files) >= max_n:
+                break
+    logger.info(f"{len(actually_ready_files)} Level 2 CTM files selected with necessary calibration data.")
 
     return [[f.file_id] for f in actually_ready_files]
 

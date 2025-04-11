@@ -15,9 +15,8 @@ from punchpipe.control.scheduler import generic_scheduler_flow_logic
 SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
 
 @task(cache_policy=NO_CACHE)
-def level1_query_ready_files(session, pipeline_config: dict, reference_time=None):
+def level1_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
-    max_start = pipeline_config['scheduler']['max_start']
     ready = [f for f in session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL0_TYPE_CODES))
                                            .filter(File.state == "created")
                                            .filter(File.level == "0")
@@ -34,7 +33,7 @@ def level1_query_ready_files(session, pipeline_config: dict, reference_time=None
             logger.info(f"Missing vignetting function for {f.filename()}")
             continue
         actually_ready.append([f.file_id])
-        if len(actually_ready) >= max_start:
+        if len(actually_ready) >= max_n:
             break
     return actually_ready
 

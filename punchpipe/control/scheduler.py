@@ -1,4 +1,5 @@
 from datetime import datetime
+import inspect
 
 from punchpipe.control.db import File, FileRelationship
 from punchpipe.control.util import get_database_session, load_pipeline_configuration, update_file_state
@@ -17,7 +18,12 @@ def generic_scheduler_flow_logic(
         session = get_database_session()
 
     # find all files that are ready to run
-    ready_file_ids = query_ready_files_func(session, pipeline_config, reference_time=reference_time)[:max_start]
+    if 'max_n' in inspect.signature(query_ready_files_func).parameters:
+        extra_args = {'max_n': max_start}
+    else:
+        extra_args = {}
+    ready_file_ids = query_ready_files_func(
+        session, pipeline_config, reference_time=reference_time, **extra_args)[:max_start]
     if ready_file_ids:
         for group in ready_file_ids:
             parent_files = []
