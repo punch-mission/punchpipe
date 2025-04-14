@@ -35,7 +35,7 @@ def level3_vam_construct_flow_info(level3_ctm_files: List[File],
                                         session=None):
     flow_type = "L3_VAM"
     state = "planned"
-    creation_time = datetime.now(UTC)
+    creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
@@ -115,7 +115,7 @@ def level3_van_construct_flow_info(level3_cnn_files: List[File],
                                         session=None):
     flow_type = "L3_VAN"
     state = "planned"
-    creation_time = datetime.now(UTC)
+    creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {

@@ -5,7 +5,7 @@ import argparse
 import traceback
 import subprocess
 from pathlib import Path
-from datetime import UTC, datetime
+from datetime import datetime
 from importlib import import_module
 
 from prefect import Flow, serve
@@ -100,7 +100,7 @@ def construct_flows_to_serve(configuration_path):
     return flows_to_serve
 
 def run(configuration_path):
-    now = datetime.now(UTC)
+    now = datetime.now()
 
     configuration_path = str(Path(configuration_path).resolve())
     output_path = f"punchpipe_{now.strftime('%Y%m%d_%H%M%S')}.txt"
