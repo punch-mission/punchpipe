@@ -13,7 +13,8 @@ from punchpipe.control.util import (
 )
 
 
-def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_config_path: str, session=None):
+def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_config_path: str, session=None,
+                               call_data_processor=None):
     if session is None:
         session = get_database_session()
     try:
@@ -48,6 +49,8 @@ def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_confi
 
         # load the call data and launch the core flow
         flow_call_data = json.loads(flow_db_entry.call_data)
+        if call_data_processor is not None:
+            flow_call_data = call_data_processor(flow_call_data)
         output_file_ids = set()
         expected_file_ids = {entry.file_id for entry in file_db_entry_list}
         logger.info(f"Expecting to output files with ids={expected_file_ids}.")

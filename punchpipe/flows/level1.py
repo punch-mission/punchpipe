@@ -8,6 +8,7 @@ from prefect.cache_policies import NO_CACHE
 from punchbowl.level1.flow import level1_core_flow
 
 from punchpipe import __version__
+from punchpipe.control import cache_layer
 from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
@@ -152,6 +153,19 @@ def level1_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
     )
 
 
+def level1_call_data_processor(call_data: dict) -> dict:
+    call_data['psf_model_path'] = cache_layer.psf.wrap_if_appropriate(call_data['psf_model_path'])
+    call_data['quartic_coefficient_path'] = cache_layer.quartic_coefficients.wrap_if_appropriate(
+        call_data['quartic_coefficient_path'])
+    call_data['vignetting_function_path'] = cache_layer.vignetting_function.wrap_if_appropriate(
+        call_data['vignetting_function_path'])
+    # Anything more than 16 doesn't offer any real benefit, and the default of n_cpu on punch190 is actually slower than
+    # 16! Here we choose less to have less spiky CPU usage to play better with other flows.
+    call_data['max_workers'] = 2
+    return call_data
+
+
 @flow
 def level1_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, level1_core_flow, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, level1_core_flow, pipeline_config_path, session=session,
+                               call_data_processor=level1_call_data_processor)
