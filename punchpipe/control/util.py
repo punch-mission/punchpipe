@@ -21,6 +21,13 @@ def get_database_session():
     session = Session(engine)
     return session
 
+def get_database_engine_session():
+    """Sets up a session to connect to the MariaDB punchpipe database"""
+    credentials = SqlAlchemyConnector.load("mariadb-creds", _sync=True)
+    engine = credentials.get_engine()
+    session = Session(engine)
+    return engine, session
+
 
 @task
 def update_file_state(session, file_id, new_state):

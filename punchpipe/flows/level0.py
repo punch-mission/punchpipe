@@ -26,12 +26,11 @@ from prefect.blocks.core import Block
 from prefect.blocks.fields import SecretDict
 from prefect.cache_policies import NO_CACHE
 from prefect.context import get_run_context
-from prefect_sqlalchemy import SqlAlchemyConnector
 from punchbowl.data import NormalizedMetadata, get_base_file_name, write_ndcube_to_fits
 from punchbowl.data.wcs import calculate_helio_wcs_from_celestial, calculate_pc_matrix
-from sqlalchemy import TEXT, Boolean, Column, Float, Integer, String, and_, or_
+from sqlalchemy import Boolean, Column, Integer, String, and_, or_
 from sqlalchemy.dialects.mysql import DATETIME, FLOAT, INTEGER
-from sqlalchemy.orm import Session, declarative_base
+from sqlalchemy.orm import Session
 from sunpy.coordinates import (
     HeliocentricEarthEcliptic,
     HeliocentricInertial,
@@ -39,11 +38,12 @@ from sunpy.coordinates import (
     HeliographicStonyhurst,
 )
 
-from punchpipe.control.util import get_database_session, load_pipeline_configuration
+from punchpipe.control.db import Base, File, Flow, PacketHistory, TLMFiles
+from punchpipe.control.util import get_database_engine_session, get_database_session, load_pipeline_configuration
 
 FIXED_PACKETS = ['ENG_XACT', 'ENG_LED', 'ENG_PFW', 'ENG_CEB']
 VARIABLE_PACKETS = ['SCI_XFI']
-PACKET_CADENCE = {'ENG_XACT': 10}
+PACKET_CADENCE = {'ENG_XACT': 10}  # only take every tenth ENG_XACT packet for 10Hz resolution
 
 class SpacecraftMapping(Block):
     mapping: SecretDict
@@ -144,108 +144,6 @@ def get_database_data_type(sheet_type, data_size):
         return INTEGER(unsigned=True)
     else:
         return None
-
-def get_experimental_database():
-    """Sets up a session to connect to the MariaDB punchpipe database"""
-    credentials = SqlAlchemyConnector.load("experimental-creds", _sync=True)
-    engine = credentials.get_engine()
-    session = Session(engine)
-    return engine, session
-
-Base = declarative_base()
-
-class File(Base):
-    __tablename__ = "files"
-    file_id = Column(Integer, primary_key=True)
-    level = Column(String(1), nullable=False)
-    file_type = Column(String(2), nullable=False)
-    observatory = Column(String(1), nullable=False)
-    file_version = Column(String(16), nullable=False)
-    software_version = Column(String(35), nullable=False)
-    date_created = Column(DATETIME(fsp=6), nullable=True)
-    date_obs = Column(DATETIME(fsp=6), nullable=False)
-    date_beg = Column(DATETIME(fsp=6), nullable=True)
-    date_end = Column(DATETIME(fsp=6), nullable=True)
-    polarization = Column(String(2), nullable=True)
-    state = Column(String(64), nullable=False)
-    processing_flow = Column(Integer, nullable=True)
-
-    def __repr__(self):
-        return f"File(id={self.file_id!r})"
-
-    def filename(self) -> str:
-        """Constructs the filename for this file
-
-        Returns
-        -------
-        str
-            properly formatted PUNCH filename
-        """
-        return f'PUNCH_L{self.level}_{self.file_type}{self.observatory}_{self.date_obs.strftime("%Y%m%d%H%M%S")}_v{self.file_version}.fits'
-
-    def directory(self, root: str):
-        """Constructs the directory the file should be stored in
-
-        Parameters
-        ----------
-        root : str
-            the root directory where the top level PUNCH file hierarchy is
-
-        Returns
-        -------
-        str
-            the place to write the file
-        """
-        return os.path.join(root, self.level, self.file_type + self.observatory, self.date_obs.strftime("%Y/%m/%d"))
-
-
-class Flow(Base):
-    __tablename__ = "flows"
-    flow_id = Column(Integer, primary_key=True)
-    flow_level = Column(String(1), nullable=False)
-    flow_type = Column(String(64), nullable=False)
-    flow_run_name = Column(String(64), nullable=True)
-    flow_run_id = Column(String(36), nullable=True)
-    state = Column(String(16), nullable=False)
-    creation_time = Column(DATETIME(fsp=6), nullable=False)
-    start_time = Column(DATETIME(fsp=6), nullable=True)
-    end_time = Column(DATETIME(fsp=6), nullable=True)
-    priority = Column(Integer, nullable=False)
-    call_data = Column(TEXT, nullable=True)
-
-
-class FileRelationship(Base):
-    __tablename__ = "relationships"
-    relationship_id = Column(Integer, primary_key=True)
-    parent = Column(Integer, nullable=False)
-    child = Column(Integer, nullable=False)
-
-
-class TLMFile(Base):
-    __tablename__ = "tlm_files"
-    tlm_id = Column(Integer, primary_key=True)
-    path = Column(String(128), nullable=False)
-    successful = Column(Boolean, nullable=False)
-    num_attempts = Column(Integer, nullable=False)
-    last_attempt = Column(DATETIME(fsp=6), nullable=True)
-
-class Health(Base):
-    __tablename__ = "health"
-    health_id = Column(Integer, primary_key=True)
-    datetime = Column(DATETIME(fsp=6), nullable=False)
-    cpu_usage = Column(Float, nullable=False)
-    memory_usage = Column(Float, nullable=False)
-    memory_percentage = Column(Float, nullable=False)
-    disk_usage = Column(Float, nullable=False)
-    disk_percentage = Column(Float, nullable=False)
-    num_pids = Column(Integer, nullable=False)
-
-class PacketHistory(Base):
-    __tablename__ = "packet_history"
-    id = Column(Integer, primary_key=True)
-    datetime = Column(DATETIME(fsp=6), nullable=False)
-    num_images_succeeded = Column(Integer, nullable=False)
-    num_images_failed = Column(Integer, nullable=False)
 
 def create_class(table_name, columns):
     attrs = {'__tablename__': table_name}
@@ -370,7 +268,7 @@ def create_packet_definitions(tlm, parse_expanding_fields=True):
 @task(cache_policy=NO_CACHE)
 def detect_new_tlm_files(pipeline_config: dict, session=None) -> [str]:
     if session is None:
-        session = get_experimental_database()
+        session = get_database_session()
 
     tlm_directory = pipeline_config['tlm_directory']
     found_tlm_files = list(glob(os.path.join(tlm_directory, '**/*.tlm'), recursive=True))
@@ -384,7 +282,7 @@ def detect_new_tlm_files(pipeline_config: dict, session=None) -> [str]:
         found_tlm_files = [path for path, date in zip(found_tlm_files, found_tlm_file_dates)
                                if date > tlm_start_date]
     found_tlm_files = set(found_tlm_files)
-    database_tlm_files = set([p[0] for p in session.query(TLMFile.path).distinct().all()])
+    database_tlm_files = set([p[0] for p in session.query(TLMFiles.path).distinct().all()])
 
     return sorted(list(found_tlm_files - database_tlm_files))
 
@@ -415,7 +313,7 @@ def ingest_tlm_file(path: str, session: Session,
     logger = get_run_logger()
 
     logger.info(f"Ingesting {path}")
-    tlm_db_entry = TLMFile(
+    tlm_db_entry = TLMFiles(
         path=path,
         successful=False,
         num_attempts=0,
@@ -426,7 +324,7 @@ def ingest_tlm_file(path: str, session: Session,
 
     parsed, success = process_telemetry_file(path, defs, apid_name2num, logger)
 
-    logger.info("Adding parsed packets to database")
+    logger.debug("Adding parsed packets to database")
     for packet_name in parsed:
         packet_keys = set(database_classes[packet_name].__table__.columns.keys()) &  set(parsed[packet_name].keys())
         num_packets = len(parsed[packet_name]['CCSDS_APID'])
@@ -441,7 +339,7 @@ def ingest_tlm_file(path: str, session: Session,
                 pkts[packet_num]['tlm_id'] = tlm_db_entry.tlm_id
 
             # session.bulk_save_objects(pkts)
-            logger.info("INSERTING NOW")
+            logger.debug("INSERTING NOW")
             session.execute(
                 database_classes[packet_name].__table__.insert(),
                 list(pkts.values())
@@ -552,6 +450,27 @@ def organize_led_fits_keywords(led_packet):
     }
 
 
+def organize_ceb_fits_keywords(ceb_packet):
+    return {'CEBSTAT': ceb_packet.CEB_STATUS_REG,
+            'CEBTIME': ceb_packet.CEB_STATUS_REG_SPW_TIMECODE,
+            'CEBWGS': ceb_packet.WGS_STATUS,
+            'CEBFIFO': ceb_packet.VIDEO_FIFO_STATUS,
+            'CEBBIAS1': ceb_packet.CCD_OUTPUT_DRAIN_BIAS,
+            'CEBBIAS2': ceb_packet.CCD_DUMP_DRAIN_BIAS,
+            'CEBBIAS3': ceb_packet.CCD_RESET_DRAIN_BIAS,
+            'CEBBIAS4': ceb_packet.CCD_TOP_GATE_BIAS,
+            'CEBBIAS5': ceb_packet.CCD_OUTPUT_GATE_BIAS,
+            'CEBVREF': ceb_packet.VREF_P2_5V1,
+            'CEBGND1': ceb_packet.GROUND1,
+            'CEBCONV1': ceb_packet.DCDC_CONV_P30V_OUT,
+            'CEBCONV2': ceb_packet.DCDC_CONV_P15V_OUT,
+            'CEBCONV3': ceb_packet.DCDC_CONV_P5V_OUT,
+            'BIASVREF': ceb_packet.VREF_BIAS,
+            'CEBGND2': ceb_packet.GROUND2,
+            'CEBSEDAC': ceb_packet.IPF_SBE_CNT,
+            'CEBMEDAC': ceb_packet.IPF_MBE_CNT}
+
+
 def organize_spacecraft_position_keywords(observation_time, before_xact, after_xact):
     position = EarthLocation.from_geocentric(before_xact.GPS_POSITION_ECEF1*2E-5*u.km,
                                              before_xact.GPS_POSITION_ECEF2*2E-5*u.km,
@@ -590,18 +509,53 @@ def organize_spacecraft_position_keywords(observation_time, before_xact, after_x
         "HAEX_OBS": hae.cartesian.x.to(u.m).value,
         "HAEY_OBS": hae.cartesian.y.to(u.m).value,
         "HAEZ_OBS": hae.cartesian.z.to(u.m).value,
-        "HEQX_OBS": heq.lon.deg,
-        "HEQY_OBS": heq.lat.deg,
-        "HEQZ_OBS": heq.radius.m,
-        "CRLT_OBS": carrington.lon.deg,
-        "CRLN_OBS": carrington.lat.deg,
+        "HEQX_OBS": heq.cartesian.x.to(u.m).value,
+        "HEQY_OBS": heq.cartesian.y.to(u.m).value,
+        "HEQZ_OBS": heq.cartesian.z.to(u.m).value,
+        "CRLT_OBS": carrington.lat.deg,
+        "CRLN_OBS": carrington.lon.deg,
         'GEOD_LAT': position.geodetic.lat.deg,
         'GEOD_LON': position.geodetic.lon.deg,
         'GEOD_ALT': position.geodetic.height.to(u.m).value
     }
 
+def organize_compression_and_acquisition_settings(compression_settings, acquisition_settings):
+    return {"SCALE": float(compression_settings['SCALE']),
+            "PMB_INIT": compression_settings['PMB_INIT'],
+            "CMP_BYP": compression_settings['CMP_BYP'],
+            "BSEL": compression_settings['BSEL'],
+            "ISSQRT": compression_settings['SQRT'],
+            "WASJPEG": compression_settings['JPEG'],
+            "ISTEST": compression_settings['TEST'],
+            "DELAY": acquisition_settings['DELAY'],
+            "IMGCOUNT": acquisition_settings['IMG_NUM']+1,
+            "EXPTIME": acquisition_settings['EXPOSURE']/10.0,
+            "TABLE1": acquisition_settings['TABLE1'],
+            "TABLE2": acquisition_settings['TABLE2']}
+
+def organize_gain_info(spacecraft_id):
+    match spacecraft_id:
+        case 0x2F:
+            gains = {'GAINLEFT': 4.98,'GAINRGHT': 4.92}
+        case 0x10:
+            gains = {'GAINLEFT': 4.93, 'GAINRGHT': 4.90}
+        case 0x2C:
+            gains = {'GAINLEFT': 4.90, 'GAINRGHT': 5.04}
+        case 0xF9:
+            gains = {'GAINLEFT': 4.94, 'GAINRGHT': 4.89}
+        case _:
+            gains = {'GAINLEFT': 4.9, 'GAINRGHT': 4.9}
+    return gains
+
+def check_for_full_image(img_packets):
+    n_starts = img_packets.count(b'\xFF\xD8')
+    n_endings = img_packets.count(b'\xFF\xD9')
+    if n_starts != n_endings:
+        raise RuntimeError("Image does not have both start and end indicators")
+
 @task
 def decode_image_packets(img_packets, compression_settings):
+    # check_for_full_image(img_packets)
     if compression_settings["JPEG"]: # JPEG bit enabled (upper two pathways)
         if compression_settings["CMP_BYP"]: # skipped actual JPEG-ification
             pixel_values = unpack_n_bit_values(img_packets, byteorder=">", n_bits=16)
@@ -638,7 +592,7 @@ def determine_file_type(polarizer_position, led_info, image_shape) -> str:
         return "DY"
     elif image_shape != (2048, 2048):
         return "OV"
-    elif polarizer_position == 0 or polarizer_position == 2:  # TODO: position = 0 is manual pointing... it shouldn't be DK
+    elif polarizer_position == 0 or polarizer_position == 2:  # position = 0 is manual pointing. position = 2 is opaque
         return "DK"
     else:
         return POSITIONS_TO_CODES[PFW_POSITION_MAPPING[polarizer_position]]
@@ -646,23 +600,24 @@ def determine_file_type(polarizer_position, led_info, image_shape) -> str:
 
 def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     acquisition_settings  = unpack_acquisition_settings(first_image_packet.SCI_XFI_HDR_ACQ_SET)
+    compression_settings  = unpack_compression_settings(first_image_packet.SCI_XFI_HDR_COM_SET)
 
     observation_time = first_image_packet.timestamp
     spacecraft_id = first_image_packet.SCI_XFI_HDR_SCID
 
     exposure_time = acquisition_settings['EXPOSURE'] / 10  # exptime in seconds since it's reported in ticks of 100ms
 
-    logger.info("Getting XACT position")
+    logger.debug("Getting XACT position")
     # get the XACT packet right before and right after the first image packet to determine position
     before_xact = (session.query(db_classes['ENG_XACT'])
                    .filter(db_classes['ENG_XACT'].ENG_XACT_HDR_SCID == spacecraft_id)
                    .filter(db_classes['ENG_XACT'].timestamp < observation_time)
-                   .order_by(db_classes['ENG_XACT'].timestamp.asc()).first())
+                   .order_by(db_classes['ENG_XACT'].timestamp.desc()).first())
     after_xact = (session.query(db_classes['ENG_XACT'])
                   .filter(db_classes['ENG_XACT'].ENG_XACT_HDR_SCID == spacecraft_id)
                   .filter(db_classes['ENG_XACT'].timestamp > observation_time)
-                  .order_by(db_classes['ENG_XACT'].timestamp.desc()).first())
-    logger.info("XACT retrieved")
+                  .order_by(db_classes['ENG_XACT'].timestamp.asc()).first())
+    logger.debug("XACT retrieved")
 
     # TODO: slerp instead of interpolate
     ATT_DET_Q_BODY_WRT_ECI1 = interpolate_value(observation_time,
@@ -682,7 +637,13 @@ def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -
     best_pfw = (session.query(db_classes['ENG_PFW'])
                   .filter(db_classes['ENG_PFW'].ENG_PFW_HDR_SCID == spacecraft_id)
                   .filter(db_classes['ENG_PFW'].timestamp < observation_time)
-                  .order_by(db_classes['ENG_PFW'].timestamp.asc()).first())
+                  .order_by(db_classes['ENG_PFW'].timestamp.desc()).first())
+
+    # get the CEB packet right before the observation
+    best_ceb = (session.query(db_classes['ENG_CEB'])
+                  .filter(db_classes['ENG_CEB'].ENG_CEB_HDR_SCID == spacecraft_id)
+                  .filter(db_classes['ENG_CEB'].timestamp < observation_time)
+                  .order_by(db_classes['ENG_CEB'].timestamp.desc()).first())
 
     # get the LED packet that corresponds to this observation if one exists
     # this is slightly different, we look for an LED packet with a start time and an end time that overlaps
@@ -712,15 +673,28 @@ def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -
     if best_led is not None:
         fits_info |= organize_led_fits_keywords(best_led)
 
-    logger.info("Getting spacecraft location")
+    if best_ceb is not None:
+        fits_info |= organize_ceb_fits_keywords(best_ceb)
+
+    logger.debug("Getting spacecraft location")
     if before_xact is not None and after_xact is not None:
         fits_info |= organize_spacecraft_position_keywords(observation_time, before_xact, after_xact)
-    logger.info("Spacecraft location determined")
+    logger.debug("Spacecraft location determined")
+
+    fits_info |= organize_compression_and_acquisition_settings(compression_settings, acquisition_settings)
+
+    fits_info |= organize_gain_info(spacecraft_id)
 
     fits_info['EXPTIME'] = acquisition_settings['EXPOSURE'] / 10.0
     fits_info['COM_SET'] = first_image_packet.SCI_XFI_HDR_COM_SET
     fits_info['ACQ_SET'] = first_image_packet.SCI_XFI_HDR_ACQ_SET
-    fits_info['DATE-OBS'] = first_image_packet.timestamp.isoformat()
+    fits_info['DATE-BEG'] = first_image_packet.timestamp.isoformat()
+    date_end = first_image_packet.timestamp + timedelta(seconds=fits_info['EXPTIME'])
+    fits_info['DATE-END'] = date_end.isoformat()
+    date_avg =  first_image_packet.timestamp + (date_end - first_image_packet.timestamp) / 2
+    fits_info['DATE-AVG'] = date_avg.isoformat()
+    fits_info['DATE-OBS'] = date_avg.isoformat()
+    fits_info['DATE'] = datetime.now(UTC).isoformat()
 
     return position_info, fits_info
 
@@ -779,14 +753,14 @@ def form_preliminary_wcs(metadata, plate_scale):
 def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num):
     logger = get_run_logger()
 
-    SCI_XFI = db_classes["SCI_XFI"]  # convenvience to shorten the database access everywhere]
+    SCI_XFI = db_classes["SCI_XFI"]  # convenience to shorten the database access everywhere
 
     distinct_spacecraft = (session.query(SCI_XFI.SCI_XFI_HDR_SCID)
                            .filter(or_(~SCI_XFI.is_used, SCI_XFI.is_used.is_(None)))
                            .distinct()
                            .all())
 
-    already_parsed_tlms = {} # path to TLM file mapped to the contents of it, we cache this to avoid reparsing
+    already_parsed_tlms = {} # path to TLM file mapped to the contents of it, we cache this to avoid re-parsing
 
     skip_count, success_count = 0, 0
     replay_needs = []
@@ -811,19 +785,19 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
 
             # Determine all the relevant TLM files
             needed_tlm_ids = set([image_packet.tlm_id for image_packet in image_packets_entries])
-            tlm_id_to_tlm_path = {tlm_id: session.query(TLMFile.path).where(TLMFile.tlm_id == tlm_id).one().path
+            tlm_id_to_tlm_path = {tlm_id: session.query(TLMFiles.path).where(TLMFiles.tlm_id == tlm_id).one().path
                                   for tlm_id in needed_tlm_ids}
-            needed_tlm_paths = list(session.query(TLMFile.path).where(TLMFile.tlm_id.in_(needed_tlm_ids)).all())
+            needed_tlm_paths = list(session.query(TLMFiles.path).where(TLMFiles.tlm_id.in_(needed_tlm_ids)).all())
             needed_tlm_paths = [p.path for p in needed_tlm_paths]
             logger.info(f"Will use data from {needed_tlm_paths}")
 
             # parse any TLM files needed that haven't already been loaded for image creation
             for tlm_path in needed_tlm_paths:
                 if tlm_path not in already_parsed_tlms:
-                    logger.info(f"Loading {tlm_path}...")
+                    logger.debug(f"Loading {tlm_path}...")
                     parsed_contents, success = process_telemetry_file(tlm_path, defs, apid_name2num, logger)
                     if success:
-                        logger.info(f"Successfully loaded {tlm_path}")
+                        logger.debug(f"Successfully loaded {tlm_path}")
                         already_parsed_tlms[tlm_path] = parsed_contents
                     else:
                         logger.error(f"Failed to load {tlm_path}")
@@ -886,12 +860,23 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                         skip_image = True
                         skip_reason = f"Image is wrong shape. Found {image.shape}"
                         logger.error(skip_reason)
-                except ValueError:
+                        replay_needs.append({
+                            'spacecraft': spacecraft[0],
+                            'start_time': image_packets_entries[0].timestamp.isoformat(),
+                            'start_block': image_packets_entries[0].SCI_XFI_HDR_FLASH_BLOCK,
+                            'replay_length': image_packets_entries[-1].SCI_XFI_HDR_FLASH_BLOCK
+                                             - image_packets_entries[0].SCI_XFI_HDR_FLASH_BLOCK + 1})
+                except (ValueError, RuntimeError):
                     skip_image = True
                     skip_reason = "Image decoding failed"
                     logger.error("Could not make image")
                     logger.error(traceback.format_exc())
-
+                    replay_needs.append({
+                        'spacecraft': spacecraft[0],
+                        'start_time': image_packets_entries[0].timestamp.isoformat(),
+                        'start_block': image_packets_entries[0].SCI_XFI_HDR_FLASH_BLOCK,
+                        'replay_length': image_packets_entries[-1].SCI_XFI_HDR_FLASH_BLOCK
+                                         - image_packets_entries[0].SCI_XFI_HDR_FLASH_BLOCK + 1})
 
 
             # now that we have the image we're ready to collect the metadat and write it to file
@@ -901,12 +886,12 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                     spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
                     moc_index = spacecraft_secrets["moc"].index(image_packets_entries[0].SCI_XFI_HDR_SCID)
                     soc_spacecraft_id = spacecraft_secrets["soc"][moc_index]
-                    logger.info("Getting metadata for file")
+                    logger.debug("Getting metadata for file")
                     position_info, fits_info = get_metadata(db_classes,
                                                             image_packets_entries[0],
                                                             image.shape,
                                                             session, logger)
-                    logger.info("Metadata retrieved")
+                    logger.debug("Metadata retrieved")
                     file_type = fits_info["TYPECODE"]
                     preliminary_wcs = form_preliminary_wcs(position_info,
                                                            float(pipeline_config['plate_scale'][soc_spacecraft_id]))
@@ -923,7 +908,7 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                                        observatory=str(soc_spacecraft_id),
                                        file_version="1",  # TODO: increment the file version
                                        software_version="TODO",
-                                       date_created=datetime.now(),
+                                       date_created=datetime.now(UTC),
                                        date_obs=t[0],
                                        date_beg=t[0],
                                        date_end=t[0],
@@ -937,10 +922,6 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                     session.commit()
                     logger.info(f"Writing to {out_path}")
                     write_ndcube_to_fits(cube, out_path, overwrite=True)
-                    # write_ndcube_to_quicklook(cube,
-                    #                           out_path.replace(".fits", ".jp2"),
-                    #                           vmin=np.nanmin(image),
-                    #                           vmax=np.nanmax(image))
                     success_count += 1
                 except Exception as e:
                     skip_image = True
@@ -975,17 +956,36 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
         logger.info(f"SUCCESS={success_count}")
         logger.info(f"FAILURE={skip_count}")
 
-        # TODO: split into multiple files and append updates instead of making a new file each time
-        # df_errors = pd.DataFrame(errors)
-        # date_str = datetime.now(UTC).strftime("%Y_%j")
-        # df_path = os.path.join(config['root'], 'REPLAY', f'PUNCH_{str(spacecraft[0])}_REPLAY_{date_str}.csv')
-        # os.makedirs(os.path.dirname(df_path), exist_ok=True)
-        # df_errors.to_csv(df_path, index=False)
+    # Split into multiple files and append updates instead of making a new file each time
+    # We label not with the spacecraft telemetry ID but with the spelled out name
+    all_replays = pd.DataFrame(replay_needs)
+    for df_spacecraft in all_replays.spacecraft.unique():
+        date_str = datetime.now(UTC).strftime("%Y_%j")
+        spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
+        try:
+            moc_index = spacecraft_secrets["moc"].index(df_spacecraft)
+            soc_spacecraft_id = spacecraft_secrets["soc"][moc_index]
+        except ValueError:  # we cannot find the spacecraft id and need to use an unknown indicator
+            soc_spacecraft_id = 0
+        file_spacecraft_id = {0: "UNKN", 1: "WFI01", 2: "WFI02", 3: "WFI03", 4: "NFI00"}[soc_spacecraft_id]
+        df_path = os.path.join(pipeline_config['root'],
+                               'REPLAY',
+                               f'PUNCH_{file_spacecraft_id}_REPLAY_{date_str}.csv')
+        new_entries = all_replays[all_replays.spacecraft == df_spacecraft]
+        new_entries = new_entries.drop(columns=["spacecraft"])
+        if os.path.exists(df_path):
+            existing_table = pd.read_csv(df_path)
+            new_table = pd.concat([existing_table, new_entries], ignore_index=True)
+            new_table = new_table.drop_duplicates()
+        else:
+            new_table = new_entries
+        os.makedirs(os.path.dirname(df_path), exist_ok=True)
+        new_table.to_csv(df_path, index=False)
 
 @flow
 def level0_core_flow(pipeline_config: dict):
     logger = get_run_logger()
-    engine, session = get_experimental_database()
+    engine, session = get_database_engine_session()
 
     tlm_xls_path = pipeline_config['tlm_xls_path']
     logger.info(f"Using {tlm_xls_path}")
@@ -997,7 +997,7 @@ def level0_core_flow(pipeline_config: dict):
     new_tlm_files = detect_new_tlm_files(pipeline_config, session=session)
     logger.info(f"Found {len(new_tlm_files)} new TLM files")
 
-    logger.info("Proceeding through files")
+    logger.debug("Proceeding through files")
     for i, path in enumerate(new_tlm_files):
         logger.info(f"{i+1}/{len(new_tlm_files)}: Processing {path}")
         ingest_tlm_file(path, session, defs, apid_name2num, database_classes)
@@ -1009,7 +1009,7 @@ def level0_core_flow(pipeline_config: dict):
 def level0_construct_flow_info(pipeline_config: dict):
     flow_type = "level0"
     state = "planned"
-    creation_time = datetime.now()
+    creation_time = datetime.now(UTC)
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
     call_data = json.dumps(
@@ -1055,7 +1055,7 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
     flow_db_entry.flow_run_name = flow_run_context.flow_run.name
     flow_db_entry.flow_run_id = flow_run_context.flow_run.id
     flow_db_entry.state = "running"
-    flow_db_entry.start_time = datetime.now()
+    flow_db_entry.start_time = datetime.now(UTC)
     session.commit()
 
     # load the call data and launch the core flow
@@ -1065,12 +1065,12 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
         level0_core_flow(**flow_call_data)
     except Exception as e:
         flow_db_entry.state = "failed"
-        flow_db_entry.end_time = datetime.now()
+        flow_db_entry.end_time = datetime.now(UTC)
         session.commit()
         raise e
     else:
         flow_db_entry.state = "completed"
-        flow_db_entry.end_time = datetime.now()
+        flow_db_entry.end_time = datetime.now(UTC)
         # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
         session.commit()
 
