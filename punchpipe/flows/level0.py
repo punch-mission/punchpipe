@@ -894,7 +894,7 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                     logger.debug("Metadata retrieved")
                     file_type = fits_info["TYPECODE"]
                     preliminary_wcs = form_preliminary_wcs(position_info,
-                                                           float(pipeline_config['plate_scale'][soc_spacecraft_id]))
+                                                           float(pipeline_config['plate_scale'][str(soc_spacecraft_id)]))
 
                     # we're ready to pack this into an NDCube to write as a FITS file using punchbowl
                     meta = NormalizedMetadata.load_template(file_type + str(soc_spacecraft_id), "0")
