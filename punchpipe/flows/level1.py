@@ -39,7 +39,6 @@ def level1_query_ready_files(session, pipeline_config: dict, reference_time=None
     return actually_ready
 
 
-@task(cache_policy=NO_CACHE)
 def get_vignetting_function_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
     corresponding_vignetting_function_type = {"PM": "GM",
                                               "PZ": "GZ",
@@ -54,7 +53,6 @@ def get_vignetting_function_path(level0_file, pipeline_config: dict, session=Non
     return best_function
 
 
-@task(cache_policy=NO_CACHE)
 def get_psf_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
     corresponding_psf_model_type = {"PM": "RM",
                                     "PZ": "RZ",
@@ -69,7 +67,6 @@ def get_psf_model_path(level0_file, pipeline_config: dict, session=None, referen
     return best_model
 
 
-@task(cache_policy=NO_CACHE)
 def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
     best_model = (session.query(File)
                   .filter(File.file_type == 'FQ')
@@ -79,13 +76,11 @@ def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, ref
     return best_model
 
 
-@task(cache_policy=NO_CACHE)
 def get_ccd_parameters(level0_file, pipeline_config: dict, session=None):
     gain_left, gain_right = pipeline_config['ccd_gain'][int(level0_file.observatory)]
     return {"gain_left": gain_left, "gain_right": gain_right}
 
 
-@task(cache_policy=NO_CACHE)
 def level1_construct_flow_info(level0_files: list[File], level1_files: File,
                                pipeline_config: dict, session=None, reference_time=None):
     flow_type = "level1"
@@ -124,7 +119,6 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
     )
 
 
-@task
 def level1_construct_file_info(level0_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
     return [
         File(

@@ -45,7 +45,7 @@ def find_flow(target_flow, subpackage="flows") -> Flow:
         raise RuntimeError(f"No flow found for {target_flow}")
 
 def construct_flows_to_serve(configuration_path):
-    config = load_pipeline_configuration.fn(configuration_path)
+    config = load_pipeline_configuration(configuration_path)
 
     # create each kind of flow. add both the scheduler and process flow variant of it.
     flows_to_serve = []
