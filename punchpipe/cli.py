@@ -89,12 +89,17 @@ def construct_flows_to_serve(configuration_path):
     # time to kick those off!
     for flow_name in config["control"]:
         flow_function = find_flow(flow_name, "control")
+        concurrency_config = ConcurrencyLimitConfig(
+                limit=1,
+                collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW
+            )
         flow_deployment = flow_function.to_deployment(
             name=flow_name,
             description=config["control"][flow_name].get("description", ""),
             tags=["control"],
             cron=config['control'][flow_name].get("schedule", "* * * * *"),
-            parameters={"pipeline_config_path": configuration_path}
+            parameters={"pipeline_config_path": configuration_path},
+            concurrency_limit=concurrency_config
         )
         flows_to_serve.append(flow_deployment)
     return flows_to_serve
