@@ -31,9 +31,12 @@ def escalate_long_waiting_flows(session, pipeline_config):
         ):
             since = datetime.now() - timedelta(seconds=max_seconds_waiting)
             session.query(Flow).where(
-                and_(Flow.state == "planned", Flow.creation_time < since, Flow.flow_type == flow_type)
+                and_(Flow.priority < escalated_priority,
+                     Flow.state == "planned",
+                     Flow.creation_time < since,
+                     Flow.flow_type == flow_type)
             ).update({"priority": escalated_priority})
-            session.commit()
+    session.commit()
 
 
 @task(cache_policy=NO_CACHE)
