@@ -19,11 +19,16 @@ def generic_scheduler_flow_logic(
     if session is None:
         session = get_database_session()
 
-    # find all files that are ready to run
+
+    # Not every level*_query_ready_files function needs this max_n parameter---some instead have a use_n that's similar
+    # at first glance, but fills a different role and needs to be tuned differently. To avoid confusion there, we don't
+    # require every implementation to accept a max_n parameter---instead, we send that parameter only to those functions
+    # that accept it.
     if 'max_n' in inspect.signature(query_ready_files_func).parameters:
         extra_args = {'max_n': max_start}
     else:
         extra_args = {}
+    # find all files that are ready to run
     ready_file_ids = query_ready_files_func(
         session, pipeline_config, reference_time=reference_time, **extra_args)[:max_start]
     logger.info(f"Got {len(ready_file_ids)} groups of ready files")
