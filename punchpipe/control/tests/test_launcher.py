@@ -9,9 +9,9 @@ from pytest_mock_resources import create_mysql_fixture
 
 from punchpipe.control.db import Base, File, Flow
 from punchpipe.control.launcher import (
-    count_running_flows,
+    count_flows,
+    determine_launchable_flow_count,
     escalate_long_waiting_flows,
-    filter_for_launchable_flows,
     gather_planned_flows,
 )
 from punchpipe.control.util import load_pipeline_configuration
@@ -74,8 +74,9 @@ def test_gather_queued_flows(db):
 
 
 def test_count_running_flows(db):
-    running_count = count_running_flows.fn(db)
+    running_count, planned_count = count_flows.fn(db)
     assert running_count == 0
+    assert planned_count == 3
 
 
 def test_escalate_long_waiting_flows(db):
@@ -97,39 +98,41 @@ def test_escalate_long_waiting_flows(db):
 
 def test_filter_for_launchable_flows(db):
     with prefect_test_harness(), disable_run_logger():
-        planned_ids = gather_planned_flows.fn(db)
-        running_count = count_running_flows.fn(db)
+        running_count, planned_count = count_flows.fn(db)
         max_flows_running = 30
-        ready_to_launch_flows = filter_for_launchable_flows.fn(planned_ids, running_count, max_flows_running, math.inf)
-        assert len(ready_to_launch_flows) == 3
+        ready_to_launch_flows = determine_launchable_flow_count(
+            planned_count, running_count, max_flows_running, math.inf)
+        assert ready_to_launch_flows == 3
 
 
 def test_filter_for_launchable_flows_with_max_of_1(db):
     with prefect_test_harness(), disable_run_logger():
-        planned_ids = gather_planned_flows.fn(db)
-        running_count = count_running_flows.fn(db)
+        running_count, planned_count = count_flows.fn(db)
         max_flows_running = 1
-        ready_to_launch_flows = filter_for_launchable_flows.fn(planned_ids, running_count, max_flows_running, math.inf)
-        assert len(ready_to_launch_flows) == 1
-        assert ready_to_launch_flows[0] == 3
+        ready_to_launch_flows = determine_launchable_flow_count(
+            planned_count, running_count, max_flows_running, math.inf)
+        assert ready_to_launch_flows == 1
+        flows = gather_planned_flows.fn(db, ready_to_launch_flows)
+        assert len(flows) == 1
+        assert flows[0] == 3
 
 
 def test_filter_for_launchable_flows_with_max_of_0(db):
     with prefect_test_harness(), disable_run_logger():
-        planned_ids = gather_planned_flows.fn(db)
-        running_count = count_running_flows.fn(db)
+        running_count, planned_count = count_flows.fn(db)
         max_flows_running = 0
-        ready_to_launch_flows = filter_for_launchable_flows.fn(planned_ids, running_count, max_flows_running, math.inf)
-        assert len(ready_to_launch_flows) == 0
+        ready_to_launch_flows = determine_launchable_flow_count(
+            planned_count, running_count, max_flows_running, math.inf)
+        assert ready_to_launch_flows == 0
 
 
 def test_filter_for_launchable_flows_with_empty_db(db_empty):
     with prefect_test_harness(), disable_run_logger():
-        planned_ids = gather_planned_flows.fn(db_empty)
-        running_count = count_running_flows.fn(db_empty)
+        running_count, planned_count = count_flows.fn(db_empty)
         max_flows_running = 30
-        ready_to_launch_flows = filter_for_launchable_flows.fn(planned_ids, running_count, max_flows_running, math.inf)
-        assert len(ready_to_launch_flows) == 0
+        ready_to_launch_flows = determine_launchable_flow_count(
+            planned_count, running_count, max_flows_running, math.inf)
+        assert ready_to_launch_flows == 0
 
 
 def test_launch_ready_flows():
