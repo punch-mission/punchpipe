@@ -9,22 +9,32 @@ def caching_is_enabled() -> bool:
     return Variable.get("use_shm_cache", False)
 
 
+class ExportableWrapper:
+    """Allows shared memory buffers to be yielded without "leaking" a reference
+
+    If try_read_from_key just does `yield shm.buf`, then the calling function will still have a reference to our
+    shared memory buffer when we enter our `finally` block and try to close the memory. By instead yielding this
+    wrapper, we can invalidate its reference to the shared memory and close it."""
+    def __init__(self, buffer):
+        self.data = buffer
+
+
 @contextlib.contextmanager
-def try_read_from_key(key) -> memoryview | None:
+def try_read_from_key(key) -> ExportableWrapper | None:
     shm = None
     try:
         shm = SharedMemory(key, track=False)
         if shm.buf[0] == 1:
-            yield shm.buf[1:]
+            wrapper = ExportableWrapper(shm.buf[1:])
+            yield wrapper
+            wrapper.data = None
         else:
             yield None
     except FileNotFoundError:
         yield None
     finally:
-        pass
-        # This triggers `BufferError: cannot close exported pointers exist`
-        # if shm is not None:
-        #     shm.close()
+        if shm is not None:
+            shm.close()
 
 
 def try_write_to_key(key, data):

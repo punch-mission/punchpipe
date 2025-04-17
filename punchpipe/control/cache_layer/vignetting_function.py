@@ -19,7 +19,7 @@ class VignettingLoader:
                 result = self.load_from_disk()
                 self.try_caching(result)
             else:
-                result = pickle.loads(buffer)
+                result = pickle.loads(buffer.data)
         return result, self.path
 
     def load_from_disk(self) -> NDCube:
