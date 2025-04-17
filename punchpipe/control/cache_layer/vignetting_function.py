@@ -11,7 +11,7 @@ class VignettingLoader:
         self.path = path
 
     def gen_key(self) -> str:
-        return f"cached-vignetting-{os.path.basename(self.path)}-{os.path.getmtime(self.path)}"
+        return f"vignetting-{os.path.basename(self.path)}-{os.path.getmtime(self.path)}"
 
     def load(self) -> tuple[NDCube, str]:
         with manager.try_read_from_key(self.gen_key()) as buffer:

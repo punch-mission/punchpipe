@@ -11,7 +11,7 @@ class PSFLoader:
         self.path = path
 
     def gen_key(self) -> str:
-        return f"cached-psf-{os.path.basename(self.path)}-{os.path.getmtime(self.path)}"
+        return f"psf-{os.path.basename(self.path)}-{os.path.getmtime(self.path)}"
 
     def load(self) -> tuple[ArrayPSFTransform, str]:
         with manager.try_read_from_key(self.gen_key()) as buffer:

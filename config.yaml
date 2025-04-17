@@ -29,8 +29,8 @@ dask_cluster:
 
 cache_layer:
   cache_enabled: true
-  max_age_hours: 3
-  max_size_MB: 10000
+  max_age_hours: 24
+  max_size_MB: 30000
 
 control:
   launcher:

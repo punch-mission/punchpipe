@@ -1,8 +1,12 @@
 import contextlib
+from glob import glob
 from multiprocessing.shared_memory import SharedMemory
 
 from prefect import get_run_logger
 from prefect.variables import Variable
+
+
+CACHE_KEY_PREFIX = "punchpipe-cache-"
 
 
 def caching_is_enabled() -> bool:
@@ -23,7 +27,7 @@ class ExportableWrapper:
 def try_read_from_key(key) -> ExportableWrapper | None:
     shm = None
     try:
-        shm = SharedMemory(key, track=False)
+        shm = SharedMemory(CACHE_KEY_PREFIX + key, track=False)
         if shm.buf[0] == 1:
             wrapper = ExportableWrapper(shm.buf[1:])
             yield wrapper
@@ -40,7 +44,7 @@ def try_read_from_key(key) -> ExportableWrapper | None:
 def try_write_to_key(key, data):
     shm = None
     try:
-        shm = SharedMemory(key, create=True, size=len(data) + 1, track=False)
+        shm = SharedMemory(CACHE_KEY_PREFIX + key, create=True, size=len(data) + 1, track=False)
         # buf[0] will be a sentinel value to indicate that the rest of the data is in place, in case another process
         # opens this shared memory while we're still copying
         shm.buf[0] = 0
@@ -52,3 +56,7 @@ def try_write_to_key(key, data):
     finally:
         if shm is not None:
             shm.close()
+
+
+def get_existing_cache_files():
+    return glob(f"/dev/shm/{CACHE_KEY_PREFIX}*")
