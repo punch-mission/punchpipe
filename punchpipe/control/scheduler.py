@@ -1,5 +1,7 @@
 from datetime import datetime
+import inspect
 
+from prefect import get_run_logger
 from punchpipe.control.db import File, FileRelationship
 from punchpipe.control.util import get_database_session, load_pipeline_configuration, update_file_state
 
@@ -9,6 +11,7 @@ def generic_scheduler_flow_logic(
         update_input_file_state=True, new_input_file_state="progressed",
         session=None, reference_time: datetime | None = None,
 ):
+    logger = get_run_logger()
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
 
     max_start = pipeline_config['scheduler']['max_start']
@@ -16,8 +19,19 @@ def generic_scheduler_flow_logic(
     if session is None:
         session = get_database_session()
 
+
+    # Not every level*_query_ready_files function needs this max_n parameter---some instead have a use_n that's similar
+    # at first glance, but fills a different role and needs to be tuned differently. To avoid confusion there, we don't
+    # require every implementation to accept a max_n parameter---instead, we send that parameter only to those functions
+    # that accept it.
+    if 'max_n' in inspect.signature(query_ready_files_func).parameters:
+        extra_args = {'max_n': max_start}
+    else:
+        extra_args = {}
     # find all files that are ready to run
-    ready_file_ids = query_ready_files_func(session, pipeline_config, reference_time=reference_time)[:max_start]
+    ready_file_ids = query_ready_files_func(
+        session, pipeline_config, reference_time=reference_time, **extra_args)[:max_start]
+    logger.info(f"Got {len(ready_file_ids)} groups of ready files")
     if ready_file_ids:
         for group in ready_file_ids:
             parent_files = []

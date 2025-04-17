@@ -128,16 +128,17 @@ def simpunch_process_flow(flow_id: int, pipeline_config_path=None, session=None)
         file_db_entries = []
         for filename in out_filenames:
             base_filename = os.path.basename(filename)
-            file_db_entries.append(File(
-                level="0",
-                file_type=base_filename[9:11],
-                observatory=base_filename[11],
-                file_version=base_filename[:-5].split("_")[-1][1:],
-                software_version="synth",
-                date_created=datetime.now(UTC),
-                date_obs=datetime.strptime(base_filename[13:27], "%Y%m%d%H%M%S"),
-                state="created"
-            ))
+            if base_filename.startswith('PUNCH_L0'):
+                file_db_entries.append(File(
+                    level="0",
+                    file_type=base_filename[9:11],
+                    observatory=base_filename[11],
+                    file_version=base_filename[:-5].split("_")[-1][1:],
+                    software_version="synth",
+                    date_created=datetime.now(UTC),
+                    date_obs=datetime.strptime(base_filename[13:27], "%Y%m%d%H%M%S"),
+                    state="created"
+                ))
         session.add_all(file_db_entries)
 
         flow_db_entry.state = "completed"
