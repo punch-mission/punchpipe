@@ -4,11 +4,11 @@ import tempfile
 from datetime import UTC, datetime, timedelta
 
 from prefect import flow, get_run_logger, task
+from prefect.context import get_run_context
 from punchbowl.data.meta import construct_all_product_codes
 from punchbowl.data.punch_io import load_ndcube_from_fits, write_ndcube_to_quicklook, write_quicklook_to_mp4
 
 from punchpipe.control.db import File, Flow
-from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.util import get_database_session, load_pipeline_configuration
 
 
@@ -114,4 +114,33 @@ def quicklook_generator(file_list: list, product_code: str, output_movie_dir: st
 
 @flow
 def movie_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, quicklook_generator, pipeline_config_path, session=session)
+    if session is None:
+        session = get_database_session()
+    logger = get_run_logger()
+
+    # fetch the appropriate flow db entry
+    flow_db_entry = session.query(Flow).where(Flow.flow_id == flow_id).one()
+    logger.info(f"Running on flow db entry with id={flow_db_entry.flow_id}.")
+
+    # update the processing flow name with the flow run name from Prefect
+    flow_run_context = get_run_context()
+    flow_db_entry.flow_run_name = flow_run_context.flow_run.name
+    flow_db_entry.flow_run_id = flow_run_context.flow_run.id
+    flow_db_entry.state = "running"
+    flow_db_entry.start_time = datetime.now(UTC)
+    session.commit()
+
+    # load the call data and launch the core flow
+    flow_call_data = json.loads(flow_db_entry.call_data)
+    try:
+        quicklook_generator(**flow_call_data)
+    except Exception as e:
+        flow_db_entry.state = "failed"
+        flow_db_entry.end_time = datetime.now(UTC)
+        session.commit()
+        raise e
+    else:
+        flow_db_entry.state = "completed"
+        flow_db_entry.end_time = datetime.now(UTC)
+        # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
+        session.commit()
