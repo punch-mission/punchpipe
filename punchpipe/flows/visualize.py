@@ -90,26 +90,27 @@ def quicklook_generator(file_list: list, product_code: str, output_movie_dir: st
 
     annotation = "{OBSRVTRY} - {TYPECODE}{OBSCODE} - {DATE-OBS} - polarizer: {POLAR} deg"
     written_list = []
-    for i, cube_file in enumerate(file_list):
-        cube = load_ndcube_from_fits(cube_file)
+    if file_list:
+        for i, cube_file in enumerate(file_list):
+            cube = load_ndcube_from_fits(cube_file)
 
-        if i == 0:
-            obs_start = cube.meta["DATE-OBS"]
-        if i == len(file_list)-1:
-            obs_end = cube.meta["DATE-OBS"]
+            if i == 0:
+                obs_start = cube.meta["DATE-OBS"].value
+            if i == len(file_list)-1:
+                obs_end = cube.meta["DATE-OBS"].value
 
-        img_file = os.path.join(tempdir.name, os.path.splitext(os.path.basename(cube_file))[0] + '.jp2')
+            img_file = os.path.join(tempdir.name, os.path.splitext(os.path.basename(cube_file))[0] + '.jp2')
 
-        written_list.append(img_file)
+            written_list.append(img_file)
 
-        write_ndcube_to_quicklook(cube, filename = img_file, annotation = annotation)
+            write_ndcube_to_quicklook(cube, filename = img_file, annotation = annotation)
 
 
-    out_filename = os.path.join(output_movie_dir, f"{product_code}_{obs_start}-{obs_end}.mp4")
-    os.makedirs(os.path.dirname(out_filename), exist_ok=True)
-    write_quicklook_to_mp4(files = written_list, filename = out_filename)
+        out_filename = os.path.join(output_movie_dir, f"{product_code}_{obs_start}-{obs_end}.mp4")
+        os.makedirs(os.path.dirname(out_filename), exist_ok=True)
+        write_quicklook_to_mp4(files = written_list, filename = out_filename)
 
-    tempdir.cleanup()
+        tempdir.cleanup()
 
 
 @flow
