@@ -909,9 +909,9 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                                        file_version="1",  # TODO: increment the file version
                                        software_version="TODO",
                                        date_created=datetime.now(UTC),
-                                       date_obs=t[0],
-                                       date_beg=t[0],
-                                       date_end=t[0],
+                                       date_obs=meta["DATE-OBS"].value,
+                                       date_beg=meta['DATE-BEG'].value,
+                                       date_end=meta['DATE-END'].value,
                                        state="created")
 
                     # finally time to write to file
