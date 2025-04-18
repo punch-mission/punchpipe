@@ -42,6 +42,9 @@ control:
   cache_nanny:
     description: "Monitors the shared memory cache"
     schedule: "*/5 * * * *"
+  cleaner:
+    description: "Cleans things in the database"
+    schedule: "*/5 * * * *"
 
 flows:
   level0:
