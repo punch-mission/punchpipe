@@ -6,7 +6,7 @@ from ndcube import NDCube
 from prefect import task
 from prefect.variables import Variable
 from prefect_sqlalchemy import SqlAlchemyConnector
-from punchbowl.data import get_base_file_name, write_ndcube_to_fits, write_ndcube_to_jp2
+from punchbowl.data import get_base_file_name, write_ndcube_to_fits, write_ndcube_to_quicklook
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from yaml.loader import FullLoader
@@ -51,7 +51,7 @@ def write_file(data: NDCube, corresponding_file_db_entry, pipeline_config) -> No
     # TODO - Configure to write each layer separately?
     # TODO - Configure to use specified vmin/vmax on a per-product level basis?
     layer = 0 if len(data.data.shape) > 2 else None
-    write_ndcube_to_jp2(data, output_filename.replace(".fits", ".jp2"), layer=layer)
+    write_ndcube_to_quicklook(data, output_filename.replace(".fits", ".jp2"), layer=layer)
 
 
 def match_data_with_file_db_entry(data: NDCube, file_db_entry_list):

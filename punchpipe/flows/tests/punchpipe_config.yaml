@@ -101,3 +101,13 @@ flows:
     schedule: "0/30 * * * *"
     tags: ["L3"]
     options:
+
+  movie:
+    description: "Creates quicklook movies."
+    priority:
+      initial: 100000
+      seconds: [ 1 ]
+      escalation: [ 100000 ]
+    schedule: "59 23 * * *"
+    tags: ["movie"]
+    options:
