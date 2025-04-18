@@ -44,7 +44,7 @@ def visualize_flow_info(input_files: list[File],
     flow_type = "movie"
     state = "planned"
     creation_time = datetime.now()
-    priority = pipeline_config["levels"][flow_type]["priority"]["initial"]
+    priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
             "file_lists": [
