@@ -46,137 +46,117 @@ flows:
 #      escalation: [ 10, 20, 30 ]
 #    schedule: "*/30 * * * *"
 #    options:
-#
-#  level1:
-#    description: "Creates Level 1 files."
-#    tags: ["L1"]
-#    priority:
-#      initial: 6
-#      seconds: [ 30, 120, 600 ]
-#      escalation: [ 11, 21, 31 ]
-#    schedule: "* * * * *"
-#    options:
-#
-#  level2:
-#    description: "Creates Level 2 files."
-#    tags: [ "L2" ]
-#    priority:
-#      initial: 1000
-#      seconds: [ 3000, 12000, 60000 ]
-#      escalation: [ 1000, 1000, 1000 ]
-#    schedule: "* * * * *"
-#    options:
-#
-#  level2_clear:
-#    description: "Creates Level 2 clear files."
-#    tags: [ "L2" ]
-#    priority:
-#      initial: 1000
-#      seconds: [ 3000, 12000, 60000 ]
-#      escalation: [ 1000, 1000, 1000 ]
-#    schedule: "* * * * *"
-#    options:
-#
-#  levelq:
-#    description: "Creates Level Q CTM and CNN data files."
-#    tags: [ "LQ" ]
-#    priority:
-#      initial: 1000
-#      seconds: [ 3000, 12000, 60000 ]
-#      escalation: [ 1000, 1000, 1000 ]
-#    schedule: "* * * * *"
-#    options:
-#
-#  levelq_upload:
-#    description: "Uploads Level Q files."
-#    tags: [ "LQ" ]
-#    priority:
-#      initial: 1000
-#      seconds: [ 3000, 12000, 60000 ]
-#      escalation: [ 1000, 1000, 1000 ]
-#    schedule: "* * * * *"
-#    options:
-#
-#  levelq_CFM:
-#    description: "Makes Level Q CFM files."
-#    tags: [ "LQ" ]
-#    priority:
-#      initial: 1000
-#      seconds: [ 3000, 12000, 60000 ]
-#      escalation: [ 1000, 1000, 1000 ]
-#    schedule: "* * * * *"
-#    options:
-#
-#  levelq_CFN:
-#    description: "Makes Level Q CFN files."
-#    tags: [ "LQ" ]
-#    priority:
-#      initial: 1000
-#      seconds: [ 3000, 12000, 60000 ]
-#      escalation: [ 1000, 1000, 1000 ]
-#    schedule: "* * * * *"
-#    options:
-#
-#  level3_PTM:
-#    description: "Creates Level 3 PTM files."
-#    tags: [ "L3" ]
-#    priority:
-#      initial: 10000
-#      seconds: [1]
-#      escalation: [10000]
-#    schedule: "* * * * *"
-#    options:
-#
-#  level3_PIM:
-#    description: "Creates Level 3 PIM files."
-#    tags: [ "L3" ]
-#    priority:
-#      initial: 10000
-#      seconds: [1]
-#      escalation: [10000]
-#    schedule: "* * * * *"
-#    options:
-#
-#  level3_CTM:
-#    description: "Creates Level 3 CTM files."
-#    tags: [ "L3" ]
-#    priority:
-#      initial: 10000
-#      seconds: [1]
-#      escalation: [10000]
-#    schedule: "* * * * *"
-#    options:
-#
-#  level3_CIM:
-#    description: "Creates Level 3 CIM files."
-#    tags: [ "L3" ]
-#    priority:
-#      initial: 10000
-#      seconds: [1]
-#      escalation: [10000]
-#    schedule: "* * * * *"
-#    options:
-#
-#  construct_f_corona_background:
-#    description: "Creates Level 3 f corona model files."
-#    tags: [ "L3" ]
-#    priority:
-#      initial: 10000
-#      seconds: [1]
-#      escalation: [10000]
-#    schedule: "* * * * *"
-#    options:
-#
-#  construct_starfield_background:
-#    description: "Creates Level 3 starfield files."
-#    tags: [ "L3" ]
-#    priority:
-#      initial: 10000
-#      seconds: [1]
-#      escalation: [10000]
-#    schedule: "* * * * *"
-#    options:
-#
+
+  level1:
+    description: "Creates Level 1 files."
+    tags: ["L1"]
+    priority:
+      initial: 6
+      seconds: [ 30, 120, 600 ]
+      escalation: [ 11, 21, 31 ]
+    schedule: "* * * * *"
+    options:
+
+  level2:
+    description: "Creates Level 2 files."
+    tags: [ "L2" ]
+    priority:
+      initial: 1000
+      seconds: [ 3000, 12000, 60000 ]
+      escalation: [ 1000, 1000, 1000 ]
+    schedule: "* * * * *"
+    options:
+
+  levelq:
+    description: "Creates Level Q CTM and CNN data files."
+    tags: [ "LQ" ]
+    priority:
+      initial: 1000
+      seconds: [ 3000, 12000, 60000 ]
+      escalation: [ 1000, 1000, 1000 ]
+    schedule: "* * * * *"
+    options:
+
+  levelq_upload:
+    description: "Uploads Level Q files."
+    tags: [ "LQ" ]
+    priority:
+      initial: 1000
+      seconds: [ 3000, 12000, 60000 ]
+      escalation: [ 1000, 1000, 1000 ]
+    schedule: "* * * * *"
+    options:
+
+  levelq_CFM:
+    description: "Makes Level Q CFM files."
+    tags: [ "LQ" ]
+    priority:
+      initial: 1000
+      seconds: [ 3000, 12000, 60000 ]
+      escalation: [ 1000, 1000, 1000 ]
+    schedule: "* * * * *"
+    options:
+
+  levelq_CFN:
+    description: "Makes Level Q CFN files."
+    tags: [ "LQ" ]
+    priority:
+      initial: 1000
+      seconds: [ 3000, 12000, 60000 ]
+      escalation: [ 1000, 1000, 1000 ]
+    schedule: "* * * * *"
+    options:
+
+  L3_PTM:
+    description: "Creates Level 3 PTM files."
+    tags: [ "L3" ]
+    priority:
+      initial: 10000
+      seconds: [1]
+      escalation: [10000]
+    schedule: "* * * * *"
+    options:
+
+  L3_PIM:
+    description: "Creates Level 3 PIM files."
+    tags: [ "L3" ]
+    priority:
+      initial: 10000
+      seconds: [1]
+      escalation: [10000]
+    schedule: "* * * * *"
+    options:
+
+  f_corona:
+    description: "Creates Level 3 f corona model files."
+    tags: [ "L3" ]
+    priority:
+      initial: 10000
+      seconds: [1]
+      escalation: [10000]
+    schedule: "* * * * *"
+    options:
+
+  starfield:
+    description: "Creates Level 3 starfield files."
+    tags: [ "L3" ]
+    priority:
+      initial: 10000
+      seconds: [1]
+      escalation: [10000]
+    schedule: "* * * * *"
+    options:
+
+  visualize:
+    description: "Creates quicklook movies."
+    tags: [ "LQ" ]
+    priority:
+      initial: 10
+      seconds: [60*60*24]
+      escalation: [1000]
+    schedule: "0 0 * * *"
+    options:
+
   simpunch:
     description: "Runs simpunch."
     tags: [ "sim" ]
