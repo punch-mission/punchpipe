@@ -44,8 +44,7 @@ def write_file(data: NDCube, corresponding_file_db_entry, pipeline_config) -> No
         corresponding_file_db_entry.directory(pipeline_config["root"]), corresponding_file_db_entry.filename()
     )
     output_dir = os.path.dirname(output_filename)
-    if not os.path.isdir(output_dir):
-        os.makedirs(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
     write_ndcube_to_fits(data, output_filename)
     corresponding_file_db_entry.state = "created"
 
