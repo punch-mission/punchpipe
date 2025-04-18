@@ -210,16 +210,26 @@ def create_app():
         now = datetime.now()
         with get_database_session() as session:
             reference_time = now - timedelta(hours=72)
-            query = (f"SELECT flow_type, end_time, AVG(TIMEDIFF(end_time, start_time)) AS duration, COUNT(*) AS count "
+            query = (f"SELECT flow_type, end_time, AVG(TIMEDIFF(end_time, start_time)) AS duration, COUNT(*) AS count, state "
                      f"FROM flows WHERE end_time > '{reference_time}' "
-                     f"GROUP BY HOUR(end_time), DAY(end_time), MONTH(end_time), YEAR(end_time), flow_type;")
+                     f"GROUP BY HOUR(end_time), DAY(end_time), MONTH(end_time), YEAR(end_time), flow_type, state;")
             df = pd.read_sql_query(query, session.connection())
+        # Fill missing entries (for hours where nothing ran)
         df.end_time = [ts.floor('h') for ts in df.end_time]
-        df.sort_values('end_time', inplace=True)
-        fig_throughput = px.line(df, x='end_time', y="count", color="flow_type", title="Flow throughput")
+        dates = pd.date_range(reference_time, now, freq=timedelta(hours=1)).floor('h')
+        additions = []
+        for flow_type in df.flow_type.unique():
+            for date in dates:
+                for state in ['failed', 'completed']:
+                    if len(df.query(f'end_time == @date and state == @state and flow_type == @flow_type')) == 0:
+                        additions.append([flow_type, date, None, 0, state])
+        df = pd.concat([df, pd.DataFrame(additions, columns=df.columns)], ignore_index=True)
+        df.sort_values(['state', 'end_time'], inplace=True)
+
+        fig_throughput = px.line(df, x='end_time', y="count", color="flow_type", title="Flow throughput", line_dash="state")
         fig_throughput.update_xaxes(title_text="Time")
         fig_throughput.update_yaxes(title_text="Flow runs per hour")
-        fig_duration = px.line(df, x='end_time', y="duration", color="flow_type", title="Flow duration")
+        fig_duration = px.line(df[df['state'] == 'completed'], x='end_time', y="duration", color="flow_type", title="Flow duration")
         fig_duration.update_xaxes(title_text="Time")
         fig_duration.update_yaxes(title_text="Average flow duration (s)")
 
