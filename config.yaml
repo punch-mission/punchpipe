@@ -35,8 +35,9 @@ cache_layer:
 control:
   launcher:
     description: "Kick off new flows for processing."
-    max_flows_running: 50
-    max_flows_to_launch_at_once: 20
+    max_flows_running: 80
+    max_flows_to_launch_at_once: 60
+    launch_time_window_minutes: 3
   health_monitor:
     description: "Monitor the health of the pipeline."
   cache_nanny:

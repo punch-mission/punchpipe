@@ -73,6 +73,7 @@ class Flow(Base):
     flow_run_id = Column(String(36), nullable=True)
     state = Column(String(16), nullable=False)
     creation_time = Column(DATETIME(fsp=6), nullable=False)
+    launch_time = Column(DATETIME(fsp=6), nullable=True)
     start_time = Column(DATETIME(fsp=6), nullable=True)
     end_time = Column(DATETIME(fsp=6), nullable=True)
     priority = Column(Integer, nullable=False)
