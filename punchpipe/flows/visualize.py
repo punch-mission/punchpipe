@@ -9,7 +9,7 @@ from punchbowl.data.punch_io import load_ndcube_from_fits, write_ndcube_to_quick
 
 from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
-from punchpipe.control.util import load_pipeline_configuration
+from punchpipe.control.util import get_database_session, load_pipeline_configuration
 
 
 @task
@@ -66,6 +66,9 @@ def visualize_flow_info(input_files: list[File],
 
 @flow
 def movie_scheduler_flow(pipeline_config_path=None, session=None, reference_time: datetime | None = None):
+    if session is None:
+        session = get_database_session()
+
     reference_time = reference_time or datetime.now(UTC)
 
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
