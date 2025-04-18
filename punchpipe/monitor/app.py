@@ -29,6 +29,11 @@ def create_app():
         html.Div(
             id="status-cards"
         ),
+        html.Div([
+            html.Div(children=[dcc.Graph(id='flow-throughput')], style={'padding': 10, 'flex': 1}),
+
+            html.Div(children=[dcc.Graph(id='flow-duration')], style={'padding': 10, 'flex': 1})
+        ], style={'display': 'flex', 'flexDirection': 'row'}),
         dash_table.DataTable(id='flows-table',
                              data=pd.DataFrame({name: [] for name in column_names}).to_dict('records'),
                              columns=schedule_columns,
@@ -195,4 +200,28 @@ def create_app():
         fig.update_yaxes(title_text=axis_labels[machine_stat])
 
         return fig
+
+    @callback(
+        Output('flow-throughput', 'figure'),
+        Output('flow-duration', 'figure'),
+        Input('interval-component', 'n_intervals'),
+    )
+    def update_flow_stats(n):
+        now = datetime.now()
+        with get_database_session() as session:
+            reference_time = now - timedelta(hours=72)
+            query = (f"SELECT flow_type, end_time, AVG(TIMEDIFF(end_time, start_time)) AS duration, COUNT(*) AS count "
+                     f"FROM flows WHERE end_time > '{reference_time}' "
+                     f"GROUP BY HOUR(end_time), DAY(end_time), MONTH(end_time), YEAR(end_time), flow_type;")
+            df = pd.read_sql_query(query, session.connection())
+        df.end_time = [ts.floor('h') for ts in df.end_time]
+        df.sort_values('end_time', inplace=True)
+        fig_throughput = px.line(df, x='end_time', y="count", color="flow_type", title="Flow throughput")
+        fig_throughput.update_xaxes(title_text="Time")
+        fig_throughput.update_yaxes(title_text="Flow runs per hour")
+        fig_duration = px.line(df, x='end_time', y="duration", color="flow_type", title="Flow duration")
+        fig_duration.update_xaxes(title_text="Time")
+        fig_duration.update_yaxes(title_text="Average flow duration (s)")
+
+        return fig_throughput, fig_duration
     return app
