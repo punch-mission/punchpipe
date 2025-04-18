@@ -17,6 +17,7 @@ def visualize_query_ready_files(session, pipeline_config: dict, reference_time: 
     logger = get_run_logger()
 
     all_ready_files = []
+    all_product_codes = []
     levels = ["0", "1", "2", "3", "Q", "L"]
     for level in levels:
         product_codes = construct_all_product_codes(level=level)
@@ -28,10 +29,11 @@ def visualize_query_ready_files(session, pipeline_config: dict, reference_time: 
                                     .filter(File.level == level)
                                     .filter(File.file_type == product_code[0:2])
                                     .filter(File.observatory == product_code[2]).all())
-            all_ready_files.append([f.file_id for f in list(product_ready_files)])
+            all_ready_files.append(list(product_ready_files))
+            all_product_codes.append(f"L{level}_{product_code}")
 
     logger.info(f"{len(all_ready_files)} files will be used for visualization.")
-    return all_ready_files, product_codes
+    return all_ready_files, all_product_codes
 
 
 @task
@@ -51,7 +53,8 @@ def visualize_flow_info(input_files: list[File],
                 os.path.join(input_file.directory(pipeline_config["root"]), input_file.filename())
                 for input_file in input_files
             ],
-            "product_code": product_code
+            "product_code": product_code,
+            "output_movie_dir": os.path.join(pipeline_config["root"], "movies")
         }
     )
     return Flow(
@@ -82,7 +85,7 @@ def movie_scheduler_flow(pipeline_config_path=None, session=None, reference_time
     session.commit()
 
 
-def quicklook_generator(file_list: list, product_code: str) -> None:
+def quicklook_generator(file_list: list, product_code: str, output_movie_dir: str) -> None:
     tempdir = tempfile.TemporaryDirectory()
 
     annotation = "{OBSRVTRY} - {TYPECODE}{OBSCODE} - {DATE-OBS} - polarizer: {POLAR} deg"
@@ -102,7 +105,8 @@ def quicklook_generator(file_list: list, product_code: str) -> None:
         write_ndcube_to_quicklook(cube, filename = img_file, annotation = annotation)
 
 
-    out_filename = f"{product_code}_{obs_start}-{obs_end}.mp4"
+    out_filename = os.path.join(output_movie_dir, f"{product_code}_{obs_start}-{obs_end}.mp4")
+    os.makedirs(os.path.dirname(out_filename), exist_ok=True)
     write_quicklook_to_mp4(files = written_list, filename = out_filename)
 
     tempdir.cleanup()
