@@ -49,7 +49,7 @@ def visualize_flow_info(input_files: list[File],
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
-            "file_lists": [
+            "file_list": [
                 os.path.join(input_file.directory(pipeline_config["root"]), input_file.filename())
                 for input_file in input_files
             ],
