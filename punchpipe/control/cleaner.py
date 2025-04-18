@@ -21,6 +21,7 @@ def cleaner(pipeline_config_path: str):
     children_ids = [child.file_id for child in children]
     parents = (session.query(File).join(FileRelationship, File.file_id == FileRelationship.parent)
                       .where(FileRelationship.child.in_(children_ids)).all())
+    relationships = session.query(FileRelationship).where(FileRelationship.child.in_(children_ids)).all()
     for parent in parents:
         parent.state = "created"
     for child in children:
@@ -30,6 +31,8 @@ def cleaner(pipeline_config_path: str):
         if os.path.exists(output_path):
             os.remove(output_path)
         session.delete(child)
+    for relationship in relationships:
+        session.delete(relationship)
     for flow in flows:
         session.delete(flow)
     session.commit()
