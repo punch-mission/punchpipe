@@ -735,6 +735,25 @@ def form_preliminary_wcs(metadata, plate_scale):
                            metadata['ATT_DET_Q_BODY_WRT_ECI1'] * 0.5E-10,
                            metadata['ATT_DET_Q_BODY_WRT_ECI2'] * 0.5E-10,
                            metadata['ATT_DET_Q_BODY_WRT_ECI3'] * 0.5E-10])
+
+    # all WFIs have their bore sight roughly 25 degrees up from spacecraft
+    # so we rotate the quaternions before figuring out the RA/DEC
+    if metadata['spacecraft_id'] != "4":
+        BORESIGHT_ANGLE = np.deg2rad(25)  # degrees
+        quaternion = np.quaternion(metadata['ATT_DET_Q_BODY_WRT_ECI4'] * 0.5E-10,
+                          metadata['ATT_DET_Q_BODY_WRT_ECI1'] * 0.5E-10,
+                          metadata['ATT_DET_Q_BODY_WRT_ECI2'] * 0.5E-10,
+                          metadata['ATT_DET_Q_BODY_WRT_ECI3'] * 0.5E-10)
+        factor = np.sin(BORESIGHT_ANGLE / 2)
+        x, y, z = 0, 0, 1  # we rotate wrt to z
+        rotation_quaternion = np.quaternion(np.cos(BORESIGHT_ANGLE / 2),
+                                            x * factor,
+                                            y * factor,
+                                            z * factor)
+        quaternion = rotation_quaternion * quaternion
+        quaternion = quaternion / quaternion.abs()
+        quaternion = np.array([quaternion.w, quaternion.x, quaternion.y, quaternion.z])
+
     ra, dec, roll = eci_quaternion_to_ra_dec(quaternion)
     projection = "ARC" if metadata['spacecraft_id'] == '4' else 'AZP'
     celestial_wcs = WCS(naxis=2)
