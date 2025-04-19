@@ -39,7 +39,7 @@ from sunpy.coordinates import (
 )
 
 from punchpipe.control.db import Base, File, Flow, PacketHistory, TLMFiles
-from punchpipe.control.util import get_database_engine_session, get_database_session, load_pipeline_configuration
+from punchpipe.control.util import get_database_session, load_pipeline_configuration
 
 FIXED_PACKETS = ['ENG_XACT', 'ENG_LED', 'ENG_PFW', 'ENG_CEB']
 VARIABLE_PACKETS = ['SCI_XFI']
@@ -676,10 +676,8 @@ def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -
     if best_ceb is not None:
         fits_info |= organize_ceb_fits_keywords(best_ceb)
 
-    logger.debug("Getting spacecraft location")
     if before_xact is not None and after_xact is not None:
         fits_info |= organize_spacecraft_position_keywords(observation_time, before_xact, after_xact)
-    logger.debug("Spacecraft location determined")
 
     fits_info |= organize_compression_and_acquisition_settings(compression_settings, acquisition_settings)
 
@@ -918,12 +916,13 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                     out_path =  os.path.join(l0_db_entry.directory(pipeline_config['root']),
                                              get_base_file_name(cube)) + ".fits"
                     os.makedirs(os.path.dirname(out_path), exist_ok=True)
-                    session.add(l0_db_entry)
-                    session.commit()
                     logger.info(f"Writing to {out_path}")
                     write_ndcube_to_fits(cube, out_path, overwrite=True)
+                    session.add(l0_db_entry)
+                    session.commit()
                     success_count += 1
                 except Exception as e:
+                    session.rollback()
                     skip_image = True
                     skip_reason = "Could not make metadata and write image"
                     logger.error(f"Failed writing image because: {e}")
@@ -985,7 +984,7 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
 @flow
 def level0_core_flow(pipeline_config: dict):
     logger = get_run_logger()
-    engine, session = get_database_engine_session()
+    session, engine = get_database_session(get_engine=True)
 
     tlm_xls_path = pipeline_config['tlm_xls_path']
     logger.info(f"Using {tlm_xls_path}")
@@ -1074,12 +1073,3 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
         flow_db_entry.end_time = datetime.now(UTC)
         # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
         session.commit()
-
-if __name__ == "__main__":
-    session = get_database_session()
-    pipeline_config = load_pipeline_configuration("/Users/mhughes/repos/punchpipe/process_local_config.yaml")
-    pipeline_config['plate_scale']['1'] = 0.02444444444
-    pipeline_config['plate_scale']['2'] = 0.02444444444
-    pipeline_config['plate_scale']['3'] = 0.02444444444
-    pipeline_config['plate_scale']['4'] = 0.008333333333
-    level0_core_flow(pipeline_config=pipeline_config)
