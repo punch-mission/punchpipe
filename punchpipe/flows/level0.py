@@ -758,8 +758,8 @@ def form_preliminary_wcs(metadata, plate_scale):
                                             y * factor,
                                             z * factor)
         q = q * rotation_quaternion
-        q = q / quaternion.abs()
-        q = np.array([quaternion.w, quaternion.x, quaternion.y, quaternion.z])
+        q = q / q.abs()
+        q = np.array([q.w, q.x, q.y, q.z])
 
     ra, dec, roll = eci_quaternion_to_ra_dec(q)
     projection = "ARC" if metadata['spacecraft_id'] == '4' else 'AZP'
