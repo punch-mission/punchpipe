@@ -13,6 +13,7 @@ import ccsdspy
 import numpy as np
 import pandas as pd
 import pylibjpeg
+import quaternion  # noqa: F401
 import sqlalchemy
 from astropy.coordinates import GCRS, EarthLocation, HeliocentricMeanEcliptic, SkyCoord
 from astropy.time import Time
@@ -38,6 +39,7 @@ from sunpy.coordinates import (
     HeliographicStonyhurst,
 )
 
+from punchpipe.__init__ import __version__
 from punchpipe.control.db import Base, File, Flow, PacketHistory, TLMFiles
 from punchpipe.control.util import get_database_session, load_pipeline_configuration
 
@@ -294,7 +296,7 @@ def process_telemetry_file(path, defs, apid_name2num, logger):
     for packet_name in defs:
         apid_num = apid_name2num[packet_name]
         if apid_num in contents:
-            logger.info(f"Parsing {packet_name}")
+            logger.debug(f"Parsing {packet_name}")
             try:
                 parsed[packet_name] = defs[packet_name].load(contents[apid_num], include_primary_header=True)
             except (ValueError, RuntimeError):
@@ -302,7 +304,7 @@ def process_telemetry_file(path, defs, apid_name2num, logger):
                 logger.error(f"Failed parsing {packet_name} on {path}")
                 logger.error(traceback.format_exc())
         else:
-            logger.info(f"{packet_name} not found")
+            logger.debug(f"{packet_name} not found")
     return parsed, success
 
 @task(cache_policy=NO_CACHE)
@@ -312,7 +314,7 @@ def ingest_tlm_file(path: str, session: Session,
                     database_classes: dict[str, Base]):
     logger = get_run_logger()
 
-    logger.info(f"Ingesting {path}")
+    logger.debug(f"Ingesting {path}")
     tlm_db_entry = TLMFiles(
         path=path,
         successful=False,
@@ -331,7 +333,7 @@ def ingest_tlm_file(path: str, session: Session,
         packet_numbers_used = list(range(0, num_packets, PACKET_CADENCE.get(packet_name, 1)))
         pkts = {i: {} for i in packet_numbers_used}
         try:
-            logger.info(f"Adding {len(packet_numbers_used)} packets for {packet_name} from {path}")
+            logger.debug(f"Adding {len(packet_numbers_used)} packets for {packet_name} from {path}")
             for packet_num in packet_numbers_used:
                 for key in packet_keys:
                     pkts[packet_num][key] = parsed[packet_name][key][packet_num]
@@ -362,7 +364,7 @@ def unpack_n_bit_values(packed: bytes, byteorder: str, n_bits=19) -> np.ndarray:
     if n_bits in (8, 16, 32, 64):
         trailing = len(packed)%(n_bits//8)
         if trailing:
-            logger.info(f"Truncating {trailing} extra bytes")
+            logger.debug(f"Truncating {trailing} extra bytes")
             packed = packed[:-trailing]
         return np.frombuffer(packed, dtype=np.dtype(f"u{n_bits//8}").newbyteorder(byteorder))
     bit_length = len(packed)*8
@@ -373,7 +375,7 @@ def unpack_n_bit_values(packed: bytes, byteorder: str, n_bits=19) -> np.ndarray:
         # "ceil" equivalent of a//b is -(-a//b), because of
         # http://python-history.blogspot.com/2010/08/why-pythons-integer-division-floors.html
         if len(encompassing_bytes)*8 < n_bits:
-            logger.info(f"Terminating at bit {bit} because there are only {len(encompassing_bytes)*8}"
+            logger.debug(f"Terminating at bit {bit} because there are only {len(encompassing_bytes)*8}"
                       f" bits left, which is not enough to make a {n_bits}-bit value.")
             break
         bit_within_byte = bit % 8
@@ -392,6 +394,7 @@ def unpack_n_bit_values(packed: bytes, byteorder: str, n_bits=19) -> np.ndarray:
 
 def organize_pfw_fits_keywords(pfw_packet):
     return {
+        'PFWTIME': pfw_packet.timestamp.isoformat(),
         'PFWSTAT': pfw_packet.PFW_STATUS,
         'STEPCALC': pfw_packet.STEP_CALC,
         'CMDSTEPS': pfw_packet.LAST_CMD_N_STEPS,
@@ -442,6 +445,7 @@ def organize_pfw_fits_keywords(pfw_packet):
 
 def organize_led_fits_keywords(led_packet):
     return {
+        'LEDTIME': led_packet.timestamp.isoformat(),
         'LED1STAT': led_packet.LED1_ACTIVE_STATE,
         'LEDPLSN': led_packet.LED_CFG_NUM_PLS,
         'LED2STAT': led_packet.LED2_ACTIVE_STATE,
@@ -451,8 +455,10 @@ def organize_led_fits_keywords(led_packet):
 
 
 def organize_ceb_fits_keywords(ceb_packet):
-    return {'CEBSTAT': ceb_packet.CEB_STATUS_REG,
-            'CEBTIME': ceb_packet.CEB_STATUS_REG_SPW_TIMECODE,
+    return {
+        'CEBTIME': ceb_packet.timestamp.isoformat(),
+        'CEBSTAT': ceb_packet.CEB_STATUS_REG,
+            # 'CEBTIME': ceb_packet.CEB_STATUS_REG_SPW_TIMECODE,
             'CEBWGS': ceb_packet.WGS_STATUS,
             'CEBFIFO': ceb_packet.VIDEO_FIFO_STATUS,
             'CEBBIAS1': ceb_packet.CCD_OUTPUT_DRAIN_BIAS,
@@ -500,6 +506,7 @@ def organize_spacecraft_position_keywords(observation_time, before_xact, after_x
     carrington = gcrs.transform_to(HeliographicCarrington(obstime=obstime, observer='self'))
 
     return {
+        'XACTTIME': before_xact.timestamp.isoformat(),
         "HCIX_OBS": hci.cartesian.x.to(u.m).value,
         "HCIY_OBS": hci.cartesian.y.to(u.m).value,
         "HCIZ_OBS": hci.cartesian.z.to(u.m).value,
@@ -555,6 +562,12 @@ def check_for_full_image(img_packets):
 
 @task
 def decode_image_packets(img_packets, compression_settings):
+    byte_stream = img_packets.tobytes()
+    if b'\xFF\xD8' not in byte_stream:
+        raise ValueError("Missing start of image indicator in byte stream")
+    if b'\xFF\xD9' not in byte_stream:
+        raise ValueError("Missing end of image indicator in byte stream")
+
     # check_for_full_image(img_packets)
     if compression_settings["JPEG"]: # JPEG bit enabled (upper two pathways)
         if compression_settings["CMP_BYP"]: # skipped actual JPEG-ification
@@ -576,16 +589,8 @@ def decode_image_packets(img_packets, compression_settings):
     else:
         return np.ravel(pixel_values)[:width*(num_vals//width)].reshape((-1, width))
 
-PFW_POSITIONS = {"M": 960,
-                 "opaque": 720,
-                 "Z": 480,
-                 "P": 240,
-                 "Clear": 0}
 
-POSITIONS_TO_CODES = {"Clear": "CR", "P": "PP", "M": "PM", "Z": "PZ"}
-
-PFW_POSITION_MAPPING = ["Manual", "M", "opaque", "Z", "P", "Clear"]
-
+PFW_POSITION_MAPPING = ["Manual", "PM", "opaque", "PZ", "PP", "CR"]
 
 def determine_file_type(polarizer_position, led_info, image_shape) -> str:
     if led_info is not None:
@@ -595,7 +600,7 @@ def determine_file_type(polarizer_position, led_info, image_shape) -> str:
     elif polarizer_position == 0 or polarizer_position == 2:  # position = 0 is manual pointing. position = 2 is opaque
         return "DK"
     else:
-        return POSITIONS_TO_CODES[PFW_POSITION_MAPPING[polarizer_position]]
+        return PFW_POSITION_MAPPING[polarizer_position]
 
 
 def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -> Tuple[Dict[str, Any], Dict[str, Any]]:
@@ -611,11 +616,11 @@ def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -
     # get the XACT packet right before and right after the first image packet to determine position
     before_xact = (session.query(db_classes['ENG_XACT'])
                    .filter(db_classes['ENG_XACT'].ENG_XACT_HDR_SCID == spacecraft_id)
-                   .filter(db_classes['ENG_XACT'].timestamp < observation_time)
+                   .filter(db_classes['ENG_XACT'].timestamp <= observation_time)
                    .order_by(db_classes['ENG_XACT'].timestamp.desc()).first())
     after_xact = (session.query(db_classes['ENG_XACT'])
                   .filter(db_classes['ENG_XACT'].ENG_XACT_HDR_SCID == spacecraft_id)
-                  .filter(db_classes['ENG_XACT'].timestamp > observation_time)
+                  .filter(db_classes['ENG_XACT'].timestamp >= observation_time)
                   .order_by(db_classes['ENG_XACT'].timestamp.asc()).first())
     logger.debug("XACT retrieved")
 
@@ -636,7 +641,9 @@ def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -
     # get the PFW packet right before the observation
     best_pfw = (session.query(db_classes['ENG_PFW'])
                   .filter(db_classes['ENG_PFW'].ENG_PFW_HDR_SCID == spacecraft_id)
-                  .filter(db_classes['ENG_PFW'].timestamp < observation_time)
+                  #  # only when the wheel isn't moving
+                  # .filter(db_classes['ENG_PFW'].POSITION_CURR == db_classes['ENG_PFW'].POSITION_CMD)
+                  .filter(db_classes['ENG_PFW'].timestamp <= observation_time)
                   .order_by(db_classes['ENG_PFW'].timestamp.desc()).first())
 
     # get the CEB packet right before the observation
@@ -663,7 +670,7 @@ def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -
             'PFW_POSITION_CURR': best_pfw.POSITION_CURR}
 
     # fill in all the FITS info
-    fits_info = {'TYPECODE': determine_file_type(best_pfw.POSITION_CURR,
+    fits_info = {'TYPECODE': determine_file_type(best_pfw.POSITION_CMD,  # TODO determine if this should be CURR or CMD
                                                  best_led,
                                                  image_shape)}
 
@@ -714,9 +721,9 @@ def eci_quaternion_to_ra_dec(q):
 
     w, x, y, z = q
     # Calculate the rotation matrix from the quaternion
-    R = np.array([[1 - 2*(y**2 + z**2), 2*(x*y - z*w), 2*(x*z + y*w)],
-         [2*(x*y + z*w), 1 - 2*(x**2 + z**2), 2*(y*z - x*w)],
-         [2*(x*z - y*w), 2*(y*z + x*w), 1 - 2*(x**2 + y**2)]])
+    R = np.array([[1 - 2*((y**2) + (z**2)), 2*((x*y) - (z*w)), 2*((x*z) + (y*w))],
+         [2*((x*y) + (z*w)), 1 - 2*((x**2) + (z**2)), 2*((y*z) - (x*w))],
+         [2*((x*z) - (y*w)), 2*((y*z) + (x*w)), 1 - 2*((x**2) + (y**2))]])
 
     axis_eci = np.array([1, 0, 0])
     body = R @ axis_eci
@@ -725,13 +732,13 @@ def eci_quaternion_to_ra_dec(q):
     c = SkyCoord(body[0], body[1], body[2], representation_type='cartesian', unit='m').fk5
     ra = c.ra.deg
     dec = c.dec.deg
-    roll = np.arctan2(q[1] * q[2] - q[0] * q[3], 1 / 2 - (q[2] ** 2 + q[3] ** 2))
+    roll = np.arctan2((q[1] * q[2]) - (q[0] * q[3]), 1 / (2 - ((q[2] ** 2) + (q[3] ** 2))))
 
     return ra, dec, roll
 
 def form_preliminary_wcs(metadata, plate_scale):
     """Create the preliminary WCS for punchbowl"""
-    quaternion = np.array([metadata['ATT_DET_Q_BODY_WRT_ECI4'] * 0.5E-10,
+    q = np.array([metadata['ATT_DET_Q_BODY_WRT_ECI4'] * 0.5E-10,
                            metadata['ATT_DET_Q_BODY_WRT_ECI1'] * 0.5E-10,
                            metadata['ATT_DET_Q_BODY_WRT_ECI2'] * 0.5E-10,
                            metadata['ATT_DET_Q_BODY_WRT_ECI3'] * 0.5E-10])
@@ -739,22 +746,22 @@ def form_preliminary_wcs(metadata, plate_scale):
     # all WFIs have their bore sight roughly 25 degrees up from spacecraft
     # so we rotate the quaternions before figuring out the RA/DEC
     if metadata['spacecraft_id'] != "4":
-        BORESIGHT_ANGLE = np.deg2rad(25)  # degrees
-        quaternion = np.quaternion(metadata['ATT_DET_Q_BODY_WRT_ECI4'] * 0.5E-10,
+        BORESIGHT_ANGLE = np.deg2rad(-25)  # this number comes from Craig as a rough estimate
+        q = np.quaternion(metadata['ATT_DET_Q_BODY_WRT_ECI4'] * 0.5E-10,
                           metadata['ATT_DET_Q_BODY_WRT_ECI1'] * 0.5E-10,
                           metadata['ATT_DET_Q_BODY_WRT_ECI2'] * 0.5E-10,
                           metadata['ATT_DET_Q_BODY_WRT_ECI3'] * 0.5E-10)
         factor = np.sin(BORESIGHT_ANGLE / 2)
-        x, y, z = 0, 0, 1  # we rotate wrt to z
+        x, y, z = 0, 1, 0  # we rotate around the y axis
         rotation_quaternion = np.quaternion(np.cos(BORESIGHT_ANGLE / 2),
                                             x * factor,
                                             y * factor,
                                             z * factor)
-        quaternion = rotation_quaternion * quaternion
-        quaternion = quaternion / quaternion.abs()
-        quaternion = np.array([quaternion.w, quaternion.x, quaternion.y, quaternion.z])
+        q = q * rotation_quaternion
+        q = q / quaternion.abs()
+        q = np.array([quaternion.w, quaternion.x, quaternion.y, quaternion.z])
 
-    ra, dec, roll = eci_quaternion_to_ra_dec(quaternion)
+    ra, dec, roll = eci_quaternion_to_ra_dec(q)
     projection = "ARC" if metadata['spacecraft_id'] == '4' else 'AZP'
     celestial_wcs = WCS(naxis=2)
     celestial_wcs.wcs.crpix = (1024.5, 1024.5)
@@ -769,6 +776,10 @@ def form_preliminary_wcs(metadata, plate_scale):
 @task
 def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num):
     logger = get_run_logger()
+
+    now = datetime.now(UTC)
+    retry_days = float(pipeline_config["flows"]["level0"]["options"].get("retry_days", 3.0))
+    retry_window_start = now - timedelta(days=retry_days)
 
     SCI_XFI = db_classes["SCI_XFI"]  # convenience to shorten the database access everywhere
 
@@ -785,6 +796,7 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
         distinct_times = (session.query(SCI_XFI.timestamp)
                           .filter(or_(~SCI_XFI.is_used, SCI_XFI.is_used.is_(None)))
                           .filter(SCI_XFI.SCI_XFI_HDR_SCID == spacecraft[0])
+                          .filter(SCI_XFI.timestamp > retry_window_start)
                           .distinct()
                           .all())
 
@@ -795,10 +807,10 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                                      .filter(and_(SCI_XFI.timestamp == t[0],
                                                  SCI_XFI.SCI_XFI_HDR_SCID == spacecraft[0]))
                                      .all())
-            logger.info(f"len(packets) = {len(image_packets_entries)}")
+            logger.debug(f"len(packets) = {len(image_packets_entries)}")
             image_compression = [unpack_compression_settings(packet.SCI_XFI_HDR_COM_SET)
                                  for packet in image_packets_entries]
-            logger.info(f"image_compression = {image_compression[0]}")
+            logger.debug(f"image_compression = {image_compression[0]}")
 
             # Determine all the relevant TLM files
             needed_tlm_ids = set([image_packet.tlm_id for image_packet in image_packets_entries])
@@ -806,7 +818,7 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                                   for tlm_id in needed_tlm_ids}
             needed_tlm_paths = list(session.query(TLMFiles.path).where(TLMFiles.tlm_id.in_(needed_tlm_ids)).all())
             needed_tlm_paths = [p.path for p in needed_tlm_paths]
-            logger.info(f"Will use data from {needed_tlm_paths}")
+            logger.debug(f"Will use data from {needed_tlm_paths}")
 
             # parse any TLM files needed that haven't already been loaded for image creation
             for tlm_path in needed_tlm_paths:
@@ -842,9 +854,11 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                 # we use the packet with the largest packet_id because it's most likely the newest
                 ordered_image_content = []
                 sequence_counter = []
+                ordered_image_packet_entries = []
                 for sequence_count in sorted(list(order_dict.keys())):
                     best_packet = max(order_dict[sequence_count])
                     packet_entry = packet_entry_mapping[best_packet]
+                    ordered_image_packet_entries.append(packet_entry)
                     tlm_content_index = needed_tlm_paths.index(tlm_id_to_tlm_path[packet_entry.tlm_id])
                     selected_tlm_contents = tlm_contents[tlm_content_index]
                     ordered_image_content.append(selected_tlm_contents['SCI_XFI']['SCI_XFI_IMG_DATA'][packet_entry.packet_index])
@@ -864,14 +878,14 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                     # TODO: we might be missing the first or last packet... so case the replay length should be longer
                     replay_needs.append({
                         'spacecraft': spacecraft[0],
-                        'start_time': image_packets_entries[0].timestamp.isoformat(),
-                        'start_block': image_packets_entries[0].SCI_XFI_HDR_FLASH_BLOCK,
-                        'replay_length': image_packets_entries[-1].SCI_XFI_HDR_FLASH_BLOCK
-                                         - image_packets_entries[0].SCI_XFI_HDR_FLASH_BLOCK + 1})
+                        'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
+                        'start_block': ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK,
+                        'replay_length': ordered_image_packet_entries[-1].SCI_XFI_HDR_FLASH_BLOCK
+                                         - ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK + 1})
 
                 # we'll finally try to decompress the image, if it fails we cannot make the image so we proceed
                 try:
-                    compression_settings = unpack_compression_settings(image_packets_entries[0].SCI_XFI_HDR_COM_SET)
+                    compression_settings = unpack_compression_settings(ordered_image_packet_entries[0].SCI_XFI_HDR_COM_SET)
                     image = decode_image_packets(np.concatenate(ordered_image_content), compression_settings)
                     if image.shape != (2048, 2048) and image.shape != (4192, 2176):
                         skip_image = True
@@ -879,10 +893,10 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                         logger.error(skip_reason)
                         replay_needs.append({
                             'spacecraft': spacecraft[0],
-                            'start_time': image_packets_entries[0].timestamp.isoformat(),
-                            'start_block': image_packets_entries[0].SCI_XFI_HDR_FLASH_BLOCK,
-                            'replay_length': image_packets_entries[-1].SCI_XFI_HDR_FLASH_BLOCK
-                                             - image_packets_entries[0].SCI_XFI_HDR_FLASH_BLOCK + 1})
+                            'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
+                            'start_block': ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK,
+                            'replay_length': ordered_image_packet_entries[-1].SCI_XFI_HDR_FLASH_BLOCK
+                                             - ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK + 1})
                 except (ValueError, RuntimeError):
                     skip_image = True
                     skip_reason = "Image decoding failed"
@@ -890,10 +904,10 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                     logger.error(traceback.format_exc())
                     replay_needs.append({
                         'spacecraft': spacecraft[0],
-                        'start_time': image_packets_entries[0].timestamp.isoformat(),
-                        'start_block': image_packets_entries[0].SCI_XFI_HDR_FLASH_BLOCK,
-                        'replay_length': image_packets_entries[-1].SCI_XFI_HDR_FLASH_BLOCK
-                                         - image_packets_entries[0].SCI_XFI_HDR_FLASH_BLOCK + 1})
+                        'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
+                        'start_block': ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK,
+                        'replay_length': ordered_image_packet_entries[-1].SCI_XFI_HDR_FLASH_BLOCK
+                                         - ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK + 1})
 
 
             # now that we have the image we're ready to collect the metadat and write it to file
@@ -901,13 +915,14 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                 try:
                     # we need to work out the SOC spacecraft ID from the MOC spacecraft id
                     spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
-                    moc_index = spacecraft_secrets["moc"].index(image_packets_entries[0].SCI_XFI_HDR_SCID)
+                    moc_index = spacecraft_secrets["moc"].index(ordered_image_packet_entries[0].SCI_XFI_HDR_SCID)
                     soc_spacecraft_id = spacecraft_secrets["soc"][moc_index]
                     logger.debug("Getting metadata for file")
                     position_info, fits_info = get_metadata(db_classes,
-                                                            image_packets_entries[0],
+                                                            ordered_image_packet_entries[0],
                                                             image.shape,
                                                             session, logger)
+                    fits_info['FILEVRSN'] = pipeline_config['file_version']
                     logger.debug("Metadata retrieved")
                     file_type = fits_info["TYPECODE"]
                     preliminary_wcs = form_preliminary_wcs(position_info,
@@ -923,12 +938,12 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                     l0_db_entry = File(level="0",
                                        file_type=file_type,
                                        observatory=str(soc_spacecraft_id),
-                                       file_version="1",  # TODO: increment the file version
-                                       software_version="TODO",
+                                       file_version=pipeline_config['file_version'],
+                                       software_version=__version__,
                                        date_created=datetime.now(UTC),
-                                       date_obs=meta["DATE-OBS"].value,
-                                       date_beg=meta['DATE-BEG'].value,
-                                       date_end=meta['DATE-END'].value,
+                                       date_obs=parse_datetime_str(meta["DATE-OBS"].value),
+                                       date_beg=parse_datetime_str(meta['DATE-BEG'].value),
+                                       date_end=parse_datetime_str(meta['DATE-END'].value),
                                        state="created")
 
                     # finally time to write to file
@@ -971,8 +986,8 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                                num_images_failed=skip_count)
         session.add(history)
         session.commit()
-        logger.info(f"SUCCESS={success_count}")
-        logger.info(f"FAILURE={skip_count}")
+    logger.info(f"SUCCESS={success_count}")
+    logger.info(f"FAILURE={skip_count}")
 
     # Split into multiple files and append updates instead of making a new file each time
     # We label not with the spacecraft telemetry ID but with the spelled out name

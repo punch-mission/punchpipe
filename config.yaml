@@ -36,16 +36,17 @@ control:
     description: "Monitor the health of the pipeline."
 
 flows:
-#  level0:
-#    description: "Creates Level 0 files from raw packets."
-#    tags: ["L0"]
-#    concurrency_limit: 1
-#    priority:
-#      initial: 5
-#      seconds: [ 30, 120, 600 ]
-#      escalation: [ 10, 20, 30 ]
-#    schedule: "*/30 * * * *"
-#    options:
+  level0:
+    description: "Creates Level 0 files from raw packets."
+    tags: ["L0"]
+    concurrency_limit: 1
+    priority:
+      initial: 5
+      seconds: [ 30, 120, 600 ]
+      escalation: [ 10, 20, 30 ]
+    schedule: "*/30 * * * *"
+    options:
+        retry_days: 5.0
 
   level1:
     description: "Creates Level 1 files."
