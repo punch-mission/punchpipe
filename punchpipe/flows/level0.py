@@ -1036,8 +1036,8 @@ def level0_core_flow(pipeline_config: dict):
         ingest_tlm_file(path, session, defs, apid_name2num, database_classes)
 
     defs = create_packet_definitions(tlm, parse_expanding_fields=True)
-    if new_tlm_files:
-        level0_form_images(session, pipeline_config, database_classes, defs, apid_name2num)
+
+    level0_form_images(session, pipeline_config, database_classes, defs, apid_name2num)
 
 @task
 def level0_construct_flow_info(pipeline_config: dict):
