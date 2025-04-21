@@ -15,12 +15,16 @@ from yaml.loader import FullLoader
 from punchpipe.control.db import File
 
 
-def get_database_session():
+def get_database_session(get_engine=False):
     """Sets up a session to connect to the MariaDB punchpipe database"""
     credentials = SqlAlchemyConnector.load("mariadb-creds", _sync=True)
     engine = credentials.get_engine()
     session = Session(engine)
-    return session
+
+    if get_engine:
+        return session, engine
+    else:
+        return session
 
 
 @task(cache_policy=NO_CACHE)
@@ -49,6 +53,8 @@ def write_file(data: NDCube, corresponding_file_db_entry, pipeline_config) -> No
     write_ndcube_to_fits(data, output_filename)
     corresponding_file_db_entry.state = "created"
 
+    # TODO - Configure to write each layer separately?
+    # TODO - Configure to use specified vmin/vmax on a per-product level basis?
     layer = 0 if len(data.data.shape) > 2 else None
     write_ndcube_to_quicklook(data, output_filename.replace(".fits", ".jp2"), layer=layer)
 

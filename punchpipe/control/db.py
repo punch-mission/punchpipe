@@ -1,7 +1,7 @@
 import os
 
 from sqlalchemy import TEXT, Boolean, Column, Float, Integer, String
-from sqlalchemy.dialects.mysql import DATETIME, INTEGER
+from sqlalchemy.dialects.mysql import DATETIME
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -80,150 +80,13 @@ class FileRelationship(Base):
     parent = Column(Integer, nullable=False)
     child = Column(Integer, nullable=False)
 
-
-class SciPacket(Base):
-    __tablename__ = "sci_packets"
-    packet_id = Column(Integer, primary_key=True)
-    apid = Column(Integer, nullable=False, index=True)
-    sequence_count = Column(Integer, nullable=False)
-    length = Column(Integer, nullable=False)
-    spacecraft_id = Column(Integer, nullable=False, index=True)
-    flash_block = Column(Integer, nullable=False)
-    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
-    packet_num = Column(Integer, nullable=False)
-    source_tlm_file = Column(Integer, nullable=False)
-    is_used = Column(Boolean)
-    img_pkt_grp = Column(Integer, nullable=False)
-    l0_version = Column(Integer)
-    compression_settings = Column(INTEGER(unsigned=True), nullable=False)
-    acquisition_settings = Column(INTEGER(unsigned=True), nullable=False)
-
-class EngXACTPacket(Base):
-    __tablename__ = "eng_xact"
-    packet_id = Column(Integer, primary_key=True)
-    apid = Column(Integer, nullable=False, index=True)
-    sequence_count = Column(Integer, nullable=False)
-    length = Column(Integer, nullable=False)
-    spacecraft_id = Column(Integer, nullable=False, index=True)
-    flash_block = Column(Integer, nullable=False)
-    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
-    packet_num = Column(Integer, nullable=False)
-    source_tlm_file = Column(Integer, nullable=False)
-
-    ATT_DET_Q_BODY_WRT_ECI1	= Column(Integer, nullable=False) # Attitude Quaternion
-    ATT_DET_Q_BODY_WRT_ECI2	= Column(Integer, nullable=False) # Attitude Quaternion
-    ATT_DET_Q_BODY_WRT_ECI3	= Column(Integer, nullable=False) # Attitude Quaternion
-    ATT_DET_Q_BODY_WRT_ECI4	= Column(Integer, nullable=False) # Attitude Quaternion
-
-    ATT_DET_RESIDUAL1 = Column(Float, nullable=False) #	Attitude Filter Residual
-    ATT_DET_RESIDUAL2 = Column(Float, nullable=False) # Attitude Filter Residual
-    ATT_DET_RESIDUAL3 = Column(Float, nullable=False) # Attitude Filter Residual
-
-    REFS_POSITION_WRT_ECI1 = Column(Float, nullable=False) # Orbit Position ECI
-    REFS_POSITION_WRT_ECI2 = Column(Float, nullable=False) # Orbit Position ECI
-    REFS_POSITION_WRT_ECI3 = Column(Float, nullable=False) # Orbit Position ECI
-
-    REFS_VELOCITY_WRT_ECI1 = Column(Float, nullable=False) # Orbit Velocity ECI
-    REFS_VELOCITY_WRT_ECI2 = Column(Float, nullable=False) # Orbit Velocity ECI
-    REFS_VELOCITY_WRT_ECI3 = Column(Float, nullable=False) # Orbit Velocity ECI
-
-    ATT_CMD_CMD_Q_BODY_WRT_ECI1 = Column(Float, nullable=False) # Commanded Att Quaternion
-    ATT_CMD_CMD_Q_BODY_WRT_ECI2 = Column(Float, nullable=False) # Commanded Att Quaternion
-    ATT_CMD_CMD_Q_BODY_WRT_ECI3 = Column(Float, nullable=False) # Commanded Att Quaternion
-    ATT_CMD_CMD_Q_BODY_WRT_ECI4	= Column(Float, nullable=False) # Commanded Att Quaternion
-
-    GPS_POSITION_ECEF1 = Column(Integer, nullable=False)
-    GPS_POSITION_ECEF2 = Column(Integer, nullable=False)
-    GPS_POSITION_ECEF3 = Column(Integer, nullable=False)
-
-    GPS_VELOCITY_ECEF1 = Column(Integer, nullable=False)
-    GPS_VELOCITY_ECEF2 = Column(Integer, nullable=False)
-    GPS_VELOCITY_ECEF3 = Column(Integer, nullable=False)
-
-class ENGPFWPacket(Base):
-    __tablename__ = "eng_pfw"
-    packet_id = Column(Integer, primary_key=True)
-    apid = Column(Integer, nullable=False, index=True)
-    sequence_count = Column(Integer, nullable=False)
-    length = Column(Integer, nullable=False)
-    spacecraft_id = Column(Integer, nullable=False, index=True)
-    flash_block = Column(Integer, nullable=False)
-    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
-    packet_num = Column(Integer, nullable=False)
-    source_tlm_file = Column(INTEGER(unsigned=True), nullable=False)
-
-    PFW_STATUS =Column(INTEGER(unsigned=True), nullable=False)  # Current PFW Status (0 - no error, else error)
-    STEP_CALC = Column(INTEGER(unsigned=True), nullable=False) # Calculated step (0-1199)
-    LAST_CMD_N_STEPS = Column(INTEGER(unsigned=True), nullable=False) # Commanded number of steps (1-1199)
-    HOME_POSITION_OVRD = Column(INTEGER(unsigned=True), nullable=False) # HOME Position OVERRIDE
-    POSITION_CURR = Column(INTEGER(unsigned=True), nullable=False) # Current position (1-5, 0 - manual stepping)
-    POSITION_CMD = Column(INTEGER(unsigned=True), nullable=False) # Commanded position (1-5, 0 - manual stepping)
-    RESOLVER_POS_RAW = Column(INTEGER(unsigned=True), nullable=False) # Resolver position - raw resolver counts (0-65000)
-    RESOLVER_POS_CORR = Column(INTEGER(unsigned=True), nullable=False) # Resolver position - error correction applied (0-65000)
-    RESOLVER_READ_CNT = Column(INTEGER(unsigned=True), nullable=False) # Accumulative # of resolver reads (resets on boot)
-    LAST_MOVE_N_STEPS = Column(INTEGER(unsigned=True), nullable=False)# Number of steps on last move (1-1199)
-    LAST_MOVE_EXECUTION_TIME = Column(INTEGER(unsigned=True), nullable=False) # Current move execution time
-    LIFETIME_STEPS_TAKEN = Column(INTEGER(unsigned=True), nullable=False) # Lifetime accumulative number of steps taken
-    LIFETIME_EXECUTION_TIME	= Column(INTEGER(unsigned=True), nullable=False) # Lifetime accumulative execution time
-    FSM_CTRL_STATE = Column(INTEGER(unsigned=True), nullable=False) # Controller FSM State
-    READ_SUB_STATE = Column(INTEGER(unsigned=True), nullable=False) # READ Sub-FSM State
-    MOVE_SUB_STATE = Column(INTEGER(unsigned=True), nullable=False) # MOVE Sub-FSM State
-    HOME_SUB_STATE = Column(INTEGER(unsigned=True), nullable=False) # HOME Sub-FSM State
-    HOME_POSITION = Column(INTEGER(unsigned=True), nullable=False) # Home Position (1-5)
-    RESOLVER_SELECT = Column(INTEGER(unsigned=True), nullable=False) # Resolver Select
-    RESOLVER_TOLERANCE_HOME = Column(INTEGER(unsigned=True), nullable=False) # Resolver Tolerance
-    RESOLVER_TOLERANCE_CURR = Column(INTEGER(unsigned=True), nullable=False) # Resolver Tolerance
-    STEPPER_SELECT= Column(INTEGER(unsigned=True), nullable=False) # Stepper Motor Select
-    STEPPER_RATE_DELAY = Column(INTEGER(unsigned=True), nullable=False) # Stepper Motor Rate Delay
-    STEPPER_RATE = Column(INTEGER(unsigned=True), nullable=False) # Stepper Motor Rate
-    SHORT_MOVE_SETTLING_TIME_MS	= Column(INTEGER(unsigned=True), nullable=False) # Short Move(1-4 steps) Settling time before reading resolver
-    LONG_MOVE_SETTLING_TIME_MS = Column(INTEGER(unsigned=True), nullable=False) # Long Move(5-1199 steps) Setting time before reading resolver
-    PRIMARY_STEP_OFFSET_1 = Column(INTEGER(unsigned=True), nullable=False) # Primary Step Offset 1
-    PRIMARY_STEP_OFFSET_2 = Column(INTEGER(unsigned=True), nullable=False) # Short Move(1-4 steps) Delay before reading resolver
-    PRIMARY_STEP_OFFSET_3 = Column(INTEGER(unsigned=True), nullable=False) # Primary Step Offset 3
-    PRIMARY_STEP_OFFSET_4 = Column(INTEGER(unsigned=True), nullable=False) # Primary Step Offset 4
-    PRIMARY_STEP_OFFSET_5 = Column(INTEGER(unsigned=True), nullable=False) # Primary Step Offset 5
-    REDUNDANT_STEP_OFFSET_1 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Step Offset 1
-    REDUNDANT_STEP_OFFSET_2 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Step Offset 2
-    REDUNDANT_STEP_OFFSET_3 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Step Offset 3
-    REDUNDANT_STEP_OFFSET_4 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Step Offset 4
-    REDUNDANT_STEP_OFFSET_5 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Step Offset 5
-    PRIMARY_RESOLVER_POSITION_1 = Column(INTEGER(unsigned=True), nullable=False) # Primary Resolver Position 1
-    PRIMARY_RESOLVER_POSITION_2 = Column(INTEGER(unsigned=True), nullable=False) # Primary Resolver Position 2
-    PRIMARY_RESOLVER_POSITION_3 = Column(INTEGER(unsigned=True), nullable=False) # Primary Resolver Position 3
-    PRIMARY_RESOLVER_POSITION_4 = Column(INTEGER(unsigned=True), nullable=False) # Primary Resolver Position 4
-    PRIMARY_RESOLVER_POSITION_5 = Column(INTEGER(unsigned=True), nullable=False) # Primary Resolver Position 5
-    REDUNDANT_RESOLVER_POSITION_1 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Resolver Position 1
-    REDUNDANT_RESOLVER_POSITION_2 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Resolver Position 2
-    REDUNDANT_RESOLVER_POSITION_3 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Resolver Position 3
-    REDUNDANT_RESOLVER_POSITION_4 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Resolver Position 4
-    REDUNDANT_RESOLVER_POSITION_5 = Column(INTEGER(unsigned=True), nullable=False) # Redundant Resolver Position 5
-
-class EngLEDPacket(Base):
-    __tablename__ = "eng_led"
-    packet_id = Column(Integer, primary_key=True)
-    apid = Column(Integer, nullable=False, index=True)
-    sequence_count = Column(Integer, nullable=False)
-    length = Column(Integer, nullable=False)
-    spacecraft_id = Column(Integer, nullable=False, index=True)
-    flash_block = Column(Integer, nullable=False)
-    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
-    packet_num = Column(Integer, nullable=False)
-    source_tlm_file = Column(Integer, nullable=False)
-
-    LED1_ACTIVE_STATE	= Column(Boolean, nullable=False)
-    LED_CFG_NUM_PLS	= Column(Integer, nullable=False)
-    LED2_ACTIVE_STATE	= Column(Boolean, nullable=False)
-    LED_CFG_PLS_DLY	= Column(Integer, nullable=False)
-    LED_CFG_PLS_WIDTH = Column(Integer, nullable=False)
-    LED_START_TIME = Column(DATETIME(fsp=6), nullable=False, index=True)
-    LED_END_TIME = Column(DATETIME(fsp=6), nullable=False, index=True)
-
 class TLMFiles(Base):
     __tablename__ = "tlm_files"
     tlm_id = Column(Integer, primary_key=True)
     path = Column(String(128), nullable=False)
-    is_processed = Column(Boolean, nullable=False)
+    successful = Column(Boolean, nullable=False)
+    num_attempts = Column(Integer, nullable=False)
+    last_attempt = Column(DATETIME(fsp=6), nullable=True)
 
 class Health(Base):
     __tablename__ = "health"
@@ -243,14 +106,6 @@ class PacketHistory(Base):
     datetime = Column(DATETIME(fsp=6), nullable=False)
     num_images_succeeded = Column(Integer, nullable=False)
     num_images_failed = Column(Integer, nullable=False)
-
-
-def get_closest_eng_packets(table, timestamp, spacecraft_id, session):
-    # find the closest events which are greater/less than the timestamp
-    gt_event = session.query(table).filter(table.spacecraft_id == spacecraft_id).filter(table.timestamp > timestamp).order_by(table.timestamp.asc()).first()
-    lt_event = session.query(table).filter(table.spacecraft_id == spacecraft_id).filter(table.timestamp < timestamp).order_by(table.timestamp.desc()).first()
-
-    return lt_event, gt_event
 
 
 def get_closest_file(f_target: File, f_others: list[File]) -> File:
