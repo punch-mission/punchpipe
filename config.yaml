@@ -80,6 +80,16 @@ flows:
     schedule: "* * * * *"
     options:
 
+  level2_clear:
+    description: "Creates Level 2 clear files."
+    tags: [ "L2" ]
+    priority:
+      initial: 1000
+      seconds: [ 3000, 12000, 60000 ]
+      escalation: [ 1000, 1000, 1000 ]
+    schedule: "* * * * *"
+    options:
+
   levelq:
     description: "Creates Level Q CTM and CNN data files."
     tags: [ "LQ" ]
@@ -120,7 +130,7 @@ flows:
     schedule: "* * * * *"
     options:
 
-  L3_PTM:
+  level3_PTM:
     description: "Creates Level 3 PTM files."
     tags: [ "L3" ]
     priority:
@@ -130,7 +140,7 @@ flows:
     schedule: "* * * * *"
     options:
 
-  L3_PIM:
+  level3_PIM:
     description: "Creates Level 3 PIM files."
     tags: [ "L3" ]
     priority:
@@ -140,7 +150,27 @@ flows:
     schedule: "* * * * *"
     options:
 
-  f_corona:
+  level3_CTM:
+    description: "Creates Level 3 CTM files."
+    tags: [ "L3" ]
+    priority:
+      initial: 10000
+      seconds: [1]
+      escalation: [10000]
+    schedule: "* * * * *"
+    options:
+
+  level3_CIM:
+    description: "Creates Level 3 CIM files."
+    tags: [ "L3" ]
+    priority:
+      initial: 10000
+      seconds: [1]
+      escalation: [10000]
+    schedule: "* * * * *"
+    options:
+
+  construct_f_corona_background:
     description: "Creates Level 3 f corona model files."
     tags: [ "L3" ]
     priority:
@@ -150,7 +180,7 @@ flows:
     schedule: "* * * * *"
     options:
 
-  starfield:
+  construct_starfield_background:
     description: "Creates Level 3 starfield files."
     tags: [ "L3" ]
     priority:
