@@ -115,7 +115,7 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], pipeline_con
         n_batches = total_delay_time // 10
         batch_size = ceil(len(flow_info) / n_batches)
         logger.info(f"Total delay time: {total_delay_time}")
-        if n_batches == 1:
+        if batch_size >= len(flow_info):
             delay_time = 0
         else:
             delay_time = total_delay_time / (n_batches - 1)
@@ -132,8 +132,8 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], pipeline_con
 
             responses.extend(await asyncio.gather(*awaitables))
             awaitables = []
-            if n_batches > 1:
-                logger.info(f"Batch of {len(batch)} sent")
+            logger.info(f"Batch of {len(batch)} sent")
+            if delay_time:
                 # Stagger the launches
                 await asyncio.sleep(delay_time - (datetime.now().timestamp() - start))
 
