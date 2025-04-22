@@ -222,7 +222,7 @@ def create_app():
         for flow_type in df.flow_type.unique():
             for date in dates:
                 for state in ['failed', 'completed']:
-                    if len(df.query(f'hour == @date and state == @state and flow_type == @flow_type')) == 0:
+                    if len(df.query('hour == @date and state == @state and flow_type == @flow_type')) == 0:
                         additions.append([flow_type, date, None, 0, state])
         df = pd.concat([df, pd.DataFrame(additions, columns=df.columns)], ignore_index=True)
         df.sort_values(['state', 'hour'], inplace=True)
