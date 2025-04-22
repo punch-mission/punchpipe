@@ -554,19 +554,15 @@ def organize_gain_info(spacecraft_id):
             gains = {'GAINLEFT': 4.9, 'GAINRGHT': 4.9}
     return gains
 
-def check_for_full_image(img_packets):
-    n_starts = img_packets.count(b'\xFF\xD8')
-    n_endings = img_packets.count(b'\xFF\xD9')
-    if n_starts != n_endings:
-        raise RuntimeError("Image does not have both start and end indicators")
 
 @task
 def decode_image_packets(img_packets, compression_settings):
-    byte_stream = img_packets.tobytes()
-    if b'\xFF\xD8' not in byte_stream:
-        raise ValueError("Missing start of image indicator in byte stream")
-    if b'\xFF\xD9' not in byte_stream:
-        raise ValueError("Missing end of image indicator in byte stream")
+    if compression_settings["JPEG"] and not compression_settings["CMP_BYP"]:
+        byte_stream = img_packets.tobytes()
+        if b'\xFF\xD8' not in byte_stream:
+            raise ValueError("Missing start of image indicator in byte stream")
+        if b'\xFF\xD9' not in byte_stream:
+            raise ValueError("Missing end of image indicator in byte stream")
 
     # check_for_full_image(img_packets)
     if compression_settings["JPEG"]: # JPEG bit enabled (upper two pathways)
