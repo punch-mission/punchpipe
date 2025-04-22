@@ -1,5 +1,4 @@
 import asyncio
-from itertools import batched
 from math import ceil
 from typing import List
 from datetime import datetime, timedelta
@@ -12,7 +11,7 @@ from sqlalchemy import and_, func, select, update
 from sqlalchemy.orm import Session
 
 from punchpipe.control.db import Flow
-from punchpipe.control.util import get_database_session, load_pipeline_configuration
+from punchpipe.control.util import batched, get_database_session, load_pipeline_configuration
 
 
 @task(cache_policy=NO_CACHE)

@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from itertools import islice
 
 import yaml
 from ndcube import NDCube
@@ -84,3 +85,13 @@ def get_files_in_time_window(level: str,
             .filter(File.observatory == obs_code))
             .filter(File.date_obs > start_time))
             .filter(File.date_obs <= end_time).all())
+
+
+def batched(iterable, n):
+    # batched('ABCDEFG', 3) → ABC DEF G
+    # This is basically itertools.batched, but that only exists in Python >= 3.12
+    if n < 1:
+        raise ValueError('n must be at least one')
+    iterator = iter(iterable)
+    while batch := tuple(islice(iterator, n)):
+        yield batch
