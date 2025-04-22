@@ -33,8 +33,8 @@ def cleaner(pipeline_config_path: str):
         session.delete(child)
     for relationship in relationships:
         session.delete(relationship)
-    for flow in flows:
-        session.delete(flow)
+    for f in flows:
+        session.delete(f)
     session.commit()
     if len(flows):
         logger.info(f"Revived {len(flows)} flows")
