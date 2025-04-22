@@ -5,7 +5,7 @@ from datetime import datetime
 
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
-from punchbowl.level2.flow import level2_core_flow
+from punchbowl.level2.flow import level2_core_flow, level2_ctm_flow
 
 from punchpipe import __version__
 from punchpipe.control.db import File, Flow
@@ -117,4 +117,4 @@ def level2_process_flow(flow_id: int, pipeline_config_path=None, session=None):
 
 @flow
 def level2_clear_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, level2_core_flow, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, level2_ctm_flow, pipeline_config_path, session=session)
