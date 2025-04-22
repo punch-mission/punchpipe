@@ -7,7 +7,6 @@ from typing import Any, Dict, Tuple
 from datetime import UTC, datetime, timedelta
 
 import astropy
-import astropy.time
 import astropy.units as u
 import ccsdspy
 import numpy as np
@@ -16,7 +15,7 @@ import pylibjpeg
 import quaternion  # noqa: F401
 import sqlalchemy
 from astropy.coordinates import GCRS, EarthLocation, HeliocentricMeanEcliptic, SkyCoord
-from astropy.time import Time
+from astropy.time import Time, TimeDelta
 from astropy.wcs import WCS
 from ccsdspy import PacketArray, PacketField, converters
 from ccsdspy.utils import split_by_apid
@@ -767,7 +766,7 @@ def form_preliminary_wcs(metadata, plate_scale):
     celestial_wcs.wcs.set_pv([(2, 1, 0.0)])  # TODO: makes sure this is reasonably set
     celestial_wcs.wcs.ctype = f"RA--{projection}", f"DEC-{projection}"
     celestial_wcs.wcs.cunit = "deg", "deg"
-    return calculate_helio_wcs_from_celestial(celestial_wcs, astropy.time.Time(metadata['datetime']), (2048, 2048))[0]
+    return calculate_helio_wcs_from_celestial(celestial_wcs, Time(metadata['datetime']), (2048, 2048))[0]
 
 @task
 def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num):
