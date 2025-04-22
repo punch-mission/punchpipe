@@ -45,6 +45,7 @@ from punchpipe.control.util import get_database_session, load_pipeline_configura
 FIXED_PACKETS = ['ENG_XACT', 'ENG_LED', 'ENG_PFW', 'ENG_CEB']
 VARIABLE_PACKETS = ['SCI_XFI']
 PACKET_CADENCE = {'ENG_XACT': 10}  # only take every tenth ENG_XACT packet for 10Hz resolution
+SC_TIME_EPOCH = Time(2000.0, format="decimalyear", scale="tai")
 
 class SpacecraftMapping(Block):
     mapping: SecretDict
