@@ -1,6 +1,6 @@
 import os
 
-from sqlalchemy import TEXT, Boolean, Column, Float, Integer, String
+from sqlalchemy import TEXT, Boolean, Column, Float, Index, Integer, String
 from sqlalchemy.dialects.mysql import DATETIME
 from sqlalchemy.orm import declarative_base
 
@@ -57,6 +57,11 @@ class File(Base):
             the place to write the file
         """
         return os.path.join(root, self.level, self.file_type + self.observatory, self.date_obs.strftime("%Y/%m/%d"))
+
+
+Index("date_obs_index", File.date_obs, mysql_using="btree", mariadb_using="btree")
+Index("observatory_index", File.observatory, mysql_using="hash", mariadb_using="hash")
+Index("file_type_index", File.file_type, mysql_using="hash", mariadb_using="hash")
 
 
 class Flow(Base):

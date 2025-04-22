@@ -35,7 +35,7 @@ def construct_starfield_background_flow_info(level3_fcorona_subtracted_files: li
                                              session=None ):
     flow_type = "construct_starfield_background"
     state = "planned"
-    creation_time = datetime.now(UTC)
+    creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {

@@ -81,7 +81,7 @@ def test_query_ready_files(db, prefect_test_fixture):
 
 def test_level1_construct_file_info():
     pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
-    pipeline_config = load_pipeline_configuration.fn(pipeline_config_path)
+    pipeline_config = load_pipeline_configuration(pipeline_config_path)
     level0_file = [File(level="0",
                        file_type='PM',
                        observatory='4',
@@ -89,7 +89,7 @@ def test_level1_construct_file_info():
                        file_version='none',
                        software_version='none',
                        date_obs=datetime.now(UTC))]
-    constructed_file_info = level1_construct_file_info.fn(level0_file, pipeline_config)[0]
+    constructed_file_info = level1_construct_file_info(level0_file, pipeline_config)[0]
     assert constructed_file_info.level == "1"
     assert constructed_file_info.file_type == level0_file[0].file_type
     assert constructed_file_info.observatory == level0_file[0].observatory

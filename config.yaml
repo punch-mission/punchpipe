@@ -27,6 +27,11 @@ dask_cluster:
   n_workers: 40
   n_threads_per_worker: 1
 
+cache_layer:
+  cache_enabled: true
+  max_age_hours: 24
+  max_size_MB: 30000
+
 control:
   launcher:
     description: "Kick off new flows for processing."
@@ -34,6 +39,9 @@ control:
     max_flows_to_launch_at_once: 20
   health_monitor:
     description: "Monitor the health of the pipeline."
+  cache_nanny:
+    description: "Monitors the shared memory cache"
+    schedule: "*/5 * * * *"
 
 flows:
   level0:

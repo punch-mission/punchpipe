@@ -19,7 +19,7 @@ def main():
     args = parser.parse_args()
 
     configuration_path = str(Path(args.config).resolve())
-    config = load_pipeline_configuration.fn(configuration_path)
+    config = load_pipeline_configuration(configuration_path)
     config_mtime = os.path.getmtime(configuration_path)
 
     cluster = LocalCluster(n_workers=config['dask_cluster']['n_workers'],
@@ -30,7 +30,7 @@ def main():
             time.sleep(5)
             if (cur_mtime := os.path.getmtime(configuration_path)) != config_mtime:
                 config_mtime = cur_mtime
-                config = load_pipeline_configuration.fn(configuration_path)
+                config = load_pipeline_configuration(configuration_path)
                 # This tells the cluster to add or remove workers
                 cluster.scale(config['dask_cluster']['n_workers'])
     except Exception as e:
