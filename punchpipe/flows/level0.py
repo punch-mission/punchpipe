@@ -50,16 +50,62 @@ SC_TIME_EPOCH = Time(2000.0, format="decimalyear", scale="tai")
 class SpacecraftMapping(Block):
     mapping: SecretDict
 
-class AstropyDatetimeConverter(converters.DatetimeConverter):
-    """Like the parent class, but takes an astropy Time object instead of a datetime
-    for the `since` initialization argument. This allows for formats other than Y/M/D
-    and timescales other than UTC.
+class TaiDatetimeConverter(converters.DatetimeConverter):
+    """Like the parent class, but takes an astropy Time object (which inherently encodes a
+    timescale) instead of a datetime for the `since` initialization argument, and uses astropy
+    TimeDelta objects for date math (instead of leapsecond-naïve Python timedeltas). Values are
+    treated as offsets on a TAI timescale.
     """
 
     def __init__(self, since: Time, units: "str|tuple[str]"):
         if not isinstance(since, Time):
             raise TypeError("Argument 'since' must be an instance of astropy.time.Time")
-        super().__init__(since.utc.datetime, units)
+
+        if isinstance(units, str):
+            units_tuple = (units,)
+        elif isinstance(units, tuple):
+            units_tuple = units
+        else:
+            raise TypeError("Argument 'units' must be either a string or tuple")
+
+        if not (set(units_tuple) <= set(self._VALID_UNITS)):
+            raise ValueError("One or more units are invalid")
+
+        self._since = since
+        self._units = units_tuple
+
+    def convert(self, *field_arrays):
+        assert len(field_arrays) > 0, "Must have at least one input field"
+
+        converted = []
+
+        for field_values in zip(*field_arrays):
+            tai_sec_delta = 0.0
+
+            for unit, offset_raw in zip(self._units, field_values):
+                offset_raw = float(offset_raw)
+
+                if unit == "days":
+                    tai_sec_delta += offset_raw*24*60*60
+                elif unit == "hours":
+                    tai_sec_delta += offset_raw*60*60
+                elif unit == "minutes":
+                    tai_sec_delta += offset_raw*60
+                elif unit == "seconds":
+                    tai_sec_delta += offset_raw
+                elif unit == "milliseconds":
+                    tai_sec_delta += offset_raw / self._MILLISECONDS_PER_SECOND
+                elif unit == "microseconds":
+                    tai_sec_delta += offset_raw / self._MICROSECONDS_PER_SECOND
+                elif unit == "nanoseconds":
+                    tai_sec_delta += offset_raw / self._NANOSECONDS_PER_SECOND
+
+            converted_time = self._since + TimeDelta(tai_sec_delta, format="sec", scale="tai")
+            converted.append(converted_time.utc.datetime) # still return UTC-scale Python datetimes
+
+        converted = np.array(converted, dtype=object)
+
+        return converted
 
 def interpolate_value(query_time, before_time, before_value, after_time, after_value):
     if query_time == before_time:
@@ -224,7 +270,7 @@ def create_packet_definitions(tlm, parse_expanding_fields=True):
         pkt.add_converted_field(
             (f'{packet_name}_HDR_SEC', f'{packet_name}_HDR_USEC'),
             'timestamp',
-            AstropyDatetimeConverter(
+            TaiDatetimeConverter(
                 since=SC_TIME_EPOCH,
                 units=('seconds', 'microseconds')
             )
@@ -235,7 +281,7 @@ def create_packet_definitions(tlm, parse_expanding_fields=True):
             pkt.add_converted_field(
                 ('LED_PLS_START_SEC', 'LED_PLS_START_USEC'),
                 'LED_START_TIME',
-                AstropyDatetimeConverter(
+                TaiDatetimeConverter(
                     since=SC_TIME_EPOCH,
                     units=('seconds', 'microseconds')
                 )
@@ -243,7 +289,7 @@ def create_packet_definitions(tlm, parse_expanding_fields=True):
             pkt.add_converted_field(
                 ('LED_PLS_END_SEC', 'LED_PLS_END_USEC'),
                 'LED_END_TIME',
-                AstropyDatetimeConverter(
+                TaiDatetimeConverter(
                     since=SC_TIME_EPOCH,
                     units=('seconds', 'microseconds')
                 )
@@ -269,7 +315,7 @@ def create_packet_definitions(tlm, parse_expanding_fields=True):
         pkt.add_converted_field(
             (f'{packet_name}_HDR_SEC', f'{packet_name}_HDR_USEC'),
             'timestamp',
-            AstropyDatetimeConverter(
+            TaiDatetimeConverter(
                 since=SC_TIME_EPOCH,
                 units=('seconds', 'microseconds')
             )
