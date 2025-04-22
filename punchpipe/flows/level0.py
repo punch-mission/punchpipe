@@ -50,6 +50,17 @@ SC_TIME_EPOCH = Time(2000.0, format="decimalyear", scale="tai")
 class SpacecraftMapping(Block):
     mapping: SecretDict
 
+class AstropyDatetimeConverter(converters.DatetimeConverter):
+    """Like the parent class, but takes an astropy Time object instead of a datetime
+    for the `since` initialization argument. This allows for formats other than Y/M/D
+    and timescales other than UTC.
+    """
+
+    def __init__(self, since: Time, units: "str|tuple[str]"):
+        if not isinstance(since, Time):
+            raise TypeError("Argument 'since' must be an instance of astropy.time.Time")
+        super().__init__(since.utc.datetime, units)
+
 def interpolate_value(query_time, before_time, before_value, after_time, after_value):
     if query_time == before_time:
         return before_value
@@ -213,8 +224,8 @@ def create_packet_definitions(tlm, parse_expanding_fields=True):
         pkt.add_converted_field(
             (f'{packet_name}_HDR_SEC', f'{packet_name}_HDR_USEC'),
             'timestamp',
-            converters.DatetimeConverter(
-                since=datetime(2000, 1, 1),
+            AstropyDatetimeConverter(
+                since=SC_TIME_EPOCH,
                 units=('seconds', 'microseconds')
             )
         )
@@ -224,16 +235,16 @@ def create_packet_definitions(tlm, parse_expanding_fields=True):
             pkt.add_converted_field(
                 ('LED_PLS_START_SEC', 'LED_PLS_START_USEC'),
                 'LED_START_TIME',
-                converters.DatetimeConverter(
-                    since=datetime(2000, 1, 1),
+                AstropyDatetimeConverter(
+                    since=SC_TIME_EPOCH,
                     units=('seconds', 'microseconds')
                 )
             )
             pkt.add_converted_field(
                 ('LED_PLS_END_SEC', 'LED_PLS_END_USEC'),
                 'LED_END_TIME',
-                converters.DatetimeConverter(
-                    since=datetime(2000, 1, 1),
+                AstropyDatetimeConverter(
+                    since=SC_TIME_EPOCH,
                     units=('seconds', 'microseconds')
                 )
             )
@@ -258,8 +269,8 @@ def create_packet_definitions(tlm, parse_expanding_fields=True):
         pkt.add_converted_field(
             (f'{packet_name}_HDR_SEC', f'{packet_name}_HDR_USEC'),
             'timestamp',
-            converters.DatetimeConverter(
-                since=datetime(2000, 1, 1),
+            AstropyDatetimeConverter(
+                since=SC_TIME_EPOCH,
                 units=('seconds', 'microseconds')
             )
         )
