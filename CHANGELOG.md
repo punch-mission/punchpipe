@@ -22,6 +22,7 @@
 * Fixed database entries for simpunch and launching improvements in https://github.com/punch-mission/punchpipe/pull/135
 * Added a shared memory cache, streamlined the launcher, improved robustness, and changed logging to local time in https://github.com/punch-mission/punchpipe/pull/136
 * Add flow throughput and duration stats to the dashboard in https://github.com/punch-mission/punchpipe/pull/144
+* Expands ffmpeg movie creation options in https://github.com/punch-mission/punchpipe/pull/147
 
 ## Version 0.0.5: Jan 3, 2025
 
