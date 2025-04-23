@@ -6,7 +6,6 @@ from glob import glob
 from typing import Any, Dict, Tuple
 from datetime import UTC, datetime, timedelta
 
-import astropy
 import astropy.units as u
 import ccsdspy
 import numpy as np
