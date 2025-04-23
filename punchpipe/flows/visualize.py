@@ -19,7 +19,7 @@ def visualize_query_ready_files(session, pipeline_config: dict, reference_time: 
 
     all_ready_files = []
     all_product_codes = []
-    levels = ["0"]#, "1", "2", "3", "Q", "L"]
+    levels = ["0", "1", "2", "3", "Q"]
     for level in levels:
         product_codes = construct_all_product_codes(level=level)
         for product_code in product_codes:
