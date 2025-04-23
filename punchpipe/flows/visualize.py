@@ -56,7 +56,10 @@ def visualize_flow_info(input_files: list[File],
                 for input_file in input_files
             ],
             "product_code": product_code,
-            "output_movie_dir": os.path.join(pipeline_config["root"], "movies")
+            "output_movie_dir": os.path.join(pipeline_config["root"], "movies"),
+            "framerate": pipeline_config["flows"]["movie"]["options"].get("framerate", 5),
+            "resolution": pipeline_config["flows"]["movie"]["options"].get("resolution", 1024),
+            'ffmpeg_cmd': pipeline_config["flows"]["movie"]["options"].get("ffmpeg_cmd", "ffmpeg")
         }
     )
     return Flow(
@@ -95,7 +98,10 @@ def generate_flow_run_name():
 
 
 @flow(flow_run_name=generate_flow_run_name)
-def movie_core_flow(file_list: list, product_code: str, output_movie_dir: str) -> None:
+def movie_core_flow(file_list: list, product_code: str, output_movie_dir: str,
+                    framerate: int = 5,
+                    resolution: int = 1024,
+                    ffmpeg_cmd: str = "ffmpeg") -> None:
     tempdir = tempfile.TemporaryDirectory()
 
     annotation = "{OBSRVTRY} - {TYPECODE}{OBSCODE} - {DATE-OBS} - polarizer: {POLAR} deg - exptime: {EXPTIME} secs - LEDPLSN: {LEDPLSN}"
@@ -119,7 +125,9 @@ def movie_core_flow(file_list: list, product_code: str, output_movie_dir: str) -
         out_filename = os.path.join(output_movie_dir,
                                     f"{product_code}_{obs_start.isoformat()}-{obs_end.isoformat()}.mp4")
         os.makedirs(os.path.dirname(out_filename), exist_ok=True)
-        write_quicklook_to_mp4(files=written_list, filename=out_filename)
+        write_quicklook_to_mp4(files=written_list, filename=out_filename,
+                               ffmpeg_cmd=ffmpeg_cmd,
+                               framerate=framerate, resolution=resolution)
 
         tempdir.cleanup()
 
