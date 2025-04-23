@@ -43,7 +43,9 @@ def visualize_flow_info(input_files: list[File],
                         product_code: str,
                         pipeline_config: dict,
                         reference_time: datetime,
-                        session=None
+                        session=None,
+                        framerate: int = 5,
+                        resolution: int = 1024
                         ):
     flow_type = "movie"
     state = "planned"
@@ -57,8 +59,8 @@ def visualize_flow_info(input_files: list[File],
             ],
             "product_code": product_code,
             "output_movie_dir": os.path.join(pipeline_config["root"], "movies"),
-            "framerate": pipeline_config["flows"]["movie"]["options"].get("framerate", 5),
-            "resolution": pipeline_config["flows"]["movie"]["options"].get("resolution", 1024),
+            "framerate": framerate,
+            "resolution": resolution,
             'ffmpeg_cmd': pipeline_config["flows"]["movie"]["options"].get("ffmpeg_cmd", "ffmpeg")
         }
     )
@@ -74,7 +76,7 @@ def visualize_flow_info(input_files: list[File],
 
 @flow
 def movie_scheduler_flow(pipeline_config_path=None, session=None, reference_time: datetime | None = None,
-                         look_back_hours: float = 24):
+                         look_back_hours: float = 24, framerate: int = 5, resolution: int = 1024):
     if session is None:
         session = get_database_session()
 
@@ -85,7 +87,8 @@ def movie_scheduler_flow(pipeline_config_path=None, session=None, reference_time
     file_lists, product_codes = visualize_query_ready_files(session, pipeline_config, reference_time, look_back_hours)
 
     for file_list, product_code in zip(file_lists, product_codes):
-        flow = visualize_flow_info(file_list, product_code, pipeline_config, reference_time, session)
+        flow = visualize_flow_info(file_list, product_code, pipeline_config, reference_time, session,
+                                   framerate=framerate, resolution=resolution)
         session.add(flow)
 
     session.commit()
