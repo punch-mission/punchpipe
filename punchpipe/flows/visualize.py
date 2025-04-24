@@ -89,9 +89,10 @@ def movie_scheduler_flow(pipeline_config_path=None, session=None, reference_time
     file_lists, product_codes = visualize_query_ready_files(session, pipeline_config, reference_time, look_back_hours)
 
     for file_list, product_code in zip(file_lists, product_codes):
-        flow = visualize_flow_info(file_list, product_code, pipeline_config, reference_time, session,
-                                   framerate=framerate, resolution=resolution)
-        session.add(flow)
+        if file_list:
+            flow = visualize_flow_info(file_list, product_code, pipeline_config, reference_time, session,
+                                       framerate=framerate, resolution=resolution)
+            session.add(flow)
 
     session.commit()
 
