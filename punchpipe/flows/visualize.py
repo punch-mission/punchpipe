@@ -48,6 +48,7 @@ def visualize_flow_info(input_files: list[File],
     flow_type = "movie"
     state = "planned"
     creation_time = datetime.now()
+    out_path = input_files[-1].date_obs.strftime("%Y/%m/%d")
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
@@ -56,7 +57,7 @@ def visualize_flow_info(input_files: list[File],
                 for input_file in input_files
             ],
             "product_code": product_code,
-            "output_movie_dir": os.path.join(pipeline_config["root"], "movies")
+            "output_movie_dir": os.path.join(pipeline_config["root"], out_path)
         }
     )
     return Flow(
