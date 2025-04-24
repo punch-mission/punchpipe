@@ -22,6 +22,7 @@
 * Fixed database entries for simpunch and launching improvements in https://github.com/punch-mission/punchpipe/pull/135
 * Added a shared memory cache, streamlined the launcher, improved robustness, and changed logging to local time in https://github.com/punch-mission/punchpipe/pull/136
 * Add flow throughput and duration stats to the dashboard in https://github.com/punch-mission/punchpipe/pull/144
+* Expands ffmpeg movie creation options in https://github.com/punch-mission/punchpipe/pull/147
 * Appropriately uses TAI time in https://github.com/punch-mission/punchpipe/pull/146
 * Stores quicklook movies in date-based file structure in https://github.com/punch-mission/punchpipe/pull/150
 
