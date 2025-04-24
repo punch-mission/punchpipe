@@ -59,7 +59,7 @@ def visualize_flow_info(input_files: list[File],
                 for input_file in input_files
             ],
             "product_code": product_code,
-            "output_movie_dir": os.path.join(pipeline_config["root"], "movies", out_path)
+            "output_movie_dir": os.path.join(pipeline_config["root"], "movies", out_path),
             "framerate": framerate,
             "resolution": resolution,
             'ffmpeg_cmd': pipeline_config["flows"]["movie"]["options"].get("ffmpeg_cmd", "ffmpeg")
