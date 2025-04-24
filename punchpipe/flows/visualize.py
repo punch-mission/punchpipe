@@ -31,7 +31,7 @@ def visualize_query_ready_files(session, pipeline_config: dict, reference_time: 
                                     .filter(File.file_type == product_code[0:2])
                                     .filter(File.observatory == product_code[2]).all())
             logger.info(f"Found {len(product_ready_files)} files to make for {level}_{product_code}")
-            all_ready_files.append(list(product_ready_files))
+            all_ready_files.append(sorted(list(product_ready_files)))
             all_product_codes.append(f"L{level}_{product_code}")
 
     logger.info(f"{len(all_ready_files)} files will be used for visualization.")
