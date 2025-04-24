@@ -57,7 +57,7 @@ def visualize_flow_info(input_files: list[File],
                 for input_file in input_files
             ],
             "product_code": product_code,
-            "output_movie_dir": os.path.join(pipeline_config["root"], out_path)
+            "output_movie_dir": os.path.join(pipeline_config["root"], "movies", out_path)
         }
     )
     return Flow(
