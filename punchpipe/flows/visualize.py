@@ -47,7 +47,7 @@ def visualize_flow_info(input_files: list[File],
                         ):
     flow_type = "movie"
     state = "planned"
-    creation_time = datetime.now()
+    creation_time = datetime.now(UTC)
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
@@ -91,7 +91,7 @@ def generate_flow_run_name():
     parameters = flow_run.parameters
     code = parameters["product_code"]
     files = parameters["file_list"]
-    return f"movie-{code}-{len(files)}-{datetime.now()}"
+    return f"movie-{code}-{len(files)}-{datetime.now(UTC)}"
 
 
 @flow(flow_run_name=generate_flow_run_name)
