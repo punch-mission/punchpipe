@@ -38,6 +38,13 @@ def load_pipeline_configuration(path: str = None) -> dict:
     # TODO: add validation
     return config
 
+def load_quicklook_scaling(path: str = None) -> (float, float):
+    if path is None:
+        path = Variable.get("punchpipe_config", "punchpipe_config.yaml")
+    with open(path) as f:
+        config = yaml.load(f, Loader=FullLoader)
+    return config["quicklook_scaling"][0]
+
 
 def write_file(data: NDCube, corresponding_file_db_entry, pipeline_config) -> None:
     output_filename = os.path.join(
@@ -50,7 +57,9 @@ def write_file(data: NDCube, corresponding_file_db_entry, pipeline_config) -> No
     corresponding_file_db_entry.state = "created"
 
     # TODO - Configure to write each layer separately?
-    # TODO - Configure to use specified vmin/vmax on a per-product level basis?
+    # TODO - need to break down by product code
+    # TODO - if square rooted, take square root of scaling values too
+    # TODO - have defaults, but change if specified (eg. darks should be darker)
     layer = 0 if len(data.data.shape) > 2 else None
     write_ndcube_to_quicklook(data, output_filename.replace(".fits", ".jp2"), layer=layer)
 
