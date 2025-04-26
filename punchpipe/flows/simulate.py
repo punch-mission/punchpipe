@@ -2,7 +2,7 @@
 import os
 import glob
 import json
-from typing import List
+from typing import List, Callable
 from datetime import UTC, datetime
 
 from dateutil.parser import parse as parse_datetime_str
@@ -10,6 +10,7 @@ from prefect import flow, get_run_logger
 from prefect.context import get_run_context
 from simpunch.flow import generate_flow
 
+from punchpipe.control import cache_layer
 from punchpipe.control.db import File, Flow
 from punchpipe.control.util import get_database_session, load_pipeline_configuration
 
@@ -61,9 +62,9 @@ def simpunch_core_flow(
         simulation_cadence_minutes: float,
         gamera_files_dir: str,
         out_dir: str,
-        backward_psf_model_path: str,
-        wfi_quartic_backward_model_path: str,
-        nfi_quartic_backward_model_path: str,
+        backward_psf_model_path: str | Callable,
+        wfi_quartic_backward_model_path: str | Callable,
+        nfi_quartic_backward_model_path: str | Callable,
         transient_probability: float = 0.03,
         shift_pointing: bool = False) -> List[str]:
 
@@ -117,6 +118,12 @@ def simpunch_process_flow(flow_id: int, pipeline_config_path=None, session=None)
     # load the call data and launch the core flow
     flow_call_data = json.loads(flow_db_entry.call_data)
     logger.info(f"Running with {flow_call_data}")
+    flow_call_data['backward_psf_model_path'] = cache_layer.psf.wrap_if_appropriate(
+        flow_call_data['backward_psf_model_path'])
+    flow_call_data['wfi_quartic_backward_model_path'] = cache_layer.quartic_coefficients.wrap_if_appropriate(
+        flow_call_data['wfi_quartic_backward_model_path'])
+    flow_call_data['nfi_quartic_backward_model_path'] = cache_layer.quartic_coefficients.wrap_if_appropriate(
+        flow_call_data['nfi_quartic_backward_model_path'])
     try:
         out_filenames = simpunch_core_flow(**flow_call_data)
     except Exception as e:
