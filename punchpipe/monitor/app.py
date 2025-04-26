@@ -118,13 +118,13 @@ def create_app():
         return dff.to_dict('records')
 
 
-    def create_card_content(level: int, status: str):
+    def create_card_content(level: int | str, status: str, message: str):
         return [
             dbc.CardBody(
                 [
-                    html.H5(f"Level {level} Status", className="card-title"),
+                    html.H5(f"Level {level} Status: {status}", className="card-title"),
                     html.P(
-                        status,
+                        message,
                         className="card-text",
                     ),
                 ]
@@ -136,36 +136,68 @@ def create_app():
         Input('interval-component', 'n_intervals'),
     )
     def update_cards(n):
-        now = datetime.now()
+        reference_time = datetime.now() - timedelta(hours=24)
         with get_database_session() as session:
-            reference_time = now - timedelta(hours=24)
             query = (f"SELECT SUM(num_images_succeeded), SUM(num_images_failed) "
                      f"FROM packet_history WHERE datetime > '{reference_time}';")
-            df = pd.read_sql_query(query, session.connection())
-        num_l0_success = df['SUM(num_images_succeeded)'].sum()
-        num_l0_fails = df['SUM(num_images_failed)'].sum()
+            l0_df = pd.read_sql_query(query, session.connection())
+            query = (f"SELECT flow_level AS level, SUM(state = 'completed') AS n_good, "
+                      "SUM(state = 'failed') AS n_bad, SUM(state = 'running') AS n_running "
+                     f"FROM flows WHERE start_time > '{reference_time}' "
+                      "GROUP BY level;")
+            l1plus_df = pd.read_sql_query(query, session.connection())
+            # These states don't have a start_time set
+            query = (f"SELECT flow_level AS level, "
+                      "SUM(state = 'launched') AS n_launched, SUM(state = 'planned') AS n_planned "
+                     f"FROM flows GROUP BY level;")
+            l1plus_second_df = pd.read_sql_query(query, session.connection())
+            l1plus_df = l1plus_df.join(l1plus_second_df.set_index('level'), on='level')
+            l1plus_df.fillna(0, inplace=True)
+        num_l0_success = l0_df['SUM(num_images_succeeded)'].sum()
+        num_l0_fails = l0_df['SUM(num_images_failed)'].sum()
         l0_fraction = num_l0_success / (1 + num_l0_success + num_l0_fails)  # add one to avoid div by 0 errors
-        if l0_fraction > 0.95 or (num_l0_success + num_l0_fails) == 0:
-            l0_status = f"Good ({num_l0_success} : {num_l0_fails})"
-            l0_color = "success"
+        message = f"{num_l0_success} ✅     {num_l0_fails} ⛔"
+        if (num_l0_success + num_l0_fails) == 0:
+            status = ""
+            message = "No activity"
+            color = "light"
+        elif l0_fraction > 0.95:
+            status = "Good"
+            color = "success"
         else:
-            l0_status = f"Bad ({num_l0_success} : {num_l0_fails})"
-            l0_color = "danger"
+            status = "Bad"
+            color = "danger"
+        cards = [dbc.Col(dbc.Card(create_card_content(0, status, message), color=color, inverse=color != 'light'))]
 
-        cards = html.Div(
-            [
-                dbc.Row(
-                    [
-                        dbc.Col(dbc.Card(create_card_content(0, l0_status), color=l0_color, inverse=True)),
-                        dbc.Col(dbc.Card(create_card_content(1, "Good"), color="success", inverse=True)),
-                        dbc.Col(dbc.Card(create_card_content(2, "Good"), color="success", inverse=True)),
-                        dbc.Col(dbc.Card(create_card_content(3, "Good"), color="success", inverse=True)),
-                    ],
-                    className="mb-4",
-                ),
-            ]
-        )
-        return cards
+        for level in ['1', '2', '3', 'S']:
+            if level not in l1plus_df['level'].values:
+                cards.append(dbc.Col(dbc.Card(create_card_content(level, "", "No activity"),
+                                              color="light", inverse=False)))
+                continue
+
+            df = l1plus_df.loc[(l1plus_df['level'] == level)]
+            n_good, n_bad, n_running = df['n_good'].iloc[0], df['n_bad'].iloc[0], df['n_running'].iloc[0]
+            n_launched, n_planned = df['n_launched'].iloc[0], df['n_planned'].iloc[0]
+
+            n_planned = df['n_planned'].iloc[0]
+            message = (f"{n_good:.0f} ✅     {n_bad:.0f} ⛔     {n_launched:.0f} 🚀     {n_running:.0f} ⏳     "
+                       f"{n_planned:.0f} 💭")
+            if n_good == 0 and n_bad == 0:
+                color = "light"
+                status = ""
+                message = "No activity"
+            elif n_bad / n_good > 0.95:
+                color = "danger"
+                status = "Bad"
+            else:
+                color = "success"
+                status = "Good "
+            cards.append(dbc.Col(dbc.Card(create_card_content(level, status, message),
+                                          color=color, inverse=color != 'light',
+                                          # This preserves the multiple spaces separating the status count indicators
+                                          style={'white-space': 'pre'})))
+
+        return html.Div([dbc.Row(cards, className="mb-4")])
 
     @callback(
         Output('machine-graph', 'figure'),
