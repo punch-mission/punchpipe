@@ -255,6 +255,10 @@ def create_app():
         if seconds_into_hour > 120:
             df = df.astype({"count": "float"})
             df.loc[df['hour'] == now_index, 'count'] *= 3600 / (now - now_index).total_seconds()
+        else:
+            # Don't show 0 or an un-extrapolable small number, instead just hide the current hour for the first few
+            # minutes
+            df.loc[df['hour'] == now_index, 'count'] = None
 
         fig_throughput = px.line(df, x='hour', y="count", color="flow_type", line_dash="state",
                                  title="Flow throughput (current hour's throughput is extrapolated)")
