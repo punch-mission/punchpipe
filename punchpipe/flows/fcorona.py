@@ -5,7 +5,7 @@ import typing as t
 from datetime import UTC, datetime, timedelta
 
 from prefect import flow, get_run_logger, task
-from punchbowl.level3.f_corona_model import construct_polarized_f_corona_model
+from punchbowl.level3.f_corona_model import construct_f_corona_model
 
 from punchpipe import __version__
 from punchpipe.control.db import File, Flow
@@ -92,4 +92,4 @@ def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, sess
 
 @flow
 def construct_f_corona_background_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, construct_polarized_f_corona_model, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, construct_f_corona_model, pipeline_config_path, session=session)
