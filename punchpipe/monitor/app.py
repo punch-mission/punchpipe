@@ -4,7 +4,9 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
 from dash import Dash, Input, Output, callback, dash_table, dcc, html
+from sqlalchemy import select
 
+from punchpipe.control.db import Flow
 from punchpipe.control.util import get_database_session
 
 REFRESH_RATE = 60  # seconds
@@ -56,17 +58,18 @@ def create_app():
             n_intervals=0)
     ])
 
-    operators = [['ge ', '>='],
-                 ['le ', '<='],
-                 ['lt ', '<'],
-                 ['gt ', '>'],
-                 ['ne ', '!='],
-                 ['eq ', '='],
-                 ['contains '],
-                 ['datestartswith ']]
+    operators = [(['ge ', '>='], '__ge__'),
+                 (['le ', '<='], '__le__'),
+                 (['lt ', '<'], '__lt__'),
+                 (['gt ', '>'], '__gt__'),
+                 (['ne ', '!='], '__ne__'),
+                 (['eq ', '='], '__eq__'),
+                 (['contains '], 'contains'),
+                 (['datestartswith '], None),
+                ]
 
     def split_filter_part(filter_part):
-        for operator_type in operators:
+        for operator_type, py_method in operators:
             for operator in operator_type:
                 if operator in filter_part:
                     name_part, value_part = filter_part.split(operator, 1)
@@ -84,9 +87,9 @@ def create_app():
 
                     # word operators need spaces after them in the filter string,
                     # but we don't want these later
-                    return name, operator_type[0].strip(), value
+                    return name, operator_type[0].strip(), value, py_method
 
-        return [None] * 3
+        return [None] * 4
 
     @callback(
         Output('flows-table', 'data'),
@@ -96,37 +99,23 @@ def create_app():
         Input('flows-table', 'sort_by'),
         Input('flows-table', 'filter_query'))
     def update_flows(n, page_current, page_size, sort_by, filter):
-        query = "SELECT * FROM flows;"
         with get_database_session() as session:
+            query = select(Flow)
+            for filter_part in filter.split(' && '):
+                col_name, operator, filter_value, py_method = split_filter_part(filter_part)
+                if col_name is not None:
+                    query = query.where(getattr(getattr(Flow, col_name), py_method)(filter_value))
+            for col in sort_by:
+                sort_column = getattr(Flow, col['column_id'])
+                if col['direction'] == 'asc':
+                    sort_column = sort_column.asc()
+                else:
+                    sort_column = sort_column.desc()
+                query = query.order_by(sort_column)
+            query = query.offset(page_current * page_size).limit(page_size)
             dff = pd.read_sql_query(query, session.connection())
 
-        filtering_expressions = filter.split(' && ')
-        for filter_part in filtering_expressions:
-            col_name, operator, filter_value = split_filter_part(filter_part)
-
-            if operator in ('eq', 'ne', 'lt', 'le', 'gt', 'ge'):
-                # these operators match pandas series operator method names
-                dff = dff.loc[getattr(dff[col_name], operator)(filter_value)]
-            elif operator == 'contains':
-                dff = dff.loc[dff[col_name].str.contains(filter_value)]
-            elif operator == 'datestartswith':
-                # this is a simplification of the front-end filtering logic,
-                # only works with complete fields in standard format
-                dff = dff.loc[dff[col_name].str.startswith(filter_value)]
-
-        if len(sort_by):
-            dff = dff.sort_values(
-                [col['column_id'] for col in sort_by],
-                ascending=[
-                    col['direction'] == 'asc'
-                    for col in sort_by
-                ],
-                inplace=False
-            )
-
-        page = page_current
-        size = page_size
-        return dff.iloc[page * size: (page + 1) * size].to_dict('records')
+        return dff.to_dict('records')
 
 
     def create_card_content(level: int, status: str):
