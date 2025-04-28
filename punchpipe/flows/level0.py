@@ -522,6 +522,8 @@ def organize_spacecraft_position_keywords(observation_time, before_xact, after_x
         "HEQZ_OBS": heq.cartesian.z.to(u.m).value,
         "CRLT_OBS": carrington.lat.deg,
         "CRLN_OBS": carrington.lon.deg,
+        "HGLT_OBS": heq.lat.value,
+        "HGLN_OBS": heq.lon.value,
         'GEOD_LAT': position.geodetic.lat.deg,
         'GEOD_LON': position.geodetic.lon.deg,
         'GEOD_ALT': position.geodetic.height.to(u.m).value
