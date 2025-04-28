@@ -12,6 +12,7 @@ import astropy.units as u
 import ccsdspy
 import numpy as np
 import pandas as pd
+import punchbowl
 import pylibjpeg
 import quaternion  # noqa: F401
 import sqlalchemy
@@ -921,6 +922,7 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                                                             image.shape,
                                                             session, logger)
                     fits_info['FILEVRSN'] = pipeline_config['file_version']
+                    fits_info['PIPEVRSN'] = punchbowl.__version__
                     fits_info['NUM_PCKT'] = len(image_packets_entries)
                     logger.debug("Metadata retrieved")
                     file_type = fits_info["TYPECODE"]
