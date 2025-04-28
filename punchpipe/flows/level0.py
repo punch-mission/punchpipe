@@ -445,7 +445,7 @@ def organize_pfw_fits_keywords(pfw_packet):
 
 def organize_led_fits_keywords(led_packet):
     return {
-        'LEDTIME': led_packet.timestamp.isoformat(),
+        'LEDTIME': led_packet.timestamp.astimezone(UTC).isoformat(),
         'LED1STAT': led_packet.LED1_ACTIVE_STATE,
         'LEDPLSN': led_packet.LED_CFG_NUM_PLS,
         'LED2STAT': led_packet.LED2_ACTIVE_STATE,
@@ -675,6 +675,7 @@ def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -
 
     if best_led is not None:
         fits_info |= organize_led_fits_keywords(best_led)
+        fits_info['LED_PCKT'] = 1
 
     if best_ceb is not None:
         fits_info |= organize_ceb_fits_keywords(best_ceb)
