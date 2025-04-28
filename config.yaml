@@ -1,6 +1,6 @@
 root: "/Users/mhughes/data/punch_simulation/"
 tlm_directory: "/Users/mhughes/data/punch_simulation/RAW_CCSDS_DATA/"
-file_version: "1"
+file_version: "0"
 bucket_name: "output_bucket_name"
 
 plate_scale:
