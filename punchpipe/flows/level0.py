@@ -921,6 +921,7 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                                                             image.shape,
                                                             session, logger)
                     fits_info['FILEVRSN'] = pipeline_config['file_version']
+                    fits_info['NUM_PCKT'] = len(image_packets_entries)
                     logger.debug("Metadata retrieved")
                     file_type = fits_info["TYPECODE"]
                     preliminary_wcs = form_preliminary_wcs(position_info,
