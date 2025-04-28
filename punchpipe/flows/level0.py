@@ -689,10 +689,11 @@ def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -
     fits_info['EXPTIME'] = acquisition_settings['EXPOSURE'] / 10.0
     fits_info['COM_SET'] = first_image_packet.SCI_XFI_HDR_COM_SET
     fits_info['ACQ_SET'] = first_image_packet.SCI_XFI_HDR_ACQ_SET
-    fits_info['DATE-BEG'] = first_image_packet.timestamp.isoformat()
-    date_end = first_image_packet.timestamp + timedelta(seconds=fits_info['EXPTIME'])
+    fits_info['DATE-BEG'] = first_image_packet.timestamp.astimezone(UTC).isoformat()
+    date_end = first_image_packet.timestamp.astimezone(UTC) + timedelta(seconds=fits_info['EXPTIME'])
     fits_info['DATE-END'] = date_end.isoformat()
-    date_avg =  first_image_packet.timestamp + (date_end - first_image_packet.timestamp) / 2
+    date_avg =  (first_image_packet.timestamp.astimezone(UTC) +
+                 (date_end - first_image_packet.timestamp.astimezone(UTC)) / 2)
     fits_info['DATE-AVG'] = date_avg.isoformat()
     fits_info['DATE-OBS'] = date_avg.isoformat()
     fits_info['DATE'] = datetime.now(UTC).isoformat()
