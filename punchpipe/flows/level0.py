@@ -395,7 +395,7 @@ def unpack_n_bit_values(packed: bytes, byteorder: str, n_bits=19) -> np.ndarray:
 
 def organize_pfw_fits_keywords(pfw_packet):
     return {
-        'PFWTIME': pfw_packet.timestamp.isoformat(),
+        'PFWTIME': pfw_packet.timestamp.astimezone(UTC).isoformat(),
         'PFWSTAT': pfw_packet.PFW_STATUS,
         'STEPCALC': pfw_packet.STEP_CALC,
         'CMDSTEPS': pfw_packet.LAST_CMD_N_STEPS,
@@ -457,7 +457,7 @@ def organize_led_fits_keywords(led_packet):
 
 def organize_ceb_fits_keywords(ceb_packet):
     return {
-        'CEBTIME': ceb_packet.timestamp.isoformat(),
+        'CEBTIME': ceb_packet.timestamp.astimezone(UTC).isoformat(),
         'CEBSTAT': ceb_packet.CEB_STATUS_REG,
         #'CEBTIME': ceb_packet.CEB_STATUS_REG_SPW_TIMECODE,
         'CEBWGS': ceb_packet.WGS_STATUS,
@@ -507,7 +507,7 @@ def organize_spacecraft_position_keywords(observation_time, before_xact, after_x
     carrington = gcrs.transform_to(HeliographicCarrington(obstime=obstime, observer='self'))
 
     return {
-        'XACTTIME': before_xact.timestamp.isoformat(),
+        'XACTTIME': before_xact.timestamp.astimezone(UTC).isoformat(),
         "HCIX_OBS": hci.cartesian.x.to(u.m).value,
         "HCIY_OBS": hci.cartesian.y.to(u.m).value,
         "HCIZ_OBS": hci.cartesian.z.to(u.m).value,
