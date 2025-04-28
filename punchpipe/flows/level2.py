@@ -1,3 +1,4 @@
+from collections import defaultdict
 import os
 import json
 import typing as t
@@ -5,7 +6,7 @@ from datetime import datetime
 
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
-from punchbowl.level2.flow import level2_core_flow
+from punchbowl.level2.flow import level2_core_flow, level2_ctm_flow
 
 from punchpipe import __version__
 from punchpipe.control.db import File, Flow
@@ -16,37 +17,49 @@ SCIENCE_POLARIZED_LEVEL1_TYPES = ["PM", "PZ", "PP"]
 SCIENCE_CLEAR_LEVEL1_TYPES = ["CR"]
 
 @task(cache_policy=NO_CACHE)
-def level2_query_ready_files(session, pipeline_config: dict, reference_time=None):
+def level2_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
-    all_ready_files = (session.query(File).filter(File.state == "quickpunched")
+    all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(File.level == "1")
                        .filter(File.file_type.in_(SCIENCE_POLARIZED_LEVEL1_TYPES))
                        .order_by(File.date_obs.asc()).all())
     logger.info(f"{len(all_ready_files)} ready files")
-    unique_times = set(f.date_obs for f in all_ready_files)
-    logger.info(f"{len(unique_times)} unique times: {unique_times}")
-    grouped_ready_files = [[f.file_id for f in all_ready_files if f.date_obs == time] for time in unique_times]
-    logger.info(f"{len(grouped_ready_files)} grouped ready files")
-    out = [g for g in grouped_ready_files if len(g) == 12]
-    logger.info(f"{len(out)} groups heading out")
-    return out
+    files_by_time = defaultdict(list)
+    for f in all_ready_files:
+        files_by_time[f.date_obs].append(f.file_id)
+    logger.info(f"{len(files_by_time)} unique times")
+    grouped_ready_files = []
+    for time in sorted(files_by_time.keys()):
+        files = files_by_time[time]
+        if len(files) == 12:
+            grouped_ready_files.append(files)
+            if len(grouped_ready_files) >= max_n:
+                break
+    logger.info(f"{len(grouped_ready_files)} groups heading out")
+    return grouped_ready_files
 
 
 @task(cache_policy=NO_CACHE)
-def level2_query_ready_clear_files(session, pipeline_config: dict, reference_time=None):
+def level2_query_ready_clear_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
-    all_ready_files = (session.query(File).filter(File.state == "quickpunched")
+    all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(File.level == "1")
                        .filter(File.file_type.in_(SCIENCE_CLEAR_LEVEL1_TYPES))
                        .order_by(File.date_obs.asc()).all())
     logger.info(f"{len(all_ready_files)} ready files")
-    unique_times = set(f.date_obs for f in all_ready_files)
-    logger.info(f"{len(unique_times)} unique times: {unique_times}")
-    grouped_ready_files = [[f.file_id for f in all_ready_files if f.date_obs == time] for time in unique_times]
-    logger.info(f"{len(grouped_ready_files)} grouped ready files")
-    out = [g for g in grouped_ready_files if len(g) == 12]
-    logger.info(f"{len(out)} groups heading out")
-    return out
+    files_by_time = defaultdict(list)
+    for f in all_ready_files:
+        files_by_time[f.date_obs].append(f.file_id)
+    logger.info(f"{len(files_by_time)} unique times")
+    grouped_ready_files = []
+    for time in sorted(files_by_time.keys()):
+        files = files_by_time[time]
+        if len(files) == 4:
+            grouped_ready_files.append(files)
+            if len(grouped_ready_files) >= max_n:
+                break
+    logger.info(f"{len(grouped_ready_files)} groups heading out")
+    return grouped_ready_files
 
 
 @task(cache_policy=NO_CACHE)
@@ -117,4 +130,4 @@ def level2_process_flow(flow_id: int, pipeline_config_path=None, session=None):
 
 @flow
 def level2_clear_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, level2_core_flow, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, level2_ctm_flow, pipeline_config_path, session=session)

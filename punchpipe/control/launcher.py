@@ -1,3 +1,5 @@
+import asyncio
+from math import ceil
 from typing import List
 from datetime import datetime, timedelta
 
@@ -5,11 +7,11 @@ from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from prefect.client import get_client
 from prefect.variables import Variable
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, select, update
 from sqlalchemy.orm import Session
 
 from punchpipe.control.db import Flow
-from punchpipe.control.util import get_database_session, load_pipeline_configuration
+from punchpipe.control.util import batched, get_database_session, load_pipeline_configuration
 
 
 @task(cache_policy=NO_CACHE)
@@ -68,7 +70,7 @@ def determine_launchable_flow_count(n_planned, n_running, max_running, max_to_la
 
 
 @task(cache_policy=NO_CACHE)
-async def launch_ready_flows(session: Session, flow_ids: List[int]) -> List:
+async def launch_ready_flows(session: Session, flow_ids: List[int], pipeline_config: dict) -> None:
     """Given a list of ready-to-launch flow_ids, this task creates flow runs in Prefect for them.
     These flow runs are automatically marked as scheduled in Prefect and will be picked up by a work queue and
     agent as soon as possible.
@@ -84,25 +86,71 @@ async def launch_ready_flows(session: Session, flow_ids: List[int]) -> List:
     -------
     A list of responses from Prefect about the flow runs that were created
     """
+    if not len(flow_ids):
+        return
+    logger = get_run_logger()
     # gather the flow information for launching
     flow_info = session.query(Flow).where(Flow.flow_id.in_(flow_ids)).all()
 
-    responses = []
     async with get_client() as client:
         # determine the deployment ids for each kind of flow
         deployments = await client.read_deployments()
         deployment_ids = {d.name: d.id for d in deployments}
 
-        # for every flow launch it and store the response
-        for this_flow in flow_info:
-            this_deployment_id = deployment_ids[this_flow.flow_type + "_process_flow"]
-            response = await client.create_flow_run_from_deployment(
-                this_deployment_id, parameters={"flow_id": this_flow.flow_id}
+        for flow in flow_info:
+            flow.state = "launched"
+            flow.launch_time = datetime.now()
+        session.commit()
+
+        # We want to stagger launches through a time window. If our configured time window is 5 minutes, we'll use 4
+        # full minutes, plus a portion of the fifth, aiming to end after 4m35s to leave margin so the flow is fully
+        # finished after 5 minutes.
+        # First we work out the remainder part, figuring out where we are relative to the 35th second of the current
+        # minute.
+        total_delay_time = 35 - datetime.now().second
+        total_delay_time = max(0, total_delay_time)
+        total_delay_time += (pipeline_config['control']['launcher']['launch_time_window_minutes'] - 1) * 60
+        # Launch a batch every 10 seconds through this window
+        n_batches = total_delay_time // 10
+        batch_size = ceil(len(flow_info) / n_batches)
+        logger.info(f"Total delay time: {total_delay_time}")
+        if batch_size >= len(flow_info):
+            delay_time = 0
+        else:
+            delay_time = total_delay_time / (n_batches - 1)
+        awaitables = []
+        responses = []
+        for batch in batched(flow_info, batch_size):
+            start = datetime.now().timestamp()
+            # Launch the batch
+            for this_flow in batch:
+                this_deployment_id = deployment_ids[this_flow.flow_type + "_process_flow"]
+                awaitables.append(client.create_flow_run_from_deployment(
+                    this_deployment_id, parameters={"flow_id": this_flow.flow_id})
+                )
+
+            responses.extend(await asyncio.gather(*awaitables))
+            awaitables = []
+            logger.info(f"Batch of {len(batch)} sent")
+            if delay_time:
+                # Stagger the launches
+                await asyncio.sleep(delay_time - (datetime.now().timestamp() - start))
+
+        # TODO This doesn't seem to be an effective way to check for a failed flow submission, but we should
+        # do something like this that works
+        ok_responses = [r for r in responses if r.name not in [None, ''] and r.state_name == 'Scheduled']
+        bad_responses = [r for r in responses if r not in ok_responses]
+
+        if len(bad_responses):
+            session.execute(
+                update(Flow)
+                .where(Flow.state == 'launched')
+                .where(Flow.flow_id.in_([r.parameters['flow_id'] for r in bad_responses]))
+                .values(state='planned')
             )
-            this_flow.state = "launched"
-            responses.append(response)
-    session.commit()
-    return responses
+            session.commit()
+            for r in bad_responses:
+                logger.warning(f"Got bad response {repr(r)}")
 
 
 @flow
@@ -138,5 +186,5 @@ async def launcher(pipeline_config_path=None):
 
     flows_to_launch = gather_planned_flows(session, number_to_launch)
     logger.info(f"{len(flows_to_launch)} flows with IDs of {flows_to_launch} will be launched.")
-    await launch_ready_flows(session, flows_to_launch)
+    await launch_ready_flows(session, flows_to_launch, pipeline_config)
     logger.info("Launcher flow exit.")

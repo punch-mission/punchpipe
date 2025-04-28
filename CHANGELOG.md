@@ -21,6 +21,7 @@
 * Varied improvements to the pipeline, including launching and scheduling in https://github.com/punch-mission/punchpipe/pull/134
 * Fixed database entries for simpunch and launching improvements in https://github.com/punch-mission/punchpipe/pull/135
 * Added a shared memory cache, streamlined the launcher, improved robustness, and changed logging to local time in https://github.com/punch-mission/punchpipe/pull/136
+* Added a "cleaner" flow, staggered flow launching, and L2 fixes in https://github.com/punch-mission/punchpipe/pull/145
 * Add flow throughput and duration stats to the dashboard in https://github.com/punch-mission/punchpipe/pull/144
 * Expands ffmpeg movie creation options in https://github.com/punch-mission/punchpipe/pull/147
 * Appropriately uses TAI time in https://github.com/punch-mission/punchpipe/pull/146
