@@ -147,9 +147,9 @@ def create_app():
                       "GROUP BY level;")
             l1plus_df = pd.read_sql_query(query, session.connection())
             # These states don't have a start_time set
-            query = (f"SELECT flow_level AS level, "
-                      "SUM(state = 'launched') AS n_launched, SUM(state = 'planned') AS n_planned "
-                     f"FROM flows GROUP BY level;")
+            query = ("SELECT flow_level AS level, "
+                     "SUM(state = 'launched') AS n_launched, SUM(state = 'planned') AS n_planned "
+                     "FROM flows GROUP BY level;")
             l1plus_second_df = pd.read_sql_query(query, session.connection())
             l1plus_df = l1plus_df.join(l1plus_second_df.set_index('level'), on='level')
             l1plus_df.fillna(0, inplace=True)
