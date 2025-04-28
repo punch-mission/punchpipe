@@ -672,7 +672,16 @@ def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -
                                                  image_shape)}
 
     if best_pfw is not None:
-        fits_info |= organize_pfw_fits_keywords(best_pfw)
+        pfw_header = organize_pfw_fits_keywords(best_pfw)
+        fits_info |= pfw_header
+        pfw_mapping = {
+            "DK": "PFWOFF1",
+            "CR": "PFWOFF2",
+            "PM": "PFWOFF3",
+            "PZ": "PFWOFF4",
+            "PP": "PFWOFF5"
+        }
+        fits_info['POLAROFF'] = pfw_header[pfw_mapping.get(fits_info['TYPECODE'], None)]
 
     if best_led is not None:
         fits_info |= organize_led_fits_keywords(best_led)
