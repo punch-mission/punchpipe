@@ -674,6 +674,7 @@ def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -
     if best_pfw is not None:
         pfw_header = organize_pfw_fits_keywords(best_pfw)
         fits_info |= pfw_header
+        # TODO - might need different telemetry data for this, and confirming mapping
         pfw_mapping = {
             "DK": "PFWOFF1",
             "CR": "PFWOFF2",
