@@ -1,7 +1,7 @@
 import os
 import json
 import typing as t
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE

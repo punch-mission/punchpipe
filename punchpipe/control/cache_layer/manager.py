@@ -5,7 +5,6 @@ from multiprocessing.shared_memory import SharedMemory
 from prefect import get_run_logger
 from prefect.variables import Variable
 
-
 CACHE_KEY_PREFIX = "punchpipe-cache-"
 
 

@@ -1,10 +1,12 @@
-from collections.abc import Callable
-from ndcube import NDCube
-import pickle
 import os
+import pickle
+from collections.abc import Callable
 
+from ndcube import NDCube
 from punchbowl.data import load_ndcube_from_fits
+
 from punchpipe.control.cache_layer import manager
+
 
 class QuarticLoader:
     def __init__(self, path: str):
