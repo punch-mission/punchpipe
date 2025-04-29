@@ -135,7 +135,7 @@ def simpunch_process_flow(flow_id: int, pipeline_config_path=None, session=None)
                     observatory=base_filename[11],
                     file_version=base_filename[:-5].split("_")[-1][1:],
                     software_version="synth",
-                    date_created=datetime.now(UTC),
+                    date_created=datetime.now(),
                     date_obs=datetime.strptime(base_filename[13:27], "%Y%m%d%H%M%S"),
                     state="created"
                 ))

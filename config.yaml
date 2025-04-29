@@ -27,13 +27,25 @@ dask_cluster:
   n_workers: 40
   n_threads_per_worker: 1
 
+cache_layer:
+  cache_enabled: true
+  max_age_hours: 24
+  max_size_MB: 30000
+
 control:
   launcher:
     description: "Kick off new flows for processing."
-    max_flows_running: 50
-    max_flows_to_launch_at_once: 20
+    max_flows_running: 80
+    max_flows_to_launch_at_once: 60
+    launch_time_window_minutes: 3
   health_monitor:
     description: "Monitor the health of the pipeline."
+  cache_nanny:
+    description: "Monitors the shared memory cache"
+    schedule: "*/5 * * * *"
+  cleaner:
+    description: "Cleans things in the database"
+    schedule: "*/5 * * * *"
 
 flows:
   level0:
@@ -60,6 +72,16 @@ flows:
 
   level2:
     description: "Creates Level 2 files."
+    tags: [ "L2" ]
+    priority:
+      initial: 1000
+      seconds: [ 3000, 12000, 60000 ]
+      escalation: [ 1000, 1000, 1000 ]
+    schedule: "* * * * *"
+    options:
+
+  level2_clear:
+    description: "Creates Level 2 clear files."
     tags: [ "L2" ]
     priority:
       initial: 1000
@@ -108,7 +130,7 @@ flows:
     schedule: "* * * * *"
     options:
 
-  L3_PTM:
+  level3_PTM:
     description: "Creates Level 3 PTM files."
     tags: [ "L3" ]
     priority:
@@ -118,7 +140,7 @@ flows:
     schedule: "* * * * *"
     options:
 
-  L3_PIM:
+  level3_PIM:
     description: "Creates Level 3 PIM files."
     tags: [ "L3" ]
     priority:
@@ -128,7 +150,27 @@ flows:
     schedule: "* * * * *"
     options:
 
-  f_corona:
+  level3_CTM:
+    description: "Creates Level 3 CTM files."
+    tags: [ "L3" ]
+    priority:
+      initial: 10000
+      seconds: [1]
+      escalation: [10000]
+    schedule: "* * * * *"
+    options:
+
+  level3_CIM:
+    description: "Creates Level 3 CIM files."
+    tags: [ "L3" ]
+    priority:
+      initial: 10000
+      seconds: [1]
+      escalation: [10000]
+    schedule: "* * * * *"
+    options:
+
+  construct_f_corona_background:
     description: "Creates Level 3 f corona model files."
     tags: [ "L3" ]
     priority:
@@ -138,7 +180,7 @@ flows:
     schedule: "* * * * *"
     options:
 
-  starfield:
+  construct_starfield_background:
     description: "Creates Level 3 starfield files."
     tags: [ "L3" ]
     priority:

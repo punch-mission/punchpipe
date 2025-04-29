@@ -20,7 +20,14 @@
 * Iterates over sequence count instead of packet index in https://github.com/punch-mission/punchpipe/pull/132
 * Varied improvements to the pipeline, including launching and scheduling in https://github.com/punch-mission/punchpipe/pull/134
 * Fixed database entries for simpunch and launching improvements in https://github.com/punch-mission/punchpipe/pull/135
-* - Updates L0 header generation in https://github.com/punch-mission/punchpipe/pull/156
+* Added a shared memory cache, streamlined the launcher, improved robustness, and changed logging to local time in https://github.com/punch-mission/punchpipe/pull/136
+* Added a "cleaner" flow, staggered flow launching, and L2 fixes in https://github.com/punch-mission/punchpipe/pull/145
+* Add flow throughput and duration stats to the dashboard in https://github.com/punch-mission/punchpipe/pull/144
+* Expands ffmpeg movie creation options in https://github.com/punch-mission/punchpipe/pull/147
+* Appropriately uses TAI time in https://github.com/punch-mission/punchpipe/pull/146
+* Stores quicklook movies in date-based file structure in https://github.com/punch-mission/punchpipe/pull/150
+* Checks that input files for quicklook movies are sorted and only schedules if files are found in https://github.com/punch-mission/punchpipe/pull/151
+* Updates L0 header generation in https://github.com/punch-mission/punchpipe/pull/156
 
 ## Version 0.0.5: Jan 3, 2025
 

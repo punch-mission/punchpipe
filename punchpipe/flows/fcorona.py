@@ -42,7 +42,7 @@ def construct_f_corona_background_flow_info(level3_files: list[File],
                                             ):
     flow_type = "construct_f_corona_background"
     state = "planned"
-    creation_time = datetime.now(UTC)
+    creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {

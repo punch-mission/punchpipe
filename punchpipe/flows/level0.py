@@ -6,8 +6,6 @@ from glob import glob
 from typing import Any, Dict, Tuple
 from datetime import UTC, datetime, timedelta
 
-import astropy
-import astropy.time
 import astropy.units as u
 import ccsdspy
 import numpy as np
@@ -17,7 +15,7 @@ import pylibjpeg
 import quaternion  # noqa: F401
 import sqlalchemy
 from astropy.coordinates import GCRS, EarthLocation, HeliocentricMeanEcliptic, SkyCoord
-from astropy.time import Time
+from astropy.time import Time, TimeDelta
 from astropy.wcs import WCS
 from ccsdspy import PacketArray, PacketField, converters
 from ccsdspy.utils import split_by_apid
@@ -47,9 +45,67 @@ from punchpipe.control.util import get_database_session, load_pipeline_configura
 FIXED_PACKETS = ['ENG_XACT', 'ENG_LED', 'ENG_PFW', 'ENG_CEB']
 VARIABLE_PACKETS = ['SCI_XFI']
 PACKET_CADENCE = {'ENG_XACT': 10}  # only take every tenth ENG_XACT packet for 10Hz resolution
+SC_TIME_EPOCH = Time(2000.0, format="decimalyear", scale="tai")
 
 class SpacecraftMapping(Block):
     mapping: SecretDict
+
+class TaiDatetimeConverter(converters.DatetimeConverter):
+    """Like the parent class, but takes an astropy Time object (which inherently encodes a
+    timescale) instead of a datetime for the `since` initialization argument, and uses astropy
+    TimeDelta objects for date math (instead of leapsecond-naïve Python timedeltas). Values are
+    treated as offsets on a TAI timescale.
+    """
+
+    def __init__(self, since: Time, units: "str|tuple[str]"):
+        if not isinstance(since, Time):
+            raise TypeError("Argument 'since' must be an instance of astropy.time.Time")
+
+        if isinstance(units, str):
+            units_tuple = (units,)
+        elif isinstance(units, tuple):
+            units_tuple = units
+        else:
+            raise TypeError("Argument 'units' must be either a string or tuple")
+
+        if not (set(units_tuple) <= set(self._VALID_UNITS)):
+            raise ValueError("One or more units are invalid")
+
+        self._since = since
+        self._units = units_tuple
+
+    def convert(self, *field_arrays):
+        assert len(field_arrays) > 0, "Must have at least one input field"
+
+        converted = []
+
+        for field_values in zip(*field_arrays):
+            tai_sec_delta = 0.0
+
+            for unit, offset_raw in zip(self._units, field_values):
+                offset_raw = float(offset_raw)
+
+                if unit == "days":
+                    tai_sec_delta += offset_raw*24*60*60
+                elif unit == "hours":
+                    tai_sec_delta += offset_raw*60*60
+                elif unit == "minutes":
+                    tai_sec_delta += offset_raw*60
+                elif unit == "seconds":
+                    tai_sec_delta += offset_raw
+                elif unit == "milliseconds":
+                    tai_sec_delta += offset_raw / self._MILLISECONDS_PER_SECOND
+                elif unit == "microseconds":
+                    tai_sec_delta += offset_raw / self._MICROSECONDS_PER_SECOND
+                elif unit == "nanoseconds":
+                    tai_sec_delta += offset_raw / self._NANOSECONDS_PER_SECOND
+
+            converted_time = self._since + TimeDelta(tai_sec_delta, format="sec", scale="tai")
+            converted.append(converted_time.utc.datetime) # still return UTC-scale Python datetimes
+
+        converted = np.array(converted, dtype=object)
+
+        return converted
 
 def interpolate_value(query_time, before_time, before_value, after_time, after_value):
     if query_time == before_time:
@@ -214,8 +270,8 @@ def create_packet_definitions(tlm, parse_expanding_fields=True):
         pkt.add_converted_field(
             (f'{packet_name}_HDR_SEC', f'{packet_name}_HDR_USEC'),
             'timestamp',
-            converters.DatetimeConverter(
-                since=datetime(2000, 1, 1),
+            TaiDatetimeConverter(
+                since=SC_TIME_EPOCH,
                 units=('seconds', 'microseconds')
             )
         )
@@ -225,16 +281,16 @@ def create_packet_definitions(tlm, parse_expanding_fields=True):
             pkt.add_converted_field(
                 ('LED_PLS_START_SEC', 'LED_PLS_START_USEC'),
                 'LED_START_TIME',
-                converters.DatetimeConverter(
-                    since=datetime(2000, 1, 1),
+                TaiDatetimeConverter(
+                    since=SC_TIME_EPOCH,
                     units=('seconds', 'microseconds')
                 )
             )
             pkt.add_converted_field(
                 ('LED_PLS_END_SEC', 'LED_PLS_END_USEC'),
                 'LED_END_TIME',
-                converters.DatetimeConverter(
-                    since=datetime(2000, 1, 1),
+                TaiDatetimeConverter(
+                    since=SC_TIME_EPOCH,
                     units=('seconds', 'microseconds')
                 )
             )
@@ -259,8 +315,8 @@ def create_packet_definitions(tlm, parse_expanding_fields=True):
         pkt.add_converted_field(
             (f'{packet_name}_HDR_SEC', f'{packet_name}_HDR_USEC'),
             'timestamp',
-            converters.DatetimeConverter(
-                since=datetime(2000, 1, 1),
+            TaiDatetimeConverter(
+                since=SC_TIME_EPOCH,
                 units=('seconds', 'microseconds')
             )
         )
@@ -780,7 +836,7 @@ def form_preliminary_wcs(metadata, plate_scale):
     celestial_wcs.wcs.set_pv([(2, 1, 0.0)])  # TODO: makes sure this is reasonably set
     celestial_wcs.wcs.ctype = f"RA--{projection}", f"DEC-{projection}"
     celestial_wcs.wcs.cunit = "deg", "deg"
-    return calculate_helio_wcs_from_celestial(celestial_wcs, astropy.time.Time(metadata['datetime']), (2048, 2048))[0]
+    return calculate_helio_wcs_from_celestial(celestial_wcs, Time(metadata['datetime']), (2048, 2048))[0]
 
 @task
 def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num):

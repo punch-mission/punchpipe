@@ -1,6 +1,6 @@
 import os
 
-from sqlalchemy import TEXT, Boolean, Column, Float, Integer, String
+from sqlalchemy import TEXT, Boolean, Column, Float, Index, Integer, String
 from sqlalchemy.dialects.mysql import DATETIME
 from sqlalchemy.orm import declarative_base
 
@@ -59,6 +59,11 @@ class File(Base):
         return os.path.join(root, self.level, self.file_type + self.observatory, self.date_obs.strftime("%Y/%m/%d"))
 
 
+Index("date_obs_index", File.date_obs, mysql_using="btree", mariadb_using="btree")
+Index("observatory_index", File.observatory, mysql_using="hash", mariadb_using="hash")
+Index("file_type_index", File.file_type, mysql_using="hash", mariadb_using="hash")
+
+
 class Flow(Base):
     __tablename__ = "flows"
     flow_id = Column(Integer, primary_key=True)
@@ -68,6 +73,7 @@ class Flow(Base):
     flow_run_id = Column(String(36), nullable=True)
     state = Column(String(16), nullable=False)
     creation_time = Column(DATETIME(fsp=6), nullable=False)
+    launch_time = Column(DATETIME(fsp=6), nullable=True)
     start_time = Column(DATETIME(fsp=6), nullable=True)
     end_time = Column(DATETIME(fsp=6), nullable=True)
     priority = Column(Integer, nullable=False)
