@@ -48,6 +48,7 @@ def write_file(data: NDCube, corresponding_file_db_entry, pipeline_config) -> No
     os.makedirs(output_dir, exist_ok=True)
     write_ndcube_to_fits(data, output_filename)
     corresponding_file_db_entry.state = "created"
+    corresponding_file_db_entry.date_created = datetime.now()
 
     # TODO - Configure to write each layer separately?
     # TODO - Configure to use specified vmin/vmax on a per-product level basis?
