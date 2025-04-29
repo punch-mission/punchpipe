@@ -4,7 +4,9 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
 from dash import Dash, Input, Output, callback, dash_table, dcc, html
+from sqlalchemy import select
 
+from punchpipe.control.db import Flow
 from punchpipe.control.util import get_database_session
 
 REFRESH_RATE = 60  # seconds
@@ -56,17 +58,18 @@ def create_app():
             n_intervals=0)
     ])
 
-    operators = [['ge ', '>='],
-                 ['le ', '<='],
-                 ['lt ', '<'],
-                 ['gt ', '>'],
-                 ['ne ', '!='],
-                 ['eq ', '='],
-                 ['contains '],
-                 ['datestartswith ']]
+    operators = [(['ge ', '>='], '__ge__'),
+                 (['le ', '<='], '__le__'),
+                 (['lt ', '<'], '__lt__'),
+                 (['gt ', '>'], '__gt__'),
+                 (['ne ', '!='], '__ne__'),
+                 (['eq ', '='], '__eq__'),
+                 (['contains '], 'contains'),
+                 (['datestartswith '], None),
+                ]
 
     def split_filter_part(filter_part):
-        for operator_type in operators:
+        for operator_type, py_method in operators:
             for operator in operator_type:
                 if operator in filter_part:
                     name_part, value_part = filter_part.split(operator, 1)
@@ -84,9 +87,9 @@ def create_app():
 
                     # word operators need spaces after them in the filter string,
                     # but we don't want these later
-                    return name, operator_type[0].strip(), value
+                    return name, operator_type[0].strip(), value, py_method
 
-        return [None] * 3
+        return [None] * 4
 
     @callback(
         Output('flows-table', 'data'),
@@ -96,46 +99,32 @@ def create_app():
         Input('flows-table', 'sort_by'),
         Input('flows-table', 'filter_query'))
     def update_flows(n, page_current, page_size, sort_by, filter):
-        query = "SELECT * FROM flows;"
         with get_database_session() as session:
+            query = select(Flow)
+            for filter_part in filter.split(' && '):
+                col_name, operator, filter_value, py_method = split_filter_part(filter_part)
+                if col_name is not None:
+                    query = query.where(getattr(getattr(Flow, col_name), py_method)(filter_value))
+            for col in sort_by:
+                sort_column = getattr(Flow, col['column_id'])
+                if col['direction'] == 'asc':
+                    sort_column = sort_column.asc()
+                else:
+                    sort_column = sort_column.desc()
+                query = query.order_by(sort_column)
+            query = query.offset(page_current * page_size).limit(page_size)
             dff = pd.read_sql_query(query, session.connection())
 
-        filtering_expressions = filter.split(' && ')
-        for filter_part in filtering_expressions:
-            col_name, operator, filter_value = split_filter_part(filter_part)
-
-            if operator in ('eq', 'ne', 'lt', 'le', 'gt', 'ge'):
-                # these operators match pandas series operator method names
-                dff = dff.loc[getattr(dff[col_name], operator)(filter_value)]
-            elif operator == 'contains':
-                dff = dff.loc[dff[col_name].str.contains(filter_value)]
-            elif operator == 'datestartswith':
-                # this is a simplification of the front-end filtering logic,
-                # only works with complete fields in standard format
-                dff = dff.loc[dff[col_name].str.startswith(filter_value)]
-
-        if len(sort_by):
-            dff = dff.sort_values(
-                [col['column_id'] for col in sort_by],
-                ascending=[
-                    col['direction'] == 'asc'
-                    for col in sort_by
-                ],
-                inplace=False
-            )
-
-        page = page_current
-        size = page_size
-        return dff.iloc[page * size: (page + 1) * size].to_dict('records')
+        return dff.to_dict('records')
 
 
-    def create_card_content(level: int, status: str):
+    def create_card_content(level: int | str, status: str, message: str):
         return [
             dbc.CardBody(
                 [
-                    html.H5(f"Level {level} Status", className="card-title"),
+                    html.H5(f"Level {level} Status: {status}", className="card-title"),
                     html.P(
-                        status,
+                        message,
                         className="card-text",
                     ),
                 ]
@@ -147,36 +136,68 @@ def create_app():
         Input('interval-component', 'n_intervals'),
     )
     def update_cards(n):
-        now = datetime.now()
+        reference_time = datetime.now() - timedelta(hours=24)
         with get_database_session() as session:
-            reference_time = now - timedelta(hours=24)
             query = (f"SELECT SUM(num_images_succeeded), SUM(num_images_failed) "
                      f"FROM packet_history WHERE datetime > '{reference_time}';")
-            df = pd.read_sql_query(query, session.connection())
-        num_l0_success = df['SUM(num_images_succeeded)'].sum()
-        num_l0_fails = df['SUM(num_images_failed)'].sum()
+            l0_df = pd.read_sql_query(query, session.connection())
+            query = (f"SELECT flow_level AS level, SUM(state = 'completed') AS n_good, "
+                      "SUM(state = 'failed') AS n_bad, SUM(state = 'running') AS n_running "
+                     f"FROM flows WHERE start_time > '{reference_time}' "
+                      "GROUP BY level;")
+            l1plus_df = pd.read_sql_query(query, session.connection())
+            # These states don't have a start_time set
+            query = ("SELECT flow_level AS level, "
+                     "SUM(state = 'launched') AS n_launched, SUM(state = 'planned') AS n_planned "
+                     "FROM flows GROUP BY level;")
+            l1plus_second_df = pd.read_sql_query(query, session.connection())
+            l1plus_df = l1plus_df.join(l1plus_second_df.set_index('level'), on='level')
+            l1plus_df.fillna(0, inplace=True)
+        num_l0_success = l0_df['SUM(num_images_succeeded)'].sum()
+        num_l0_fails = l0_df['SUM(num_images_failed)'].sum()
         l0_fraction = num_l0_success / (1 + num_l0_success + num_l0_fails)  # add one to avoid div by 0 errors
-        if l0_fraction > 0.95 or (num_l0_success + num_l0_fails) == 0:
-            l0_status = f"Good ({num_l0_success} : {num_l0_fails})"
-            l0_color = "success"
+        message = f"{num_l0_success} ✅     {num_l0_fails} ⛔"
+        if (num_l0_success + num_l0_fails) == 0:
+            status = ""
+            message = "No activity"
+            color = "light"
+        elif l0_fraction > 0.95:
+            status = "Good"
+            color = "success"
         else:
-            l0_status = f"Bad ({num_l0_success} : {num_l0_fails})"
-            l0_color = "danger"
+            status = "Bad"
+            color = "danger"
+        cards = [dbc.Col(dbc.Card(create_card_content(0, status, message), color=color, inverse=color != 'light'))]
 
-        cards = html.Div(
-            [
-                dbc.Row(
-                    [
-                        dbc.Col(dbc.Card(create_card_content(0, l0_status), color=l0_color, inverse=True)),
-                        dbc.Col(dbc.Card(create_card_content(1, "Good"), color="success", inverse=True)),
-                        dbc.Col(dbc.Card(create_card_content(2, "Good"), color="success", inverse=True)),
-                        dbc.Col(dbc.Card(create_card_content(3, "Good"), color="success", inverse=True)),
-                    ],
-                    className="mb-4",
-                ),
-            ]
-        )
-        return cards
+        for level in ['1', '2', '3', 'S']:
+            if level not in l1plus_df['level'].values:
+                cards.append(dbc.Col(dbc.Card(create_card_content(level, "", "No activity"),
+                                              color="light", inverse=False)))
+                continue
+
+            df = l1plus_df.loc[(l1plus_df['level'] == level)]
+            n_good, n_bad, n_running = df['n_good'].iloc[0], df['n_bad'].iloc[0], df['n_running'].iloc[0]
+            n_launched, n_planned = df['n_launched'].iloc[0], df['n_planned'].iloc[0]
+
+            n_planned = df['n_planned'].iloc[0]
+            message = (f"{n_good:.0f} ✅     {n_bad:.0f} ⛔     {n_launched:.0f} 🚀     {n_running:.0f} ⏳     "
+                       f"{n_planned:.0f} 💭")
+            if n_good == 0 and n_bad == 0:
+                color = "light"
+                status = ""
+                message = "No activity"
+            elif n_bad / n_good > 0.95:
+                color = "danger"
+                status = "Bad"
+            else:
+                color = "success"
+                status = "Good "
+            cards.append(dbc.Col(dbc.Card(create_card_content(level, status, message),
+                                          color=color, inverse=color != 'light',
+                                          # This preserves the multiple spaces separating the status count indicators
+                                          style={'white-space': 'pre'})))
+
+        return html.Div([dbc.Row(cards, className="mb-4")])
 
     @callback(
         Output('machine-graph', 'figure'),
@@ -234,6 +255,10 @@ def create_app():
         if seconds_into_hour > 120:
             df = df.astype({"count": "float"})
             df.loc[df['hour'] == now_index, 'count'] *= 3600 / (now - now_index).total_seconds()
+        else:
+            # Don't show 0 or an un-extrapolable small number, instead just hide the current hour for the first few
+            # minutes
+            df.loc[df['hour'] == now_index, 'count'] = None
 
         fig_throughput = px.line(df, x='hour', y="count", color="flow_type", line_dash="state",
                                  title="Flow throughput (current hour's throughput is extrapolated)")

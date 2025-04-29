@@ -27,6 +27,7 @@
 * Appropriately uses TAI time in https://github.com/punch-mission/punchpipe/pull/146
 * Stores quicklook movies in date-based file structure in https://github.com/punch-mission/punchpipe/pull/150
 * Checks that input files for quicklook movies are sorted and only schedules if files are found in https://github.com/punch-mission/punchpipe/pull/151
+* Improvements to dashboard status cards and flow table in https://github.com/punch-mission/punchpipe/pull/155
 
 ## Version 0.0.5: Jan 3, 2025
 
