@@ -1,13 +1,14 @@
 import os
 import json
 import typing as t
-from datetime import UTC, datetime
+from datetime import datetime
 
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from punchbowl.level1.flow import level1_core_flow
 
 from punchpipe import __version__
+from punchpipe.control import cache_layer
 from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
@@ -17,10 +18,11 @@ SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
 @task(cache_policy=NO_CACHE)
 def level1_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
-    ready = [f for f in session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL0_TYPE_CODES))
-                                           .filter(File.state == "created")
-                                           .filter(File.level == "0")
-                                           .order_by(File.date_obs.asc()).all()]
+    ready = (session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL0_TYPE_CODES))
+                                .filter(File.state == "created")
+                                .filter(File.level == "0")
+                                .order_by(File.date_obs.asc()).all())
+
     actually_ready = []
     for f in ready:
         if get_psf_model_path(f, pipeline_config, session=session) is None:
@@ -38,7 +40,6 @@ def level1_query_ready_files(session, pipeline_config: dict, reference_time=None
     return actually_ready
 
 
-@task(cache_policy=NO_CACHE)
 def get_vignetting_function_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
     corresponding_vignetting_function_type = {"PM": "GM",
                                               "PZ": "GZ",
@@ -53,7 +54,6 @@ def get_vignetting_function_path(level0_file, pipeline_config: dict, session=Non
     return best_function
 
 
-@task(cache_policy=NO_CACHE)
 def get_psf_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
     corresponding_psf_model_type = {"PM": "RM",
                                     "PZ": "RZ",
@@ -68,7 +68,6 @@ def get_psf_model_path(level0_file, pipeline_config: dict, session=None, referen
     return best_model
 
 
-@task(cache_policy=NO_CACHE)
 def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
     best_model = (session.query(File)
                   .filter(File.file_type == 'FQ')
@@ -78,18 +77,16 @@ def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, ref
     return best_model
 
 
-@task(cache_policy=NO_CACHE)
 def get_ccd_parameters(level0_file, pipeline_config: dict, session=None):
     gain_left, gain_right = pipeline_config['ccd_gain'][int(level0_file.observatory)]
     return {"gain_left": gain_left, "gain_right": gain_right}
 
 
-@task(cache_policy=NO_CACHE)
 def level1_construct_flow_info(level0_files: list[File], level1_files: File,
                                pipeline_config: dict, session=None, reference_time=None):
     flow_type = "level1"
     state = "planned"
-    creation_time = datetime.now(UTC)
+    creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
     best_vignetting_function = get_vignetting_function_path(level0_files[0], pipeline_config, session=session)
@@ -123,7 +120,6 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
     )
 
 
-@task
 def level1_construct_file_info(level0_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
     return [
         File(
@@ -152,6 +148,19 @@ def level1_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
     )
 
 
+def level1_call_data_processor(call_data: dict) -> dict:
+    call_data['psf_model_path'] = cache_layer.psf.wrap_if_appropriate(call_data['psf_model_path'])
+    call_data['quartic_coefficient_path'] = cache_layer.quartic_coefficients.wrap_if_appropriate(
+        call_data['quartic_coefficient_path'])
+    call_data['vignetting_function_path'] = cache_layer.vignetting_function.wrap_if_appropriate(
+        call_data['vignetting_function_path'])
+    # Anything more than 16 doesn't offer any real benefit, and the default of n_cpu on punch190 is actually slower than
+    # 16! Here we choose less to have less spiky CPU usage to play better with other flows.
+    call_data['max_workers'] = 2
+    return call_data
+
+
 @flow
 def level1_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, level1_core_flow, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, level1_core_flow, pipeline_config_path, session=session,
+                               call_data_processor=level1_call_data_processor)

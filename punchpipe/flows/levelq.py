@@ -36,7 +36,7 @@ def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None
 def levelq_construct_flow_info(level1_files: list[File], levelq_file: File, pipeline_config: dict, session=None, reference_time=None):
     flow_type = "levelq"
     state = "planned"
-    creation_time = datetime.now(UTC)
+    creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
@@ -112,7 +112,7 @@ def levelq_upload_query_ready_files(session, pipeline_config: dict, reference_ti
 def levelq_upload_construct_flow_info(levelq_files: list[File], intentionally_empty: File, pipeline_config: dict, session=None, reference_time=None):
     flow_type = "levelQ_upload"
     state = "planned"
-    creation_time = datetime.now(UTC)
+    creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
@@ -187,7 +187,7 @@ def construct_levelq_CFM_flow_info(levelq_CTM_files: list[File],
                                             ):
     flow_type = "levelQ_CFM"
     state = "planned"
-    creation_time = datetime.now(UTC)
+    creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
@@ -269,7 +269,7 @@ def construct_levelq_CFN_flow_info(levelq_CNN_files: list[File],
                                             ):
     flow_type = "levelQ_CFN"
     state = "planned"
-    creation_time = datetime.now(UTC)
+    creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {

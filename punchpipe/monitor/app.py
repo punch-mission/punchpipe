@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -29,6 +29,11 @@ def create_app():
         html.Div(
             id="status-cards"
         ),
+        html.Div([
+            html.Div(children=[dcc.Graph(id='flow-throughput')], style={'padding': 10, 'flex': 1}),
+
+            html.Div(children=[dcc.Graph(id='flow-duration')], style={'padding': 10, 'flex': 1})
+        ], style={'display': 'flex', 'flexDirection': 'row'}),
         dash_table.DataTable(id='flows-table',
                              data=pd.DataFrame({name: [] for name in column_names}).to_dict('records'),
                              columns=schedule_columns,
@@ -142,7 +147,7 @@ def create_app():
         Input('interval-component', 'n_intervals'),
     )
     def update_cards(n):
-        now = datetime.now(UTC)
+        now = datetime.now()
         with get_database_session() as session:
             reference_time = now - timedelta(hours=24)
             query = (f"SELECT SUM(num_images_succeeded), SUM(num_images_failed) "
@@ -185,7 +190,7 @@ def create_app():
                        "disk_usage": "Disk Usage[GB]",
                        "disk_percentage": "Disk Usage %",
                        "num_pids": "Process Count"}
-        now = datetime.now(UTC)
+        now = datetime.now()
         with get_database_session() as session:
             reference_time = now - timedelta(hours=24)
             query = f"SELECT datetime, {machine_stat} FROM health WHERE datetime > '{reference_time}';"
@@ -195,4 +200,49 @@ def create_app():
         fig.update_yaxes(title_text=axis_labels[machine_stat])
 
         return fig
+
+    @callback(
+        Output('flow-throughput', 'figure'),
+        Output('flow-duration', 'figure'),
+        Input('interval-component', 'n_intervals'),
+    )
+    def update_flow_stats(n):
+        now = datetime.now()
+        with get_database_session() as session:
+            reference_time = now - timedelta(hours=72)
+            query = ("SELECT flow_type, end_time AS hour, AVG(TIMEDIFF(end_time, start_time)) AS duration, "
+                     "COUNT(*) AS count, state "
+                     f"FROM flows WHERE end_time > '{reference_time}' "
+                     "GROUP BY HOUR(end_time), DAY(end_time), MONTH(end_time), YEAR(end_time), flow_type, state;")
+            df = pd.read_sql_query(query, session.connection())
+        # Fill missing entries (for hours where nothing ran)
+        df.hour = [ts.floor('h') for ts in df.hour]
+        dates = pd.date_range(reference_time, now, freq=timedelta(hours=1)).floor('h')
+        additions = []
+        for flow_type in df.flow_type.unique():
+            for date in dates:
+                for state in ['failed', 'completed']:
+                    if len(df.query('hour == @date and state == @state and flow_type == @flow_type')) == 0:
+                        additions.append([flow_type, date, None, 0, state])
+        df = pd.concat([df, pd.DataFrame(additions, columns=df.columns)], ignore_index=True)
+        df.sort_values(['state', 'hour'], inplace=True)
+
+        # Extrapolate the last hourly window
+        now_index = pd.Timestamp(now).floor('h')
+        seconds_into_hour = (now - now_index).total_seconds()
+        # But don't do it if it's really a lot of extrapolation
+        if seconds_into_hour > 120:
+            df = df.astype({"count": "float"})
+            df.loc[df['hour'] == now_index, 'count'] *= 3600 / (now - now_index).total_seconds()
+
+        fig_throughput = px.line(df, x='hour', y="count", color="flow_type", line_dash="state",
+                                 title="Flow throughput (current hour's throughput is extrapolated)")
+        fig_throughput.update_xaxes(title_text="Time")
+        fig_throughput.update_yaxes(title_text="Flow runs per hour")
+        fig_duration = px.line(df[df['state'] == 'completed'], x='hour', y="duration", color="flow_type",
+                               title="Flow duration")
+        fig_duration.update_xaxes(title_text="Time")
+        fig_duration.update_yaxes(title_text="Average flow duration (s)")
+
+        return fig_throughput, fig_duration
     return app

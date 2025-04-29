@@ -19,7 +19,7 @@ def visualize_query_ready_files(session, pipeline_config: dict, reference_time: 
 
     all_ready_files = []
     all_product_codes = []
-    levels = ["0"]#, "1", "2", "3", "Q", "L"]
+    levels = ["0", "1", "2", "3", "Q"]
     for level in levels:
         product_codes = construct_all_product_codes(level=level)
         for product_code in product_codes:
@@ -29,7 +29,8 @@ def visualize_query_ready_files(session, pipeline_config: dict, reference_time: 
                                     .filter(File.date_obs <= reference_time)
                                     .filter(File.level == level)
                                     .filter(File.file_type == product_code[0:2])
-                                    .filter(File.observatory == product_code[2]).all())
+                                    .filter(File.observatory == product_code[2])
+                                    .order_by(File.date_obs.asc()).all())
             logger.info(f"Found {len(product_ready_files)} files to make for {level}_{product_code}")
             all_ready_files.append(list(product_ready_files))
             all_product_codes.append(f"L{level}_{product_code}")
@@ -43,11 +44,16 @@ def visualize_flow_info(input_files: list[File],
                         product_code: str,
                         pipeline_config: dict,
                         reference_time: datetime,
-                        session=None
+                        session=None,
+                        framerate: int = 5,
+                        resolution: int = 1024
                         ):
     flow_type = "movie"
     state = "planned"
+
     creation_time = datetime.now(UTC)
+    out_path = input_files[-1].date_obs.strftime("%Y/%m/%d")
+
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
@@ -56,7 +62,10 @@ def visualize_flow_info(input_files: list[File],
                 for input_file in input_files
             ],
             "product_code": product_code,
-            "output_movie_dir": os.path.join(pipeline_config["root"], "movies")
+            "output_movie_dir": os.path.join(pipeline_config["root"], "movies", out_path),
+            "framerate": framerate,
+            "resolution": resolution,
+            'ffmpeg_cmd': pipeline_config["flows"]["movie"]["options"].get("ffmpeg_cmd", "ffmpeg")
         }
     )
     return Flow(
@@ -71,7 +80,7 @@ def visualize_flow_info(input_files: list[File],
 
 @flow
 def movie_scheduler_flow(pipeline_config_path=None, session=None, reference_time: datetime | None = None,
-                         look_back_hours: float = 24):
+                         look_back_hours: float = 24, framerate: int = 5, resolution: int = 1024):
     if session is None:
         session = get_database_session()
 
@@ -82,8 +91,10 @@ def movie_scheduler_flow(pipeline_config_path=None, session=None, reference_time
     file_lists, product_codes = visualize_query_ready_files(session, pipeline_config, reference_time, look_back_hours)
 
     for file_list, product_code in zip(file_lists, product_codes):
-        flow = visualize_flow_info(file_list, product_code, pipeline_config, reference_time, session)
-        session.add(flow)
+        if file_list:
+            flow = visualize_flow_info(file_list, product_code, pipeline_config, reference_time, session,
+                                       framerate=framerate, resolution=resolution)
+            session.add(flow)
 
     session.commit()
 
@@ -95,7 +106,10 @@ def generate_flow_run_name():
 
 
 @flow(flow_run_name=generate_flow_run_name)
-def movie_core_flow(file_list: list, product_code: str, output_movie_dir: str) -> None:
+def movie_core_flow(file_list: list, product_code: str, output_movie_dir: str,
+                    framerate: int = 5,
+                    resolution: int = 1024,
+                    ffmpeg_cmd: str = "ffmpeg") -> None:
     tempdir = tempfile.TemporaryDirectory()
 
     annotation = "{OBSRVTRY} - {TYPECODE}{OBSCODE} - {DATE-OBS} - polarizer: {POLAR} deg - exptime: {EXPTIME} secs - LEDPLSN: {LEDPLSN}"
@@ -119,7 +133,9 @@ def movie_core_flow(file_list: list, product_code: str, output_movie_dir: str) -
         out_filename = os.path.join(output_movie_dir,
                                     f"{product_code}_{obs_start.isoformat()}-{obs_end.isoformat()}.mp4")
         os.makedirs(os.path.dirname(out_filename), exist_ok=True)
-        write_quicklook_to_mp4(files=written_list, filename=out_filename)
+        write_quicklook_to_mp4(files=written_list, filename=out_filename,
+                               ffmpeg_cmd=ffmpeg_cmd,
+                               framerate=framerate, resolution=resolution)
 
         tempdir.cleanup()
 

@@ -54,7 +54,7 @@ def test_level2_query_ready_files(db):
 
 def test_level2_construct_file_info():
     pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
-    pipeline_config = load_pipeline_configuration.fn(pipeline_config_path)
+    pipeline_config = load_pipeline_configuration(pipeline_config_path)
 
     level1_file = [File(level=0,
                        file_type='PT',
@@ -76,7 +76,7 @@ def test_level2_construct_file_info():
 
 def test_level2_construct_flow_info():
     pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
-    pipeline_config = load_pipeline_configuration.fn(pipeline_config_path)
+    pipeline_config = load_pipeline_configuration(pipeline_config_path)
     level1_file = [File(level="1",
                        file_type='XX',
                        observatory='0',
