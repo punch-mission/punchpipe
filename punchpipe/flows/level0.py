@@ -927,33 +927,38 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                 ordered_image_content = []
                 sequence_counter = []
                 ordered_image_packet_entries = []
-                for sequence_count in sorted(list(order_dict.keys())):
-                    best_packet = max(order_dict[sequence_count])
-                    packet_entry = packet_entry_mapping[best_packet]
-                    ordered_image_packet_entries.append(packet_entry)
-                    tlm_content_index = needed_tlm_paths.index(tlm_id_to_tlm_path[packet_entry.tlm_id])
-                    selected_tlm_contents = tlm_contents[tlm_content_index]
-                    ordered_image_content.append(selected_tlm_contents['SCI_XFI']['SCI_XFI_IMG_DATA'][packet_entry.packet_index])
-                    sequence_counter.append(selected_tlm_contents['SCI_XFI']['SCI_XFI_HDR_IMG_PKT_GRP'][packet_entry.packet_index])
+                try:
+                    for sequence_count in sorted(list(order_dict.keys())):
+                        best_packet = max(order_dict[sequence_count])
+                        packet_entry = packet_entry_mapping[best_packet]
+                        ordered_image_packet_entries.append(packet_entry)
+                        tlm_content_index = needed_tlm_paths.index(tlm_id_to_tlm_path[packet_entry.tlm_id])
+                        selected_tlm_contents = tlm_contents[tlm_content_index]
+                        ordered_image_content.append(selected_tlm_contents['SCI_XFI']['SCI_XFI_IMG_DATA'][packet_entry.packet_index])
+                        sequence_counter.append(selected_tlm_contents['SCI_XFI']['SCI_XFI_HDR_IMG_PKT_GRP'][packet_entry.packet_index])
+                    # we check that the packets are in order now... if they're not we'll skip
+                    # we know a packet sequence is in order if the difference in the pkt_grp is either 1 or 255
+                    # 1 is the nominal case
+                    # 255 indicates the packets rolled over in the 8 bit counter
+                    sequence_counter_diff = np.diff(np.array(sequence_counter))
+                    if not np.all(np.isin(sequence_counter_diff, [1, 255])):
+                        logger.error("Packets are out of order so skipping")
+                        skip_image = True
+                        skip_reason = "Packets are out of order"
 
-                # we check that the packets are in order now... if they're not we'll skip
-                # we know a packet sequence is in order if the difference in the pkt_grp is either 1 or 255
-                # 1 is the nominal case
-                # 255 indicates the packets rolled over in the 8 bit counter
-                sequence_counter_diff = np.diff(np.array(sequence_counter))
-                if not np.all(np.isin(sequence_counter_diff, [1, 255])):
-                    logger.error("Packets are out of order so skipping")
+                        # if this is the case, then we need a replay. So we'll log that
+                        # TODO: we might be missing the first or last packet... so case the replay length should be longer
+                        replay_needs.append({
+                            'spacecraft': spacecraft[0],
+                            'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
+                            'start_block': ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK,
+                            'replay_length': ordered_image_packet_entries[-1].SCI_XFI_HDR_FLASH_BLOCK
+                                             - ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK + 1})
+                except IndexError:
                     skip_image = True
-                    skip_reason = "Packets are out of order"
-
-                    # if this is the case, then we need a replay. So we'll log that
-                    # TODO: we might be missing the first or last packet... so case the replay length should be longer
-                    replay_needs.append({
-                        'spacecraft': spacecraft[0],
-                        'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
-                        'start_block': ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK,
-                        'replay_length': ordered_image_packet_entries[-1].SCI_XFI_HDR_FLASH_BLOCK
-                                         - ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK + 1})
+                    skip_reason = "Image could not find all packets"
+                    logger.error("Could not make find all packets")
+                    logger.error(traceback.format_exc())
 
                 # we'll finally try to decompress the image, if it fails we cannot make the image so we proceed
                 try:
