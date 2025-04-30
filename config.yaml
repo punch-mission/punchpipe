@@ -170,6 +170,26 @@ flows:
     schedule: "* * * * *"
     options:
 
+  level3_PAM:
+    description: "Creates Level 3 PAM files."
+    priority:
+      initial: 10000
+      seconds: [1]
+      escalation: [10000]
+      schedule: "* * * * *"
+      tags: ["L3"]
+      options:
+
+  level3_CAM:
+    description: "Creates Level 3 CAM files."
+    priority:
+      initial: 10000
+      seconds: [1]
+      escalation: [10000]
+      schedule: "* * * * *"
+      tags: ["L3"]
+      options:
+
   construct_f_corona_background:
     description: "Creates Level 3 f corona model files."
     tags: [ "L3" ]
