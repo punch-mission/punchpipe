@@ -954,11 +954,12 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                             'start_block': ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK,
                             'replay_length': ordered_image_packet_entries[-1].SCI_XFI_HDR_FLASH_BLOCK
                                              - ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK + 1})
-                except IndexError:
+                except (IndexError, KeyError):
                     skip_image = True
                     skip_reason = "Image could not find all packets"
                     logger.error("Could not make find all packets")
                     logger.error(traceback.format_exc())
+                    break
 
                 # we'll finally try to decompress the image, if it fails we cannot make the image so we proceed
                 try:
