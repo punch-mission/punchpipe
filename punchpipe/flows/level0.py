@@ -44,7 +44,7 @@ from punchpipe.control.util import get_database_session, load_pipeline_configura
 
 FIXED_PACKETS = ['ENG_XACT', 'ENG_LED', 'ENG_PFW', 'ENG_CEB']
 VARIABLE_PACKETS = ['SCI_XFI']
-PACKET_CADENCE = {'ENG_XACT': 10}  # only take every tenth ENG_XACT packet for 10Hz resolution
+PACKET_CADENCE = {}
 SC_TIME_EPOCH = Time(2000.0, format="decimalyear", scale="tai")
 
 class SpacecraftMapping(Block):
@@ -339,7 +339,7 @@ def detect_new_tlm_files(pipeline_config: dict, session=None) -> [str]:
                                                   "%Y_%j_%H_%M")
                                 for path in found_tlm_files]
         found_tlm_files = [path for path, date in zip(found_tlm_files, found_tlm_file_dates)
-                               if date > tlm_start_date]
+                               if date >= tlm_start_date]
     found_tlm_files = set(found_tlm_files)
     database_tlm_files = set([p[0] for p in session.query(TLMFiles.path).distinct().all()])
 
@@ -451,7 +451,7 @@ def unpack_n_bit_values(packed: bytes, byteorder: str, n_bits=19) -> np.ndarray:
 
 def organize_pfw_fits_keywords(pfw_packet):
     return {
-        'PFWTIME': pfw_packet.timestamp.astimezone(UTC).isoformat(),
+        'PFWTIME': pfw_packet.timestamp.isoformat(),
         'PFWSTAT': pfw_packet.PFW_STATUS,
         'STEPCALC': pfw_packet.STEP_CALC,
         'CMDSTEPS': pfw_packet.LAST_CMD_N_STEPS,
@@ -502,7 +502,7 @@ def organize_pfw_fits_keywords(pfw_packet):
 
 def organize_led_fits_keywords(led_packet):
     return {
-        'LEDTIME': led_packet.timestamp.astimezone(UTC).isoformat(),
+        'LEDTIME': led_packet.timestamp.isoformat(),
         'LED1STAT': led_packet.LED1_ACTIVE_STATE,
         'LEDPLSN': led_packet.LED_CFG_NUM_PLS,
         'LED2STAT': led_packet.LED2_ACTIVE_STATE,
@@ -513,7 +513,7 @@ def organize_led_fits_keywords(led_packet):
 
 def organize_ceb_fits_keywords(ceb_packet):
     return {
-        'CEBTIME': ceb_packet.timestamp.astimezone(UTC).isoformat(),
+        'CEBTIME': ceb_packet.timestamp.isoformat(),
         'CEBSTAT': ceb_packet.CEB_STATUS_REG,
         #'CEBTIME': ceb_packet.CEB_STATUS_REG_SPW_TIMECODE,
         'CEBWGS': ceb_packet.WGS_STATUS,
@@ -563,7 +563,7 @@ def organize_spacecraft_position_keywords(observation_time, before_xact, after_x
     carrington = gcrs.transform_to(HeliographicCarrington(obstime=obstime, observer='self'))
 
     return {
-        'XACTTIME': before_xact.timestamp.astimezone(UTC).isoformat(),
+        'XACTTIME': before_xact.timestamp.isoformat(),
         "HCIX_OBS": hci.cartesian.x.to(u.m).value,
         "HCIY_OBS": hci.cartesian.y.to(u.m).value,
         "HCIZ_OBS": hci.cartesian.z.to(u.m).value,
@@ -593,7 +593,7 @@ def organize_compression_and_acquisition_settings(compression_settings, acquisit
             "ISTEST": compression_settings['TEST'],
             "DELAY": acquisition_settings['DELAY'],
             "IMGCOUNT": acquisition_settings['IMG_NUM']+1,
-            "EXPTIME": acquisition_settings['EXPOSURE']/10.0,
+            "EXPTIME": acquisition_settings['EXPOSURE']/10.0 * (1+acquisition_settings['IMG_NUM']),
             "TABLE1": acquisition_settings['TABLE1'],
             "TABLE2": acquisition_settings['TABLE2']}
 
@@ -638,9 +638,9 @@ def decode_image_packets(img_packets, compression_settings):
     num_vals = pixel_values.size
     width = 2176 if num_vals > 2048 * 2048 else 2048
     if num_vals % width == 0:
-        return pixel_values.reshape((-1, width))
+        return pixel_values.reshape((-1, width)).T
     else:
-        return np.ravel(pixel_values)[:width*(num_vals//width)].reshape((-1, width))
+        return np.ravel(pixel_values)[:width*(num_vals//width)].reshape((-1, width)).T
 
 
 PFW_POSITION_MAPPING = ["Manual", "PM", "opaque", "PZ", "PP", "CR"]
@@ -677,25 +677,24 @@ def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -
                   .order_by(db_classes['ENG_XACT'].timestamp.asc()).first())
     logger.debug("XACT retrieved")
 
-    # TODO: slerp instead of interpolate
-    ATT_DET_Q_BODY_WRT_ECI1 = interpolate_value(observation_time,
-                                                before_xact.timestamp, before_xact.ATT_DET_Q_BODY_WRT_ECI1,
-                                                after_xact.timestamp, after_xact.ATT_DET_Q_BODY_WRT_ECI1)
-    ATT_DET_Q_BODY_WRT_ECI2 = interpolate_value(observation_time,
-                                                before_xact.timestamp, before_xact.ATT_DET_Q_BODY_WRT_ECI2,
-                                                after_xact.timestamp, after_xact.ATT_DET_Q_BODY_WRT_ECI2)
-    ATT_DET_Q_BODY_WRT_ECI3 = interpolate_value(observation_time,
-                                                before_xact.timestamp, before_xact.ATT_DET_Q_BODY_WRT_ECI3,
-                                                after_xact.timestamp, after_xact.ATT_DET_Q_BODY_WRT_ECI3)
-    ATT_DET_Q_BODY_WRT_ECI4 = interpolate_value(observation_time,
-                                                before_xact.timestamp, before_xact.ATT_DET_Q_BODY_WRT_ECI4,
-                                                after_xact.timestamp, after_xact.ATT_DET_Q_BODY_WRT_ECI4)
+    before_quat = np.quaternion(before_xact.ATT_DET_Q_BODY_WRT_ECI4 * 0.5E-10,
+                      before_xact.ATT_DET_Q_BODY_WRT_ECI1 * 0.5E-10,
+                      before_xact.ATT_DET_Q_BODY_WRT_ECI2 * 0.5E-10,
+                      before_xact.ATT_DET_Q_BODY_WRT_ECI3 * 0.5E-10)
+
+    after_quat = np.quaternion(after_xact.ATT_DET_Q_BODY_WRT_ECI4 * 0.5E-10,
+                                after_xact.ATT_DET_Q_BODY_WRT_ECI1 * 0.5E-10,
+                                after_xact.ATT_DET_Q_BODY_WRT_ECI2 * 0.5E-10,
+                                after_xact.ATT_DET_Q_BODY_WRT_ECI3 * 0.5E-10)
+
+    interp_quat = quaternion.slerp(before_quat, after_quat,
+                                   before_xact.timestamp.timestamp(), after_xact.timestamp.timestamp(),
+                                   observation_time.timestamp())
 
     # get the PFW packet right before the observation
     best_pfw = (session.query(db_classes['ENG_PFW'])
                   .filter(db_classes['ENG_PFW'].ENG_PFW_HDR_SCID == spacecraft_id)
                   #  # only when the wheel isn't moving
-                  # .filter(db_classes['ENG_PFW'].POSITION_CURR == db_classes['ENG_PFW'].POSITION_CMD)
                   .filter(db_classes['ENG_PFW'].timestamp <= observation_time)
                   .order_by(db_classes['ENG_PFW'].timestamp.desc()).first())
 
@@ -708,18 +707,38 @@ def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -
     # get the LED packet that corresponds to this observation if one exists
     # this is slightly different, we look for an LED packet with a start time and an end time that overlaps
     # with the observation... there is likely not one so this will be None
-    best_led = (session.query(db_classes['ENG_LED'])
+    # there are multiple possibility of overlaps so we check them all and then just take one
+    best_led1 = (session.query(db_classes['ENG_LED'])
                 .filter(db_classes['ENG_LED'].ENG_LED_HDR_SCID == spacecraft_id)
-                .filter(db_classes['ENG_LED'].LED_START_TIME > observation_time)
-                .filter(db_classes['ENG_LED'].LED_END_TIME < observation_time + timedelta(seconds=exposure_time))
+                .filter(db_classes['ENG_LED'].LED_START_TIME <= observation_time)
+                .filter(db_classes['ENG_LED'].LED_END_TIME >= observation_time + timedelta(seconds=exposure_time))
                 .first())
+
+    best_led2 = (session.query(db_classes['ENG_LED'])
+                .filter(db_classes['ENG_LED'].ENG_LED_HDR_SCID == spacecraft_id)
+                .filter(db_classes['ENG_LED'].LED_START_TIME <= observation_time)
+                .filter(db_classes['ENG_LED'].LED_END_TIME >= observation_time)
+                .filter(db_classes['ENG_LED'].LED_END_TIME <= observation_time + timedelta(seconds=exposure_time))
+                .first())
+
+    best_led3 = (session.query(db_classes['ENG_LED'])
+                .filter(db_classes['ENG_LED'].ENG_LED_HDR_SCID == spacecraft_id)
+                .filter(db_classes['ENG_LED'].LED_START_TIME >= observation_time)
+                .filter(db_classes['ENG_LED'].LED_START_TIME <= observation_time + timedelta(seconds=exposure_time))
+                .filter(db_classes['ENG_LED'].LED_END_TIME >= observation_time + timedelta(seconds=exposure_time))
+                .first())
+
+    best_led4 = (session.query(db_classes['ENG_LED'])
+                .filter(db_classes['ENG_LED'].ENG_LED_HDR_SCID == spacecraft_id)
+                .filter(db_classes['ENG_LED'].LED_START_TIME >= observation_time)
+                .filter(db_classes['ENG_LED'].LED_END_TIME <= observation_time + timedelta(seconds=exposure_time))
+                .first())
+
+    best_led = best_led1 or best_led2 or best_led3 or best_led4
 
     position_info = {'spacecraft_id': spacecraft_id,
             'datetime': observation_time,
-            'ATT_DET_Q_BODY_WRT_ECI1': ATT_DET_Q_BODY_WRT_ECI1,
-            'ATT_DET_Q_BODY_WRT_ECI2': ATT_DET_Q_BODY_WRT_ECI2,
-            'ATT_DET_Q_BODY_WRT_ECI3': ATT_DET_Q_BODY_WRT_ECI3,
-            'ATT_DET_Q_BODY_WRT_ECI4': ATT_DET_Q_BODY_WRT_ECI4,
+            'interp_quat': interp_quat,
             'PFW_POSITION_CURR': best_pfw.POSITION_CURR}
 
     # fill in all the FITS info
@@ -728,21 +747,13 @@ def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -
                                                  image_shape)}
 
     if best_pfw is not None:
-        pfw_header = organize_pfw_fits_keywords(best_pfw)
-        fits_info |= pfw_header
-        # TODO - might need different telemetry data for this, and confirming mapping
-        pfw_mapping = {
-            "DK": "PFWOFF1",
-            "CR": "PFWOFF2",
-            "PM": "PFWOFF3",
-            "PZ": "PFWOFF4",
-            "PP": "PFWOFF5"
-        }
-        fits_info['POLAROFF'] = pfw_header[pfw_mapping.get(fits_info['TYPECODE'], None)]
+        fits_info |= organize_pfw_fits_keywords(best_pfw)
 
     if best_led is not None:
         fits_info |= organize_led_fits_keywords(best_led)
         fits_info['LED_PCKT'] = 1
+    else:
+        fits_info['LED_PCKT'] = 0
 
     if best_ceb is not None:
         fits_info |= organize_ceb_fits_keywords(best_ceb)
@@ -754,14 +765,13 @@ def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -
 
     fits_info |= organize_gain_info(spacecraft_id)
 
-    fits_info['EXPTIME'] = acquisition_settings['EXPOSURE'] / 10.0
     fits_info['COM_SET'] = first_image_packet.SCI_XFI_HDR_COM_SET
     fits_info['ACQ_SET'] = first_image_packet.SCI_XFI_HDR_ACQ_SET
-    fits_info['DATE-BEG'] = first_image_packet.timestamp.astimezone(UTC).isoformat()
-    date_end = first_image_packet.timestamp.astimezone(UTC) + timedelta(seconds=fits_info['EXPTIME'])
+    fits_info['DATE-BEG'] = first_image_packet.timestamp.isoformat()
+    date_end = first_image_packet.timestamp + timedelta(seconds=fits_info['EXPTIME'])
     fits_info['DATE-END'] = date_end.isoformat()
-    date_avg =  (first_image_packet.timestamp.astimezone(UTC) +
-                 (date_end - first_image_packet.timestamp.astimezone(UTC)) / 2)
+    date_avg =  (first_image_packet.timestamp +
+                 (date_end - first_image_packet.timestamp) / 2)
     fits_info['DATE-AVG'] = date_avg.isoformat()
     fits_info['DATE-OBS'] = date_avg.isoformat()
     fits_info['DATE'] = datetime.now(UTC).isoformat()
@@ -769,7 +779,7 @@ def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -
     return position_info, fits_info
 
 
-def eci_quaternion_to_ra_dec(q):
+def eci_quaternion_to_ra_dec(q, obstime):
     """
     Convert an ECI quaternion to RA and Dec.
 
@@ -782,9 +792,9 @@ def eci_quaternion_to_ra_dec(q):
     """
 
     # Normalize the quaternion
-    q = q / np.linalg.norm(q)
+    q = q / np.abs(q)
 
-    w, x, y, z = q
+    w, x, y, z = q.w, q.x, q.y, q.z
     # Calculate the rotation matrix from the quaternion
     R = np.array([[1 - 2*((y**2) + (z**2)), 2*((x*y) - (z*w)), 2*((x*z) + (y*w))],
          [2*((x*y) + (z*w)), 1 - 2*((x**2) + (z**2)), 2*((y*z) - (x*w))],
@@ -794,46 +804,43 @@ def eci_quaternion_to_ra_dec(q):
     body = R @ axis_eci
 
     # Calculate RA and Dec from the rotated z-vector
-    c = SkyCoord(body[0], body[1], body[2], representation_type='cartesian', unit='m').fk5
+    c = SkyCoord(body[0], body[1], body[2],
+                 representation_type='cartesian',
+                 unit='m',
+                 obstime=obstime).fk5
     ra = c.ra.deg
     dec = c.dec.deg
-    roll = np.arctan2((q[1] * q[2]) - (q[0] * q[3]), 1 / (2 - ((q[2] ** 2) + (q[3] ** 2))))
+    roll = np.arctan2(2 *((w * x) + (y * z)), 1 - 2*((x ** 2) + (y ** 2)))
 
     return ra, dec, roll
 
-def form_preliminary_wcs(metadata, plate_scale):
+def form_preliminary_wcs(soc_spacecraft_id, metadata, plate_scale):
     """Create the preliminary WCS for punchbowl"""
-    q = np.array([metadata['ATT_DET_Q_BODY_WRT_ECI4'] * 0.5E-10,
-                           metadata['ATT_DET_Q_BODY_WRT_ECI1'] * 0.5E-10,
-                           metadata['ATT_DET_Q_BODY_WRT_ECI2'] * 0.5E-10,
-                           metadata['ATT_DET_Q_BODY_WRT_ECI3'] * 0.5E-10])
+    q = metadata['interp_quat']
 
     # all WFIs have their bore sight roughly 25 degrees up from spacecraft
     # so we rotate the quaternions before figuring out the RA/DEC
-    if metadata['spacecraft_id'] != "4":
+    if soc_spacecraft_id != "4":
         BORESIGHT_ANGLE = np.deg2rad(-25)  # this number comes from Craig as a rough estimate
-        q = np.quaternion(metadata['ATT_DET_Q_BODY_WRT_ECI4'] * 0.5E-10,
-                          metadata['ATT_DET_Q_BODY_WRT_ECI1'] * 0.5E-10,
-                          metadata['ATT_DET_Q_BODY_WRT_ECI2'] * 0.5E-10,
-                          metadata['ATT_DET_Q_BODY_WRT_ECI3'] * 0.5E-10)
+
         factor = np.sin(BORESIGHT_ANGLE / 2)
-        x, y, z = 0, 1, 0  # we rotate around the y axis
+        x, y, z = 0, 1, 0  # we rotate around the y-axis
         rotation_quaternion = np.quaternion(np.cos(BORESIGHT_ANGLE / 2),
                                             x * factor,
                                             y * factor,
                                             z * factor)
         q = q * rotation_quaternion
         q = q / q.abs()
-        q = np.array([q.w, q.x, q.y, q.z])
 
-    ra, dec, roll = eci_quaternion_to_ra_dec(q)
-    projection = "ARC" if metadata['spacecraft_id'] == '4' else 'AZP'
+    ra, dec, roll = eci_quaternion_to_ra_dec(q, metadata['datetime'])
+    projection = "ARC" if soc_spacecraft_id == '4' else 'AZP'
     celestial_wcs = WCS(naxis=2)
     celestial_wcs.wcs.crpix = (1024.5, 1024.5)
     celestial_wcs.wcs.crval = (ra, dec)
     celestial_wcs.wcs.cdelt = plate_scale, plate_scale
     celestial_wcs.wcs.pc = calculate_pc_matrix(roll, celestial_wcs.wcs.cdelt)
-    celestial_wcs.wcs.set_pv([(2, 1, 0.0)])  # TODO: makes sure this is reasonably set
+    if soc_spacecraft_id == '4':
+        celestial_wcs.wcs.set_pv([(2, 1, 0.0)])  # TODO: makes sure this is reasonably set
     celestial_wcs.wcs.ctype = f"RA--{projection}", f"DEC-{projection}"
     celestial_wcs.wcs.cunit = "deg", "deg"
     return calculate_helio_wcs_from_celestial(celestial_wcs, Time(metadata['datetime']), (2048, 2048))[0]
@@ -990,10 +997,13 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
                     fits_info['FILEVRSN'] = pipeline_config['file_version']
                     fits_info['PIPEVRSN'] = punchbowl.__version__
                     fits_info['NUM_PCKT'] = len(image_packets_entries)
+                    fits_info['PCKTBYTE'] = len(np.concatenate(ordered_image_content).tobytes())
                     logger.debug("Metadata retrieved")
                     file_type = fits_info["TYPECODE"]
-                    preliminary_wcs = form_preliminary_wcs(position_info,
-                                                           float(pipeline_config['plate_scale'][str(soc_spacecraft_id)]))
+                    preliminary_wcs = form_preliminary_wcs(
+                        str(soc_spacecraft_id),
+                        position_info,
+                        float(pipeline_config['plate_scale'][str(soc_spacecraft_id)]))
 
                     # we're ready to pack this into an NDCube to write as a FITS file using punchbowl
                     meta = NormalizedMetadata.load_template(file_type + str(soc_spacecraft_id), "0")

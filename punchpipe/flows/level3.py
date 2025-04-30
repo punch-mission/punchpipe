@@ -1,7 +1,7 @@
 import os
 import json
 import typing as t
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
@@ -275,7 +275,7 @@ def level3_CIM_construct_flow_info(level2_files: list[File], level3_file: File, 
 
     flow_type = "level3_CIM"
     state = "planned"
-    creation_time = datetime.now(UTC)
+    creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     before_models = get_valid_fcorona_models(session,
                                              level2_files[0],
@@ -383,7 +383,7 @@ def level3_CTM_construct_flow_info(level2_files: list[File], level3_file: File,
 
     flow_type = "level3_CTM"
     state = "planned"
-    creation_time = datetime.now(UTC)
+    creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
     f_corona_before = get_closest_before_file(level2_files[0],

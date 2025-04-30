@@ -20,7 +20,7 @@ def simpunch_scheduler_flow(pipeline_config_path=None, session=None, reference_t
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
     flow_type = "simpunch"
     state = "planned"
-    creation_time = datetime.now(UTC)
+    creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
     if session is None:
@@ -112,7 +112,7 @@ def simpunch_process_flow(flow_id: int, pipeline_config_path=None, session=None)
     flow_db_entry.flow_run_name = flow_run_context.flow_run.name
     flow_db_entry.flow_run_id = flow_run_context.flow_run.id
     flow_db_entry.state = "running"
-    flow_db_entry.start_time = datetime.now(UTC)
+    flow_db_entry.start_time = datetime.now()
     session.commit()
 
     # load the call data and launch the core flow
@@ -128,7 +128,7 @@ def simpunch_process_flow(flow_id: int, pipeline_config_path=None, session=None)
         out_filenames = simpunch_core_flow(**flow_call_data)
     except Exception as e:
         flow_db_entry.state = "failed"
-        flow_db_entry.end_time = datetime.now(UTC)
+        flow_db_entry.end_time = datetime.now()
         session.commit()
         raise e
     else:
@@ -149,6 +149,6 @@ def simpunch_process_flow(flow_id: int, pipeline_config_path=None, session=None)
         session.add_all(file_db_entries)
 
         flow_db_entry.state = "completed"
-        flow_db_entry.end_time = datetime.now(UTC)
+        flow_db_entry.end_time = datetime.now()
         # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
         session.commit()
