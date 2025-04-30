@@ -886,8 +886,11 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
 
             # Determine all the relevant TLM files
             needed_tlm_ids = set([image_packet.tlm_id for image_packet in image_packets_entries])
-            tlm_id_to_tlm_path = {tlm_id: session.query(TLMFiles.path).where(TLMFiles.tlm_id == tlm_id).one().path
-                                  for tlm_id in needed_tlm_ids}
+            try:
+                tlm_id_to_tlm_path = {tlm_id: session.query(TLMFiles.path).where(TLMFiles.tlm_id == tlm_id).one().path
+                                      for tlm_id in needed_tlm_ids}
+            except:  # noqa: E722
+                skip_image = True
             needed_tlm_paths = list(session.query(TLMFiles.path).where(TLMFiles.tlm_id.in_(needed_tlm_ids)).all())
             needed_tlm_paths = [p.path for p in needed_tlm_paths]
             logger.debug(f"Will use data from {needed_tlm_paths}")
