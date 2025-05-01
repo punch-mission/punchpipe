@@ -762,6 +762,9 @@ def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -
         fits_info |= organize_spacecraft_position_keywords(observation_time, before_xact, after_xact)
 
     fits_info |= organize_compression_and_acquisition_settings(compression_settings, acquisition_settings)
+    if fits_info['ISSQRT'] == 0:
+        fits_info['BUNIT'] = "DN"
+        fits_info['DSATVAL'] = 65535
 
     fits_info |= organize_gain_info(spacecraft_id)
 
