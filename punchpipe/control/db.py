@@ -121,7 +121,7 @@ class SCI_XFI(Base):
     packet_index = Column(Integer, nullable=False)
     ccsds_sequence_count = Column(Integer, nullable=False)
     ccsds_packet_length = Column(Integer, nullable=False)
-    timestamp = Column(DATETIME(fsp=6), nullable=False)
+    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
     is_used = Column(Boolean, nullable=False)
     num_attempts = Column(Integer, nullable=True)
     last_attempt = Column(DATETIME(fsp=6), nullable=True)
@@ -139,7 +139,7 @@ class ENG_CEB(Base):
     packet_index = Column(Integer, nullable=False)
     ccsds_sequence_count = Column(Integer, nullable=False)
     ccsds_packet_length = Column(Integer, nullable=False)
-    timestamp = Column(DATETIME(fsp=6), nullable=False)
+    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
 
 class ENG_PFW(Base):
     __tablename__ = "eng_pfw"
@@ -149,7 +149,7 @@ class ENG_PFW(Base):
     packet_index = Column(Integer, nullable=False)
     ccsds_sequence_count = Column(Integer, nullable=False)
     ccsds_packet_length = Column(Integer, nullable=False)
-    timestamp = Column(DATETIME(fsp=6), nullable=False)
+    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
 
 class ENG_XACT(Base):
     __tablename__ = "eng_xact"
@@ -159,7 +159,7 @@ class ENG_XACT(Base):
     packet_index = Column(Integer, nullable=False)
     ccsds_sequence_count = Column(Integer, nullable=False)
     ccsds_packet_length = Column(Integer, nullable=False)
-    timestamp = Column(DATETIME(fsp=6), nullable=False)
+    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
 
 class ENG_LED(Base):
     __tablename__ = "eng_led"
@@ -169,9 +169,9 @@ class ENG_LED(Base):
     packet_index = Column(Integer, nullable=False)
     ccsds_sequence_count = Column(Integer, nullable=False)
     ccsds_packet_length = Column(Integer, nullable=False)
-    timestamp = Column(DATETIME(fsp=6), nullable=False)
-    led_start_time = Column(DATETIME(fsp=6), nullable=False)
-    led_end_time = Column(DATETIME(fsp=6), nullable=False)
+    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
+    led_start_time = Column(DATETIME(fsp=6), nullable=False, index=True)
+    led_end_time = Column(DATETIME(fsp=6), nullable=False, index=True)
 
 PACKETNAME2SQL = {'SCI_XFI': SCI_XFI,
                   'ENG_CEB': ENG_CEB,
