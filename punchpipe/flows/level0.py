@@ -3,8 +3,11 @@ import os
 import json
 import traceback
 from glob import glob
-from typing import Any, Dict, Tuple
+from multiprocessing import Pool
+from typing import Any, Dict, Tuple, List
 from datetime import UTC, datetime, timedelta
+import hashlib
+import base64
 
 import astropy.units as u
 import ccsdspy
@@ -18,7 +21,6 @@ from astropy.coordinates import GCRS, EarthLocation, HeliocentricMeanEcliptic, S
 from astropy.time import Time, TimeDelta
 from astropy.wcs import WCS
 from ccsdspy import PacketArray, PacketField, converters
-from ccsdspy.utils import split_by_apid
 from dateutil.parser import parse as parse_datetime_str
 from ndcube import NDCube
 from prefect import flow, get_run_logger, task
@@ -39,13 +41,22 @@ from sunpy.coordinates import (
 )
 
 from punchpipe.__init__ import __version__
-from punchpipe.control.db import Base, File, Flow, PacketHistory, TLMFiles
+from punchpipe.control import cache_layer
+from punchpipe.control.db import File, Flow, PacketHistory, TLMFiles, PACKETNAME2SQL, SCI_XFI, ENG_CEB, ENG_PFW, ENG_LED, ENG_XACT
 from punchpipe.control.util import get_database_session, load_pipeline_configuration
 
 FIXED_PACKETS = ['ENG_XACT', 'ENG_LED', 'ENG_PFW', 'ENG_CEB']
 VARIABLE_PACKETS = ['SCI_XFI']
 PACKET_CADENCE = {}
 SC_TIME_EPOCH = Time(2000.0, format="decimalyear", scale="tai")
+PFW_POSITION_MAPPING = ["Manual", "PM", "opaque", "PZ", "PP", "CR"]
+
+session, engine = get_database_session(get_engine=True)
+
+def initializer():
+    """ensure the parent proc's database connections are not touched
+    in the new connection pool"""
+    engine.dispose(close=False)
 
 class SpacecraftMapping(Block):
     mapping: SecretDict
@@ -107,18 +118,6 @@ class TaiDatetimeConverter(converters.DatetimeConverter):
 
         return converted
 
-def interpolate_value(query_time, before_time, before_value, after_time, after_value):
-    if query_time == before_time:
-        return before_value
-    elif query_time == after_time:
-        return after_value
-    elif before_time == after_time:
-        return after_value
-    else:
-        return ((after_value - before_value)
-         * ((query_time - before_time) / (after_time - before_time))
-         + before_value)
-
 def unpack_compression_settings(com_set_val: "bytes|int"):
     """Unpack image compression control register value.
 
@@ -163,10 +162,7 @@ def unpack_acquisition_settings(acq_set_val: "bytes|int"):
                      "TABLE2": acquire_config & 0b1111}
     return settings_dict
 
-def open_and_split_packet_file(path: str) -> dict[int, io.BytesIO]:
-    with open(path, "rb") as mixed_file:
-        stream_by_apid = split_by_apid(mixed_file)
-    return stream_by_apid
+
 
 def read_tlm_defs(path):
     tlm = pd.read_excel(path, sheet_name=None)
@@ -192,70 +188,6 @@ def get_ccsds_data_type(sheet_type, data_size):
     else:
         return 'fill'
 
-def get_database_data_type(sheet_type, data_size):
-    if data_size > 64:
-        return None
-    if sheet_type[0] == "F":
-        return FLOAT()
-    elif sheet_type[0] == "I":
-        return INTEGER()
-    elif sheet_type[0] == "U":
-        return INTEGER(unsigned=True)
-    else:
-        return None
-
-def create_class(table_name, columns):
-    attrs = {'__tablename__': table_name}
-    for name, col_type in columns.items():
-        attrs[name] = Column(col_type,
-                             primary_key=(name == 'id'), # Assuming 'id' is primary key if present
-                             index=(name == 'timestamp' or name == 'id'))
-    return type(table_name, (Base,), attrs)
-
-
-@task(cache_policy=NO_CACHE)
-def create_database_from_tlm(tlm, engine):
-    REQUIRED_COLUMNS = ['id', 'tlm_id', 'packet_index',
-                        'CCSDS_VERSION_NUMBER', 'CCSDS_PACKET_TYPE', 'CCSDS_SECONDARY_FLAG',
-                        'CCSDS_APID', 'CCSDS_SEQUENCE_FLAG', 'CCSDS_SEQUENCE_COUNT', 'CCSDS_PACKET_LENGTH']
-    database_classes = {}
-    for packet_name in FIXED_PACKETS:
-        columns = {name: INTEGER(unsigned=True) for name in REQUIRED_COLUMNS}
-        columns['timestamp'] = DATETIME(fsp=6)
-        for i, row in tlm[packet_name].iterrows():
-            if i > 6:
-                # we set the database type to None if it's not a valid kind for the database
-                columns[row['Mnemonic']] = get_database_data_type(row['Type'], row['Data Size'])
-        # thus we purge the columns of invalid kinds after
-        columns = {k: v for k, v in columns.items() if v is not None}
-
-        # ENG_LED has some extra times that we want to encode...
-        # we don't have a better way other than manually do this right now
-        if packet_name == "ENG_LED":
-            columns['LED_START_TIME'] = DATETIME(fsp=6)
-            columns['LED_END_TIME'] = DATETIME(fsp=6)
-
-        database_classes[packet_name] = create_class(packet_name, columns)
-
-    for packet_name in VARIABLE_PACKETS:
-        num_fields = len(tlm[packet_name])
-        columns = {name: INTEGER(unsigned=True) for name in REQUIRED_COLUMNS}
-        columns['timestamp'] = DATETIME(fsp=6)
-        columns['is_used'] = Boolean
-        columns['num_attempts'] = Integer
-        columns['last_attempt'] = DATETIME(fsp=6)
-        columns['last_skip_reason'] = String(300)
-        for i, row in tlm[packet_name].iterrows():
-            if i > 6 and i != num_fields - 1:  # the expanding packet is assumed to be last so we skip it
-                # we set the database type to None if it's not a valid kind for the database
-                columns[row['Mnemonic']] = get_database_data_type(row['Type'], row['Data Size'])
-        # thus we purge the columns of invalid kinds after
-        columns = {k: v for k, v in columns.items() if v is not None}
-        database_classes[packet_name] = create_class(packet_name, columns)
-
-    Base.metadata.create_all(engine)
-    return database_classes
-
 def create_packet_definitions(tlm, parse_expanding_fields=True):
     defs = {}
     for packet_name in FIXED_PACKETS:
@@ -280,7 +212,7 @@ def create_packet_definitions(tlm, parse_expanding_fields=True):
             # LED packets have extra times... so we'll just convert them here
             pkt.add_converted_field(
                 ('LED_PLS_START_SEC', 'LED_PLS_START_USEC'),
-                'LED_START_TIME',
+                'led_start_time',
                 TaiDatetimeConverter(
                     since=SC_TIME_EPOCH,
                     units=('seconds', 'microseconds')
@@ -288,7 +220,7 @@ def create_packet_definitions(tlm, parse_expanding_fields=True):
             )
             pkt.add_converted_field(
                 ('LED_PLS_END_SEC', 'LED_PLS_END_USEC'),
-                'LED_END_TIME',
+                'led_end_time',
                 TaiDatetimeConverter(
                     since=SC_TIME_EPOCH,
                     units=('seconds', 'microseconds')
@@ -325,9 +257,8 @@ def create_packet_definitions(tlm, parse_expanding_fields=True):
     return defs
 
 @task(cache_policy=NO_CACHE)
-def detect_new_tlm_files(pipeline_config: dict, session=None) -> [str]:
-    if session is None:
-        session = get_database_session()
+def detect_new_tlm_files(pipeline_config: dict, session=None) -> List[str]:
+    session = Session(engine)
 
     tlm_directory = pipeline_config['tlm_directory']
     found_tlm_files = list(glob(os.path.join(tlm_directory, '**/*.tlm'), recursive=True))
@@ -345,33 +276,11 @@ def detect_new_tlm_files(pipeline_config: dict, session=None) -> [str]:
 
     return sorted(list(found_tlm_files - database_tlm_files))
 
-@task(cache_policy=NO_CACHE)
-def process_telemetry_file(path, defs, apid_name2num, logger):
-    success = True
-    contents = open_and_split_packet_file(path)
-    parsed = {}
-    for packet_name in defs:
-        apid_num = apid_name2num[packet_name]
-        if apid_num in contents:
-            logger.debug(f"Parsing {packet_name}")
-            try:
-                parsed[packet_name] = defs[packet_name].load(contents[apid_num], include_primary_header=True)
-            except (ValueError, RuntimeError):
-                success = False
-                logger.error(f"Failed parsing {packet_name} on {path}")
-                logger.error(traceback.format_exc())
-        else:
-            logger.debug(f"{packet_name} not found")
-    return parsed, success
-
-@task(cache_policy=NO_CACHE)
-def ingest_tlm_file(path: str, session: Session,
+def ingest_tlm_file(path: str,
                     defs: dict[str, ccsdspy.VariableLength | ccsdspy.FixedLength],
-                    apid_name2num: dict[str, int],
-                    database_classes: dict[str, Base]):
-    logger = get_run_logger()
+                    apid_name2num: dict[str, int]):
+    session = Session(engine)
 
-    logger.debug(f"Ingesting {path}")
     tlm_db_entry = TLMFiles(
         path=path,
         successful=False,
@@ -381,39 +290,49 @@ def ingest_tlm_file(path: str, session: Session,
     session.add(tlm_db_entry)
     session.commit()
 
-    parsed, success = process_telemetry_file(path, defs, apid_name2num, logger)
+    parsed, _ = TLMLoader(path, defs, apid_name2num).load()
+    success = parsed is not None
 
-    logger.debug("Adding parsed packets to database")
-    for packet_name in parsed:
-        packet_keys = set(database_classes[packet_name].__table__.columns.keys()) &  set(parsed[packet_name].keys())
-        num_packets = len(parsed[packet_name]['CCSDS_APID'])
-        packet_numbers_used = list(range(0, num_packets, PACKET_CADENCE.get(packet_name, 1)))
-        pkts = {i: {} for i in packet_numbers_used}
-        try:
-            logger.debug(f"Adding {len(packet_numbers_used)} packets for {packet_name} from {path}")
-            for packet_num in packet_numbers_used:
-                for key in packet_keys:
-                    pkts[packet_num][key] = parsed[packet_name][key][packet_num]
-                pkts[packet_num]['packet_index'] = packet_num
-                pkts[packet_num]['tlm_id'] = tlm_db_entry.tlm_id
+    if success:
+        for packet_name in parsed:
+            sql_db_table = PACKETNAME2SQL[packet_name]
+            num_packets = len(parsed[packet_name]['CCSDS_APID'])
+            packet_numbers_used = list(range(0, num_packets, PACKET_CADENCE.get(packet_name, 1)))
+            pkts = {i: {} for i in packet_numbers_used}
+            try:
+                for packet_num in packet_numbers_used:
+                    pkts[packet_num]['packet_index'] = packet_num
+                    pkts[packet_num]['tlm_id'] = tlm_db_entry.tlm_id
+                    pkts[packet_num]['ccsds_sequence_count'] = parsed[packet_name]["CCSDS_SEQUENCE_COUNT"][packet_num]
+                    pkts[packet_num]['ccsds_packet_length'] = parsed[packet_name]["CCSDS_PACKET_LENGTH"][packet_num]
+                    pkts[packet_num]['timestamp'] = parsed[packet_name]["timestamp"][packet_num]
+                    pkts[packet_num]['spacecraft_id'] = parsed[packet_name][f"{packet_name}_HDR_SCID"][packet_num]
 
-            # session.bulk_save_objects(pkts)
-            logger.debug("INSERTING NOW")
-            session.execute(
-                database_classes[packet_name].__table__.insert(),
-                list(pkts.values())
-            )
-            session.commit()
-        except (ValueError, sqlalchemy.exc.DataError):
-            success = False
-            logger.error(f"Failed adding {packet_name} from {path} to database")
-            logger.error(traceback.format_exc())
-            session.rollback()
+                    # now we set special keywords used only in specific tables
+                    if packet_name == "SCI_XFI":
+                        pkts[packet_num]['is_used'] = False
+                        pkts[packet_num]['flash_block'] = parsed[packet_name]["SCI_XFI_HDR_FLASH_BLOCK"][packet_num]
+                        pkts[packet_num]['compression_settings'] = parsed[packet_name]["SCI_XFI_HDR_COM_SET"][packet_num]
+                        pkts[packet_num]['acquisition_settings'] = parsed[packet_name]["SCI_XFI_HDR_ACQ_SET"][packet_num]
+                        pkts[packet_num]['packet_group'] = parsed[packet_name]["SCI_XFI_HDR_IMG_PKT_GRP"][packet_num]
+                    elif packet_name == "ENG_LED":
+                        pkts[packet_num]['led_start_time'] = parsed[packet_name]["led_start_time"][packet_num]
+                        pkts[packet_num]['led_end_time'] = parsed[packet_name]["led_end_time"][packet_num]
+
+                session.execute(
+                    sql_db_table.__table__.insert(),
+                    list(pkts.values())
+                )
+                session.commit()
+            except:
+                success = False
+                session.rollback()
 
     tlm_db_entry.successful = success
     tlm_db_entry.num_attempts += 1
     tlm_db_entry.last_attempt = datetime.now(UTC)
     session.commit()
+    session.close()
 
 @task
 def unpack_n_bit_values(packed: bytes, byteorder: str, n_bits=19) -> np.ndarray:
@@ -449,121 +368,109 @@ def unpack_n_bit_values(packed: bytes, byteorder: str, n_bits=19) -> np.ndarray:
         results.append(bits_value)
     return np.asanyarray(results)
 
-def organize_pfw_fits_keywords(pfw_packet):
+def organize_pfw_fits_keywords(pfw_packet_db, pfw_packet):
     return {
-        'PFWTIME': pfw_packet.timestamp.isoformat(),
-        'PFWSTAT': pfw_packet.PFW_STATUS,
-        'STEPCALC': pfw_packet.STEP_CALC,
-        'CMDSTEPS': pfw_packet.LAST_CMD_N_STEPS,
-        'HOMEOVRD': pfw_packet.HOME_POSITION_OVRD,
-        'POSCURR': pfw_packet.POSITION_CURR,
-        'POSCMD': pfw_packet.POSITION_CMD,
-        'POSRAW': pfw_packet.RESOLVER_POS_RAW,
-        'POSRAW2': pfw_packet.RESOLVER_POS_CORR,
-        'READCNT': pfw_packet.RESOLVER_READ_CNT,
-        'LMNSTEP': pfw_packet.LAST_MOVE_N_STEPS,
-        'LMTIME': pfw_packet.LAST_MOVE_EXECUTION_TIME,
-        'LTSTEP': pfw_packet.LIFETIME_STEPS_TAKEN,
-        'LTTIME': pfw_packet.LIFETIME_EXECUTION_TIME,
-        'FSMSTAT': pfw_packet.FSM_CTRL_STATE,
-        'READSTAT': pfw_packet.READ_SUB_STATE,
-        'MOVSTAT': pfw_packet.MOVE_SUB_STATE,
-        'HOMESTAT': pfw_packet.HOME_SUB_STATE,
-        'HOMEPOS': pfw_packet.HOME_POSITION,
-        'RESSEL': pfw_packet.RESOLVER_SELECT,
-        'RESTOLH': pfw_packet.RESOLVER_TOLERANCE_HOME,
-        'RESTOLC': pfw_packet.RESOLVER_TOLERANCE_CURR,
-        'STEPSEL': pfw_packet.STEPPER_SELECT,
-        'STEPDLY': pfw_packet.STEPPER_RATE_DELAY,
-        'STEPRATE': pfw_packet.STEPPER_RATE,
-        'SHORTMV': pfw_packet.SHORT_MOVE_SETTLING_TIME_MS,
-        'LONGMV': pfw_packet.LONG_MOVE_SETTLING_TIME_MS,
-        'PFWOFF1': pfw_packet.PRIMARY_STEP_OFFSET_1,
-        'PFWOFF2': pfw_packet.PRIMARY_STEP_OFFSET_2,
-        'PFWOFF3': pfw_packet.PRIMARY_STEP_OFFSET_3,
-        'PFWOFF4': pfw_packet.PRIMARY_STEP_OFFSET_4,
-        'PFWOFF5': pfw_packet.PRIMARY_STEP_OFFSET_5,
-        'RPFWOFF1': pfw_packet.REDUNDANT_STEP_OFFSET_1,
-        'RPFWOFF2': pfw_packet.REDUNDANT_STEP_OFFSET_2,
-        'RPFWOFF3': pfw_packet.REDUNDANT_STEP_OFFSET_3,
-        'RPFWOFF4': pfw_packet.REDUNDANT_STEP_OFFSET_4,
-        'RPFWOFF5': pfw_packet.REDUNDANT_STEP_OFFSET_5,
-        'PFWPOS1': pfw_packet.PRIMARY_RESOLVER_POSITION_1,
-        'PFWPOS2': pfw_packet.PRIMARY_RESOLVER_POSITION_2,
-        'PFWPOS3': pfw_packet.PRIMARY_RESOLVER_POSITION_3,
-        'PFWPOS4': pfw_packet.PRIMARY_RESOLVER_POSITION_4,
-        'PFWPOS5': pfw_packet.PRIMARY_RESOLVER_POSITION_5,
-        'RPFWPOS1': pfw_packet.REDUNDANT_RESOLVER_POSITION_1,
-        'RPFWPOS2': pfw_packet.REDUNDANT_RESOLVER_POSITION_2,
-        'RPFWPOS3': pfw_packet.REDUNDANT_RESOLVER_POSITION_3,
-        'RPFWPOS4': pfw_packet.REDUNDANT_RESOLVER_POSITION_4,
-        'RPFWPOS5': pfw_packet.REDUNDANT_RESOLVER_POSITION_5
+        'PFWTIME': pfw_packet_db.timestamp.isoformat(),
+        'PFWSTAT': pfw_packet['PFW_STATUS'],
+        'STEPCALC': pfw_packet['STEP_CALC'],
+        'CMDSTEPS': pfw_packet['LAST_CMD_N_STEPS'],
+        'HOMEOVRD': pfw_packet['HOME_POSITION_OVRD'],
+        'POSCURR': pfw_packet['POSITION_CURR'],
+        'POSCMD': pfw_packet['POSITION_CMD'],
+        'POSRAW': pfw_packet['RESOLVER_POS_RAW'],
+        'POSRAW2': pfw_packet['RESOLVER_POS_CORR'],
+        'READCNT': pfw_packet['RESOLVER_READ_CNT'],
+        'LMNSTEP': pfw_packet['LAST_MOVE_N_STEPS'],
+        'LMTIME': pfw_packet['LAST_MOVE_EXECUTION_TIME'],
+        'LTSTEP': pfw_packet['LIFETIME_STEPS_TAKEN'],
+        'LTTIME': pfw_packet['LIFETIME_EXECUTION_TIME'],
+        'FSMSTAT': pfw_packet['FSM_CTRL_STATE'],
+        'READSTAT': pfw_packet['READ_SUB_STATE'],
+        'MOVSTAT': pfw_packet['MOVE_SUB_STATE'],
+        'HOMESTAT': pfw_packet['HOME_SUB_STATE'],
+        'HOMEPOS': pfw_packet['HOME_POSITION'],
+        'RESSEL': pfw_packet['RESOLVER_SELECT'],
+        'RESTOLH': pfw_packet['RESOLVER_TOLERANCE_HOME'],
+        'RESTOLC': pfw_packet['RESOLVER_TOLERANCE_CURR'],
+        'STEPSEL': pfw_packet['STEPPER_SELECT'],
+        'STEPDLY': pfw_packet['STEPPER_RATE_DELAY'],
+        'STEPRATE': pfw_packet['STEPPER_RATE'],
+        'SHORTMV': pfw_packet['SHORT_MOVE_SETTLING_TIME_MS'],
+        'LONGMV': pfw_packet['LONG_MOVE_SETTLING_TIME_MS'],
+        'PFWOFF1': pfw_packet['PRIMARY_STEP_OFFSET_1'],
+        'PFWOFF2': pfw_packet['PRIMARY_STEP_OFFSET_2'],
+        'PFWOFF3': pfw_packet['PRIMARY_STEP_OFFSET_3'],
+        'PFWOFF4': pfw_packet['PRIMARY_STEP_OFFSET_4'],
+        'PFWOFF5': pfw_packet['PRIMARY_STEP_OFFSET_5'],
+        'RPFWOFF1': pfw_packet['REDUNDANT_STEP_OFFSET_1'],
+        'RPFWOFF2': pfw_packet['REDUNDANT_STEP_OFFSET_2'],
+        'RPFWOFF3': pfw_packet['REDUNDANT_STEP_OFFSET_3'],
+        'RPFWOFF4': pfw_packet['REDUNDANT_STEP_OFFSET_4'],
+        'RPFWOFF5': pfw_packet['REDUNDANT_STEP_OFFSET_5'],
+        'PFWPOS1': pfw_packet['PRIMARY_RESOLVER_POSITION_1'],
+        'PFWPOS2': pfw_packet['PRIMARY_RESOLVER_POSITION_2'],
+        'PFWPOS3': pfw_packet['PRIMARY_RESOLVER_POSITION_3'],
+        'PFWPOS4': pfw_packet['PRIMARY_RESOLVER_POSITION_4'],
+        'PFWPOS5': pfw_packet['PRIMARY_RESOLVER_POSITION_5'],
+        'RPFWPOS1': pfw_packet['REDUNDANT_RESOLVER_POSITION_1'],
+        'RPFWPOS2': pfw_packet['REDUNDANT_RESOLVER_POSITION_2'],
+        'RPFWPOS3': pfw_packet['REDUNDANT_RESOLVER_POSITION_3'],
+        'RPFWPOS4': pfw_packet['REDUNDANT_RESOLVER_POSITION_4'],
+        'RPFWPOS5': pfw_packet['REDUNDANT_RESOLVER_POSITION_5']
     }
 
-def organize_led_fits_keywords(led_packet):
+def organize_led_fits_keywords(led_packet_db, led_packet):
     return {
-        'LEDTIME': led_packet.timestamp.isoformat(),
-        'LED1STAT': led_packet.LED1_ACTIVE_STATE,
-        'LEDPLSN': led_packet.LED_CFG_NUM_PLS,
-        'LED2STAT': led_packet.LED2_ACTIVE_STATE,
-        'LEDPLSD': led_packet.LED_CFG_PLS_DLY,
-        'LEDPLSW': led_packet.LED_CFG_PLS_WIDTH,
+        'LEDTIME': led_packet_db.timestamp.isoformat(),
+        'LED1STAT': led_packet['LED1_ACTIVE_STATE'],
+        'LEDPLSN': led_packet['LED_CFG_NUM_PLS'],
+        'LED2STAT': led_packet['LED2_ACTIVE_STATE'],
+        'LEDPLSD': led_packet['LED_CFG_PLS_DLY'],
+        'LEDPLSW': led_packet['LED_CFG_PLS_WIDTH']
     }
 
 
-def organize_ceb_fits_keywords(ceb_packet):
+def organize_ceb_fits_keywords(ceb_packet_db, ceb_packet):
     return {
-        'CEBTIME': ceb_packet.timestamp.isoformat(),
-        'CEBSTAT': ceb_packet.CEB_STATUS_REG,
-        #'CEBTIME': ceb_packet.CEB_STATUS_REG_SPW_TIMECODE,
-        'CEBWGS': ceb_packet.WGS_STATUS,
-        'CEBFIFO': ceb_packet.VIDEO_FIFO_STATUS,
-        'CEBBIAS1': ceb_packet.CCD_OUTPUT_DRAIN_BIAS,
-        'CEBBIAS2': ceb_packet.CCD_DUMP_DRAIN_BIAS,
-        'CEBBIAS3': ceb_packet.CCD_RESET_DRAIN_BIAS,
-        'CEBBIAS4': ceb_packet.CCD_TOP_GATE_BIAS,
-        'CEBBIAS5': ceb_packet.CCD_OUTPUT_GATE_BIAS,
-        'CEBVREF': ceb_packet.VREF_P2_5V1,
-        'CEBGND1': ceb_packet.GROUND1,
-        'CEBCONV1': ceb_packet.DCDC_CONV_P30V_OUT,
-        'CEBCONV2': ceb_packet.DCDC_CONV_P15V_OUT,
-        'CEBCONV3': ceb_packet.DCDC_CONV_P5V_OUT,
-        'BIASVREF': ceb_packet.VREF_BIAS,
-        'CEBGND2': ceb_packet.GROUND2,
-        'CEBSEDAC': ceb_packet.IPF_SBE_CNT,
-        'CEBMEDAC': ceb_packet.IPF_MBE_CNT}
+        'CEBTIME': ceb_packet_db.timestamp.isoformat(),
+        'CEBSTAT': ceb_packet['CEB_STATUS_REG'],
+        'CEBWGS': ceb_packet['WGS_STATUS'],
+        'CEBFIFO': ceb_packet['VIDEO_FIFO_STATUS'],
+        'CEBBIAS1': ceb_packet['CCD_OUTPUT_DRAIN_BIAS'],
+        'CEBBIAS2': ceb_packet['CCD_DUMP_DRAIN_BIAS'],
+        'CEBBIAS3': ceb_packet['CCD_RESET_DRAIN_BIAS'],
+        'CEBBIAS4': ceb_packet['CCD_TOP_GATE_BIAS'],
+        'CEBBIAS5': ceb_packet['CCD_OUTPUT_GATE_BIAS'],
+        'CEBVREF': ceb_packet['VREF_P2_5V1'],
+        'CEBGND1': ceb_packet['GROUND1'],
+        'CEBCONV1': ceb_packet['DCDC_CONV_P30V_OUT'],
+        'CEBCONV2': ceb_packet['DCDC_CONV_P15V_OUT'],
+        'CEBCONV3': ceb_packet['DCDC_CONV_P5V_OUT'],
+        'BIASVREF': ceb_packet['VREF_BIAS'],
+        'CEBGND2': ceb_packet['GROUND2'],
+        'CEBSEDAC': ceb_packet['IPF_SBE_CNT'],
+        'CEBMEDAC': ceb_packet['IPF_MBE_CNT']}
 
 
-def organize_spacecraft_position_keywords(observation_time, before_xact, after_xact):
-    position = EarthLocation.from_geocentric(before_xact.GPS_POSITION_ECEF1*2E-5*u.km,
-                                             before_xact.GPS_POSITION_ECEF2*2E-5*u.km,
-                                             before_xact.GPS_POSITION_ECEF3*2E-5*u.km)
+def organize_spacecraft_position_keywords(observation_time, before_xact_db, before_xact):
+    position = EarthLocation.from_geocentric(before_xact['GPS_POSITION_ECEF1']*2E-5*u.km,
+                                             before_xact['GPS_POSITION_ECEF2']*2E-5*u.km,
+                                             before_xact['GPS_POSITION_ECEF3']*2E-5*u.km)
 
     location = EarthLocation.from_geodetic(position.geodetic.lon.deg,
                                            position.geodetic.lat.deg,
                                            position.geodetic.height.to(u.m).value)
     obstime = Time(observation_time)
 
-    # Convert to GCRS frame
     gcrs = GCRS(location.get_itrs(obstime).cartesian, obstime=obstime)
-
-    # HCI (Heliocentric Inertial)
-    hci = gcrs.transform_to(HeliocentricInertial(obstime=obstime))
-
-    # (Heliocentric Earth Ecliptic)
-    hee = gcrs.transform_to(HeliocentricEarthEcliptic(obstime=obstime))
-
-    # HAE (Heliocentric Aries Ecliptic)
-    hae = gcrs.transform_to(HeliocentricMeanEcliptic(obstime=obstime))
-
-    # HEQ (Heliocentric Earth Equatorial)
-    heq = gcrs.transform_to(HeliographicStonyhurst(obstime=obstime))
-
-    # Carrington coordinates
+    hci = gcrs.transform_to(HeliocentricInertial(obstime=obstime)) # HCI (Heliocentric Inertial)
+    hee = gcrs.transform_to(HeliocentricEarthEcliptic(obstime=obstime)) # (Heliocentric Earth Ecliptic)
+    hae = gcrs.transform_to(HeliocentricMeanEcliptic(obstime=obstime)) # HAE (Heliocentric Aries Ecliptic)
+    heq = gcrs.transform_to(HeliographicStonyhurst(obstime=obstime)) # HEQ (Heliocentric Earth Equatorial)
     carrington = gcrs.transform_to(HeliographicCarrington(obstime=obstime, observer='self'))
 
     return {
-        'XACTTIME': before_xact.timestamp.isoformat(),
+        'XACTTIME': before_xact_db.timestamp.isoformat(),
         "HCIX_OBS": hci.cartesian.x.to(u.m).value,
         "HCIY_OBS": hci.cartesian.y.to(u.m).value,
         "HCIZ_OBS": hci.cartesian.z.to(u.m).value,
@@ -643,138 +550,155 @@ def decode_image_packets(img_packets, compression_settings):
         return np.ravel(pixel_values)[:width*(num_vals//width)].reshape((-1, width)).T
 
 
-PFW_POSITION_MAPPING = ["Manual", "PM", "opaque", "PZ", "PP", "CR"]
-
 def determine_file_type(polarizer_position, led_info, image_shape) -> str:
     if led_info is not None:
         return "DY"
     elif image_shape != (2048, 2048):
         return "OV"
-    elif polarizer_position == 0 or polarizer_position == 2:  # position = 0 is manual pointing. position = 2 is opaque
+    elif polarizer_position == 0: # position = 0 is manual pointing.
+        return "PX"
+    elif polarizer_position == 2:  # position = 2 is opaque
         return "DK"
     else:
         return PFW_POSITION_MAPPING[polarizer_position]
 
 
-def get_metadata(db_classes, first_image_packet, image_shape, session, logger) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    acquisition_settings  = unpack_acquisition_settings(first_image_packet.SCI_XFI_HDR_ACQ_SET)
-    compression_settings  = unpack_compression_settings(first_image_packet.SCI_XFI_HDR_COM_SET)
+def get_metadata(first_image_packet, image_shape, session, defs, apid_name2num) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    acquisition_settings  = unpack_acquisition_settings(first_image_packet.acquisition_settings)
+    compression_settings  = unpack_compression_settings(first_image_packet.compression_settings)
 
     observation_time = first_image_packet.timestamp
-    spacecraft_id = first_image_packet.SCI_XFI_HDR_SCID
+    spacecraft_id = first_image_packet.spacecraft_id
+    exposure_time = acquisition_settings['EXPOSURE']/10.0 * (1+acquisition_settings['IMG_NUM'])
 
-    exposure_time = acquisition_settings['EXPOSURE'] / 10  # exptime in seconds since it's reported in ticks of 100ms
-
-    logger.debug("Getting XACT position")
     # get the XACT packet right before and right after the first image packet to determine position
-    before_xact = (session.query(db_classes['ENG_XACT'])
-                   .filter(db_classes['ENG_XACT'].ENG_XACT_HDR_SCID == spacecraft_id)
-                   .filter(db_classes['ENG_XACT'].timestamp <= observation_time)
-                   .order_by(db_classes['ENG_XACT'].timestamp.desc()).first())
-    after_xact = (session.query(db_classes['ENG_XACT'])
-                  .filter(db_classes['ENG_XACT'].ENG_XACT_HDR_SCID == spacecraft_id)
-                  .filter(db_classes['ENG_XACT'].timestamp >= observation_time)
-                  .order_by(db_classes['ENG_XACT'].timestamp.asc()).first())
-    logger.debug("XACT retrieved")
-
-    before_quat = np.quaternion(before_xact.ATT_DET_Q_BODY_WRT_ECI4 * 0.5E-10,
-                      before_xact.ATT_DET_Q_BODY_WRT_ECI1 * 0.5E-10,
-                      before_xact.ATT_DET_Q_BODY_WRT_ECI2 * 0.5E-10,
-                      before_xact.ATT_DET_Q_BODY_WRT_ECI3 * 0.5E-10)
-
-    after_quat = np.quaternion(after_xact.ATT_DET_Q_BODY_WRT_ECI4 * 0.5E-10,
-                                after_xact.ATT_DET_Q_BODY_WRT_ECI1 * 0.5E-10,
-                                after_xact.ATT_DET_Q_BODY_WRT_ECI2 * 0.5E-10,
-                                after_xact.ATT_DET_Q_BODY_WRT_ECI3 * 0.5E-10)
-
-    interp_quat = quaternion.slerp(before_quat, after_quat,
-                                   before_xact.timestamp.timestamp(), after_xact.timestamp.timestamp(),
-                                   observation_time.timestamp())
+    before_xact_db = (session.query(ENG_XACT)
+                   .filter(ENG_XACT.spacecraft_id == spacecraft_id)
+                   .filter(ENG_XACT.timestamp <= observation_time)
+                   .order_by(ENG_XACT.timestamp.desc()).first())
+    after_xact_db = (session.query(ENG_XACT)
+                  .filter(ENG_XACT.spacecraft_id == spacecraft_id)
+                  .filter(ENG_XACT.timestamp >= observation_time)
+                  .order_by(ENG_XACT.timestamp.asc()).first())
 
     # get the PFW packet right before the observation
-    best_pfw = (session.query(db_classes['ENG_PFW'])
-                  .filter(db_classes['ENG_PFW'].ENG_PFW_HDR_SCID == spacecraft_id)
-                  #  # only when the wheel isn't moving
-                  .filter(db_classes['ENG_PFW'].timestamp <= observation_time)
-                  .order_by(db_classes['ENG_PFW'].timestamp.desc()).first())
+    best_pfw_db = (session.query(ENG_PFW)
+                  .filter(ENG_PFW.spacecraft_id == spacecraft_id)
+                  .filter(ENG_PFW.timestamp <= observation_time)
+                  .order_by(ENG_PFW.timestamp.desc()).first())
 
     # get the CEB packet right before the observation
-    best_ceb = (session.query(db_classes['ENG_CEB'])
-                  .filter(db_classes['ENG_CEB'].ENG_CEB_HDR_SCID == spacecraft_id)
-                  .filter(db_classes['ENG_CEB'].timestamp < observation_time)
-                  .order_by(db_classes['ENG_CEB'].timestamp.desc()).first())
+    best_ceb_db = (session.query(ENG_CEB)
+                  .filter(ENG_CEB.spacecraft_id == spacecraft_id)
+                  .filter(ENG_CEB.timestamp < observation_time)
+                  .order_by(ENG_CEB.timestamp.desc()).first())
 
-    # get the LED packet that corresponds to this observation if one exists
+    # get the LED packet that corresponds to this observation if one exists.
     # this is slightly different, we look for an LED packet with a start time and an end time that overlaps
-    # with the observation... there is likely not one so this will be None
-    # there are multiple possibility of overlaps so we check them all and then just take one
-    best_led1 = (session.query(db_classes['ENG_LED'])
-                .filter(db_classes['ENG_LED'].ENG_LED_HDR_SCID == spacecraft_id)
-                .filter(db_classes['ENG_LED'].LED_START_TIME <= observation_time)
-                .filter(db_classes['ENG_LED'].LED_END_TIME >= observation_time + timedelta(seconds=exposure_time))
+    # with the observation... there is likely not one, so this will be None.
+    # there are multiple possibilities of overlaps, so we check them all and then just take one
+    best_led1 = (session.query(ENG_LED)
+                .filter(ENG_LED.spacecraft_id == spacecraft_id)
+                .filter(ENG_LED.led_start_time <= observation_time)
+                .filter(ENG_LED.led_end_time >= observation_time + timedelta(seconds=exposure_time))
                 .first())
 
-    best_led2 = (session.query(db_classes['ENG_LED'])
-                .filter(db_classes['ENG_LED'].ENG_LED_HDR_SCID == spacecraft_id)
-                .filter(db_classes['ENG_LED'].LED_START_TIME <= observation_time)
-                .filter(db_classes['ENG_LED'].LED_END_TIME >= observation_time)
-                .filter(db_classes['ENG_LED'].LED_END_TIME <= observation_time + timedelta(seconds=exposure_time))
+    best_led2 = (session.query(ENG_LED)
+                .filter(ENG_LED.spacecraft_id == spacecraft_id)
+                .filter(ENG_LED.led_start_time <= observation_time)
+                .filter(ENG_LED.led_end_time >= observation_time)
+                .filter(ENG_LED.led_end_time <= observation_time + timedelta(seconds=exposure_time))
                 .first())
 
-    best_led3 = (session.query(db_classes['ENG_LED'])
-                .filter(db_classes['ENG_LED'].ENG_LED_HDR_SCID == spacecraft_id)
-                .filter(db_classes['ENG_LED'].LED_START_TIME >= observation_time)
-                .filter(db_classes['ENG_LED'].LED_START_TIME <= observation_time + timedelta(seconds=exposure_time))
-                .filter(db_classes['ENG_LED'].LED_END_TIME >= observation_time + timedelta(seconds=exposure_time))
+    best_led3 = (session.query(ENG_LED)
+                .filter(ENG_LED.spacecraft_id == spacecraft_id)
+                .filter(ENG_LED.led_start_time >= observation_time)
+                .filter(ENG_LED.led_start_time <= observation_time + timedelta(seconds=exposure_time))
+                .filter(ENG_LED.led_end_time >= observation_time + timedelta(seconds=exposure_time))
                 .first())
 
-    best_led4 = (session.query(db_classes['ENG_LED'])
-                .filter(db_classes['ENG_LED'].ENG_LED_HDR_SCID == spacecraft_id)
-                .filter(db_classes['ENG_LED'].LED_START_TIME >= observation_time)
-                .filter(db_classes['ENG_LED'].LED_END_TIME <= observation_time + timedelta(seconds=exposure_time))
+    best_led4 = (session.query(ENG_LED)
+                .filter(ENG_LED.spacecraft_id == spacecraft_id)
+                .filter(ENG_LED.led_start_time >= observation_time)
+                .filter(ENG_LED.led_end_time <= observation_time + timedelta(seconds=exposure_time))
                 .first())
 
-    best_led = best_led1 or best_led2 or best_led3 or best_led4
+    best_led_db = best_led1 or best_led2 or best_led3 or best_led4
+
+    packet_references = [before_xact_db, after_xact_db, best_ceb_db, best_pfw_db, best_led_db]
+    needed_tlm_ids = set([pkt.tlm_id for pkt in packet_references if pkt is not None])
+    tlm_id_to_tlm_path = {tlm_id: session.query(TLMFiles.path).where(TLMFiles.tlm_id == tlm_id).one().path
+                          for tlm_id in needed_tlm_ids}
+    loaded_tlm = {}
+    for tlm_id, tlm_path in tlm_id_to_tlm_path.items():
+        parsed, path = TLMLoader(tlm_path, defs, apid_name2num).load()
+        loaded_tlm[tlm_id] = parsed
+
+    before_xact = {key: loaded_tlm[before_xact_db.tlm_id]['ENG_XACT'][key][before_xact_db.packet_index]
+                   for key in loaded_tlm[before_xact_db.tlm_id]['ENG_XACT']}
+    after_xact = {key: loaded_tlm[after_xact_db.tlm_id]['ENG_XACT'][key][after_xact_db.packet_index]
+                  for key in loaded_tlm[after_xact_db.tlm_id]['ENG_XACT']}
+    best_pfw = {key: loaded_tlm[best_pfw_db.tlm_id]['ENG_PFW'][key][best_pfw_db.packet_index]
+                for key in loaded_tlm[best_pfw_db.tlm_id]['ENG_PFW']}
+
+    before_quat = np.quaternion(before_xact['ATT_DET_Q_BODY_WRT_ECI4'] * 0.5E-10,
+                                before_xact['ATT_DET_Q_BODY_WRT_ECI1'] * 0.5E-10,
+                                before_xact['ATT_DET_Q_BODY_WRT_ECI2'] * 0.5E-10,
+                                before_xact['ATT_DET_Q_BODY_WRT_ECI3'] * 0.5E-10)
+
+    after_quat = np.quaternion(after_xact['ATT_DET_Q_BODY_WRT_ECI4'] * 0.5E-10,
+                               after_xact['ATT_DET_Q_BODY_WRT_ECI1'] * 0.5E-10,
+                               after_xact['ATT_DET_Q_BODY_WRT_ECI2'] * 0.5E-10,
+                               after_xact['ATT_DET_Q_BODY_WRT_ECI3'] * 0.5E-10)
+
+    interp_quat = quaternion.slerp(before_quat, after_quat,
+                                   before_xact_db.timestamp.timestamp(), after_xact_db.timestamp.timestamp(),
+                                   observation_time.timestamp())
 
     position_info = {'spacecraft_id': spacecraft_id,
             'datetime': observation_time,
             'interp_quat': interp_quat,
-            'PFW_POSITION_CURR': best_pfw.POSITION_CURR}
+            'PFW_POSITION_CURR': best_pfw['POSITION_CURR']}
 
     # fill in all the FITS info
-    fits_info = {'TYPECODE': determine_file_type(best_pfw.POSITION_CMD,  # TODO determine if this should be CURR or CMD
-                                                 best_led,
+    fits_info = {'TYPECODE': determine_file_type(best_pfw['POSITION_CMD'],  # TODO determine if this should be CURR or CMD
+                                                 best_led_db,
                                                  image_shape)}
 
-    if best_pfw is not None:
-        fits_info |= organize_pfw_fits_keywords(best_pfw)
+    fits_info |= organize_pfw_fits_keywords(best_pfw_db, best_pfw)
 
-    if best_led is not None:
-        fits_info |= organize_led_fits_keywords(best_led)
+    fits_info |= organize_spacecraft_position_keywords(observation_time, before_xact_db, before_xact)
+
+    if best_led_db is not None:
+        best_led = {key: loaded_tlm[best_led_db.tlm_id]['ENG_LED'][key][best_led_db.packet_index]
+                    for key in loaded_tlm[best_led_db.tlm_id]['ENG_LED']}
+        fits_info |= organize_led_fits_keywords(best_led_db, best_led)
         fits_info['LED_PCKT'] = 1
     else:
         fits_info['LED_PCKT'] = 0
 
-    if best_ceb is not None:
-        fits_info |= organize_ceb_fits_keywords(best_ceb)
-
-    if before_xact is not None and after_xact is not None:
-        fits_info |= organize_spacecraft_position_keywords(observation_time, before_xact, after_xact)
+    if best_ceb_db is not None:
+        best_ceb = {key: loaded_tlm[best_ceb_db.tlm_id]['ENG_CEB'][key][best_ceb_db.packet_index]
+                    for key in loaded_tlm[best_ceb_db.tlm_id]['ENG_CEB']}
+        fits_info |= organize_ceb_fits_keywords(best_ceb_db, best_ceb)
 
     fits_info |= organize_compression_and_acquisition_settings(compression_settings, acquisition_settings)
     if fits_info['ISSQRT'] == 0:
         fits_info['BUNIT'] = "DN"
         fits_info['DSATVAL'] = 65535
+    else:
+        fits_info['BUNIT'] = "sqrt(DN)"
+        fits_info['DSATVAL'] = 65535  # TODO: this should be dynamically set based on the sqrt method
 
     fits_info |= organize_gain_info(spacecraft_id)
 
-    fits_info['COM_SET'] = first_image_packet.SCI_XFI_HDR_COM_SET
-    fits_info['ACQ_SET'] = first_image_packet.SCI_XFI_HDR_ACQ_SET
-    fits_info['DATE-BEG'] = first_image_packet.timestamp.isoformat()
-    date_end = first_image_packet.timestamp + timedelta(seconds=fits_info['EXPTIME'])
+    exposure_time = float(fits_info['EXPTIME'])
+    fits_info['COM_SET'] = first_image_packet.compression_settings
+    fits_info['ACQ_SET'] = first_image_packet.acquisition_settings
+    fits_info['DATE-BEG'] = observation_time.isoformat()
+    date_end = observation_time + timedelta(seconds=exposure_time)
     fits_info['DATE-END'] = date_end.isoformat()
-    date_avg =  (first_image_packet.timestamp +
-                 (date_end - first_image_packet.timestamp) / 2)
+    date_avg =  observation_time + timedelta(seconds=exposure_time/2)
     fits_info['DATE-AVG'] = date_avg.isoformat()
     fits_info['DATE-OBS'] = date_avg.isoformat()
     fits_info['DATE'] = datetime.now(UTC).isoformat()
@@ -824,7 +748,7 @@ def form_preliminary_wcs(soc_spacecraft_id, metadata, plate_scale):
     # all WFIs have their bore sight roughly 25 degrees up from spacecraft
     # so we rotate the quaternions before figuring out the RA/DEC
     if soc_spacecraft_id != "4":
-        BORESIGHT_ANGLE = np.deg2rad(-25)  # this number comes from Craig as a rough estimate
+        BORESIGHT_ANGLE = np.deg2rad(-25)  # this number comes from Craig as an estimate
 
         factor = np.sin(BORESIGHT_ANGLE / 2)
         x, y, z = 0, 1, 0  # we rotate around the y-axis
@@ -848,235 +772,234 @@ def form_preliminary_wcs(soc_spacecraft_id, metadata, plate_scale):
     celestial_wcs.wcs.cunit = "deg", "deg"
     return calculate_helio_wcs_from_celestial(celestial_wcs, Time(metadata['datetime']), (2048, 2048))[0]
 
-@task
-def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num):
-    logger = get_run_logger()
+def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config):
+    session = Session(engine)
+
+    replay_needs = []
+    skip_image, skip_reason = False, ""
+    image_packets_entries = (session.query(SCI_XFI)
+                             .filter(and_(SCI_XFI.timestamp == t,
+                                          SCI_XFI.spacecraft_id == spacecraft))
+                             .all())
+
+    if len(image_packets_entries) == 0:
+        return [], True
+
+    # Determine all the relevant TLM files
+    needed_tlm_ids = set([image_packet.tlm_id for image_packet in image_packets_entries])
+    tlm_id_to_tlm_path = {tlm_id: session.query(TLMFiles.path).where(TLMFiles.tlm_id == tlm_id).one().path
+                          for tlm_id in needed_tlm_ids}
+    needed_tlm_paths = list(session.query(TLMFiles.path).where(TLMFiles.tlm_id.in_(needed_tlm_ids)).all())
+    needed_tlm_paths = [p.path for p in needed_tlm_paths]
+
+    # parse any TLM files
+    tlm_contents = []
+    for tlm_id, tlm_path in tlm_id_to_tlm_path.items():
+        parsed_contents, path = TLMLoader(tlm_path, defs, apid_name2num).load()
+        if parsed_contents is not None:
+            tlm_contents.append(parsed_contents)
+        else:
+            skip_image = True
+            skip_reason = "Could not load all needed TLM files"
+
+    if not skip_image:
+        # we want to get the packet contents and order them so an image can be made
+        # to order the packets in the correct order for de-commutation
+        order_dict = {}
+        packet_entry_mapping = {}
+        for packet_entry in image_packets_entries:
+            sequence_count = packet_entry.ccsds_sequence_count
+            if sequence_count in order_dict:
+                order_dict[sequence_count].append(packet_entry.id)
+            else:
+                order_dict[sequence_count] = [packet_entry.id]
+            packet_entry_mapping[packet_entry.id] = packet_entry
+
+        # sometimes there are replays, so there are repeated packets
+        # we use the packet with the largest packet_id because it's most likely the newest
+        ordered_image_content = []
+        sequence_counter = []
+        ordered_image_packet_entries = []
+        try:
+            for sequence_count in sorted(list(order_dict.keys())):
+                best_packet = max(order_dict[sequence_count])
+                packet_entry = packet_entry_mapping[best_packet]
+                ordered_image_packet_entries.append(packet_entry)
+                tlm_content_index = needed_tlm_paths.index(tlm_id_to_tlm_path[packet_entry.tlm_id])
+                selected_tlm_contents = tlm_contents[tlm_content_index]
+                ordered_image_content.append(
+                    selected_tlm_contents['SCI_XFI']['SCI_XFI_IMG_DATA'][packet_entry.packet_index])
+                sequence_counter.append(
+                    selected_tlm_contents['SCI_XFI']['SCI_XFI_HDR_IMG_PKT_GRP'][packet_entry.packet_index])
+            # we check that the packets are in order now... if they're not, we'll skip.
+            # we know a packet sequence is in order if the difference in the pkt_grp is either 1 or 255.
+            # 1 is the nominal case
+            # 255 indicates the packets rolled over in the 8-bit counter
+            sequence_counter_diff = np.diff(np.array(sequence_counter))
+            if not np.all(np.isin(sequence_counter_diff, [1, 255])):
+                skip_image = True
+                skip_reason = "Packets are out of order"
+
+                # if this is the case, then we need a replay. So we'll log that
+                # we don't know if we're missing the first or last packets, so we'll just
+                # request an extra flash block on both sides to ensure we get enough (hopefully)
+                replay_needs.append({
+                    'spacecraft': spacecraft,
+                    'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
+                    'start_block': ordered_image_packet_entries[0].flash_block - 1,
+                    'replay_length': ordered_image_packet_entries[-1].flash_block
+                                     - ordered_image_packet_entries[0].flash_block + 1 + 2})
+        except:
+            skip_image = True
+            skip_reason = "Image could not find all packets"
+
+        # we'll finally try to decompress the image, if it fails, we cannot make the image, so we proceed
+        try:
+            compression_settings = unpack_compression_settings(ordered_image_packet_entries[0].compression_settings)
+            image = decode_image_packets(np.concatenate(ordered_image_content), compression_settings)
+            if image.shape != (2048, 2048) and image.shape != (4192, 2176):
+                skip_image = True
+                skip_reason = f"Image is wrong shape. Found {image.shape}"
+                replay_needs.append({
+                    'spacecraft': spacecraft,
+                    'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
+                    'start_block': ordered_image_packet_entries[0].flash_block - 1,
+                    'replay_length': ordered_image_packet_entries[-1].flash_block
+                                     - ordered_image_packet_entries[0].flash_block + 1 + 2})
+        except:
+            skip_image = True
+            skip_reason = "Image decoding failed"
+            replay_needs.append({
+                'spacecraft': spacecraft,
+                'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
+                'start_block': ordered_image_packet_entries[0].flash_block - 1,
+                'replay_length': ordered_image_packet_entries[-1].flash_block
+                                 - ordered_image_packet_entries[0].flash_block + 1 + 2})
+
+    # now that we have the image we're ready to collect the metadat and write it to file
+    if not skip_image:
+        try:
+            # we need to work out the SOC spacecraft ID from the MOC spacecraft id
+            spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
+            moc_index = spacecraft_secrets["moc"].index(ordered_image_packet_entries[0].spacecraft_id)
+            soc_spacecraft_id = spacecraft_secrets["soc"][moc_index]
+            position_info, fits_info = get_metadata(ordered_image_packet_entries[0],
+                                                    image.shape,
+                                                    session,
+                                                    defs,
+                                                    apid_name2num)
+            fits_info['FILEVRSN'] = pipeline_config['file_version']
+            fits_info['PIPEVRSN'] = punchbowl.__version__
+            fits_info['NUM_PCKT'] = len(image_packets_entries)
+            fits_info['PCKTBYTE'] = len(np.concatenate(ordered_image_content).tobytes())
+            file_type = fits_info["TYPECODE"]
+            preliminary_wcs = form_preliminary_wcs(
+                str(soc_spacecraft_id),
+                position_info,
+                float(pipeline_config['plate_scale'][str(soc_spacecraft_id)]))
+
+            # we're ready to pack this into an NDCube to write as a FITS file using punchbowl
+            meta = NormalizedMetadata.load_template(file_type + str(soc_spacecraft_id), "0")
+            for meta_key, meta_value in fits_info.items():
+                meta[meta_key] = meta_value
+            cube = NDCube(data=image, meta=meta, wcs=preliminary_wcs)
+
+            # we also need to add it to the database
+            l0_db_entry = File(level="0",
+                               file_type=file_type,
+                               observatory=str(soc_spacecraft_id),
+                               file_version=pipeline_config['file_version'],
+                               software_version=__version__,
+                               date_created=datetime.now(UTC),
+                               date_obs=parse_datetime_str(fits_info['DATE-OBS']),
+                               date_beg=parse_datetime_str(fits_info['DATE-BEG']),
+                               date_end=parse_datetime_str(fits_info['DATE-END']),
+                               state="created")
+
+            # finally, time to write to file
+            out_path = os.path.join(l0_db_entry.directory(pipeline_config['root']),
+                                    get_base_file_name(cube)) + ".fits"
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            write_ndcube_to_fits(cube, out_path, overwrite=True)
+            session.add(l0_db_entry)
+            session.commit()
+        except IndexError as e:
+            session.rollback()
+            skip_image = True
+            skip_reason = "Could not make metadata and write image"
+
+    # go back and do some cleanup if we skipped the image
+    if skip_image:
+        now = datetime.now(UTC)
+        for packet in image_packets_entries:
+            packet.is_used = False
+            packet.num_attempts = packet.num_attempts + 1 if packet.num_attempts is not None else 1
+            packet.last_attempt = now
+            packet.last_skip_reason = skip_reason
+    else:
+        now = datetime.now(UTC)
+        for packet in image_packets_entries:
+            packet.is_used = True
+            packet.num_attempts = packet.num_attempts + 1 if packet.num_attempts is not None else 1
+            packet.last_attempt = now
+    session.commit()
+    session.close()
+    return replay_needs, not skip_image
+
+@flow
+def level0_form_images(pipeline_config, defs, apid_name2num, session):
+    # logger = get_run_logger()
 
     now = datetime.now(UTC)
     retry_days = float(pipeline_config["flows"]["level0"]["options"].get("retry_days", 3.0))
     retry_window_start = now - timedelta(days=retry_days)
 
-    SCI_XFI = db_classes["SCI_XFI"]  # convenience to shorten the database access everywhere
-
-    distinct_spacecraft = (session.query(SCI_XFI.SCI_XFI_HDR_SCID)
+    distinct_spacecraft = (session.query(SCI_XFI.spacecraft_id)
                            .filter(or_(~SCI_XFI.is_used, SCI_XFI.is_used.is_(None)))
                            .distinct()
                            .all())
 
-    already_parsed_tlms = {} # path to TLM file mapped to the contents of it, we cache this to avoid re-parsing
-
     skip_count, success_count = 0, 0
     replay_needs = []
+
+    image_inputs = []
     for spacecraft in distinct_spacecraft:
         distinct_times = (session.query(SCI_XFI.timestamp)
                           .filter(or_(~SCI_XFI.is_used, SCI_XFI.is_used.is_(None)))
-                          .filter(SCI_XFI.SCI_XFI_HDR_SCID == spacecraft[0])
+                          .filter(SCI_XFI.spacecraft_id == spacecraft[0])
                           .filter(SCI_XFI.timestamp > retry_window_start)
                           .distinct()
                           .all())
-
         for t in distinct_times:
-            logger.info(f"Processing spacecraft={spacecraft[0]} at time={t[0]}")
-            skip_image, skip_reason = False, ""
-            image_packets_entries = (session.query(SCI_XFI)
-                                     .filter(and_(SCI_XFI.timestamp == t[0],
-                                                 SCI_XFI.SCI_XFI_HDR_SCID == spacecraft[0]))
-                                     .all())
-            logger.debug(f"len(packets) = {len(image_packets_entries)}")
-            image_compression = [unpack_compression_settings(packet.SCI_XFI_HDR_COM_SET)
-                                 for packet in image_packets_entries]
-            logger.debug(f"image_compression = {image_compression[0]}")
+            image_inputs.append((spacecraft[0], t[0], defs, apid_name2num, pipeline_config))
 
-            # Determine all the relevant TLM files
-            needed_tlm_ids = set([image_packet.tlm_id for image_packet in image_packets_entries])
-            try:
-                tlm_id_to_tlm_path = {tlm_id: session.query(TLMFiles.path).where(TLMFiles.tlm_id == tlm_id).one().path
-                                      for tlm_id in needed_tlm_ids}
-            except:  # noqa: E722
-                skip_image = True
-            needed_tlm_paths = list(session.query(TLMFiles.path).where(TLMFiles.tlm_id.in_(needed_tlm_ids)).all())
-            needed_tlm_paths = [p.path for p in needed_tlm_paths]
-            logger.debug(f"Will use data from {needed_tlm_paths}")
+    try:
+        num_workers = pipeline_config['flows']['level0']['options']['num_workers']
+    except KeyError:
+        num_workers = 4
+        # logger.warning(f"No num_workers defined, using {num_workers} workers")
 
-            # parse any TLM files needed that haven't already been loaded for image creation
-            for tlm_path in needed_tlm_paths:
-                if tlm_path not in already_parsed_tlms:
-                    logger.debug(f"Loading {tlm_path}...")
-                    parsed_contents, success = process_telemetry_file(tlm_path, defs, apid_name2num, logger)
-                    if success:
-                        logger.debug(f"Successfully loaded {tlm_path}")
-                        already_parsed_tlms[tlm_path] = parsed_contents
-                    else:
-                        logger.error(f"Failed to load {tlm_path}")
-                        skip_image = True
-                        skip_reason = "Could not load all needed TLM files"
+    with Pool(num_workers) as pool: # , initializer=initializer) as pool:
+        results = pool.starmap(form_single_image, image_inputs)
 
+    # results = []
+    # for this_input in image_inputs:
+    #     results.append(form_single_image(*this_input))
 
-            if not skip_image:
-                # make it easy to grab the right TLM files in the right order
-                tlm_contents = [already_parsed_tlms[tlm_path] for tlm_path in needed_tlm_paths]
+    for new_replay_needs, successful_image in results:
+        replay_needs.extend(new_replay_needs)
+        if successful_image:
+            success_count += 1
+        else:
+            skip_count += 1
 
-                # we want to get the packet contents and order them so an image can be made
-                # order the packets in the correct order for de-commutation
-                order_dict = {}
-                packet_entry_mapping = {}
-                for packet_entry in image_packets_entries:
-                    sequence_count = packet_entry.CCSDS_SEQUENCE_COUNT
-                    if sequence_count in order_dict:
-                        order_dict[sequence_count].append(packet_entry.id)
-                    else:
-                        order_dict[sequence_count] = [packet_entry.id]
-                    packet_entry_mapping[packet_entry.id] = packet_entry
-
-                # sometimes there are replays so there are repeated packets
-                # we use the packet with the largest packet_id because it's most likely the newest
-                ordered_image_content = []
-                sequence_counter = []
-                ordered_image_packet_entries = []
-                try:
-                    for sequence_count in sorted(list(order_dict.keys())):
-                        best_packet = max(order_dict[sequence_count])
-                        packet_entry = packet_entry_mapping[best_packet]
-                        ordered_image_packet_entries.append(packet_entry)
-                        tlm_content_index = needed_tlm_paths.index(tlm_id_to_tlm_path[packet_entry.tlm_id])
-                        selected_tlm_contents = tlm_contents[tlm_content_index]
-                        ordered_image_content.append(selected_tlm_contents['SCI_XFI']['SCI_XFI_IMG_DATA'][packet_entry.packet_index])
-                        sequence_counter.append(selected_tlm_contents['SCI_XFI']['SCI_XFI_HDR_IMG_PKT_GRP'][packet_entry.packet_index])
-                    # we check that the packets are in order now... if they're not we'll skip
-                    # we know a packet sequence is in order if the difference in the pkt_grp is either 1 or 255
-                    # 1 is the nominal case
-                    # 255 indicates the packets rolled over in the 8 bit counter
-                    sequence_counter_diff = np.diff(np.array(sequence_counter))
-                    if not np.all(np.isin(sequence_counter_diff, [1, 255])):
-                        logger.error("Packets are out of order so skipping")
-                        skip_image = True
-                        skip_reason = "Packets are out of order"
-
-                        # if this is the case, then we need a replay. So we'll log that
-                        # TODO: we might be missing the first or last packet... so case the replay length should be longer
-                        replay_needs.append({
-                            'spacecraft': spacecraft[0],
-                            'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
-                            'start_block': ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK,
-                            'replay_length': ordered_image_packet_entries[-1].SCI_XFI_HDR_FLASH_BLOCK
-                                             - ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK + 1})
-                except (IndexError, KeyError):
-                    skip_image = True
-                    skip_reason = "Image could not find all packets"
-                    logger.error("Could not make find all packets")
-                    logger.error(traceback.format_exc())
-                    break
-
-                # we'll finally try to decompress the image, if it fails we cannot make the image so we proceed
-                try:
-                    compression_settings = unpack_compression_settings(ordered_image_packet_entries[0].SCI_XFI_HDR_COM_SET)
-                    image = decode_image_packets(np.concatenate(ordered_image_content), compression_settings)
-                    if image.shape != (2048, 2048) and image.shape != (4192, 2176):
-                        skip_image = True
-                        skip_reason = f"Image is wrong shape. Found {image.shape}"
-                        logger.error(skip_reason)
-                        replay_needs.append({
-                            'spacecraft': spacecraft[0],
-                            'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
-                            'start_block': ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK,
-                            'replay_length': ordered_image_packet_entries[-1].SCI_XFI_HDR_FLASH_BLOCK
-                                             - ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK + 1})
-                except (ValueError, RuntimeError):
-                    skip_image = True
-                    skip_reason = "Image decoding failed"
-                    logger.error("Could not make image")
-                    logger.error(traceback.format_exc())
-                    replay_needs.append({
-                        'spacecraft': spacecraft[0],
-                        'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
-                        'start_block': ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK,
-                        'replay_length': ordered_image_packet_entries[-1].SCI_XFI_HDR_FLASH_BLOCK
-                                         - ordered_image_packet_entries[0].SCI_XFI_HDR_FLASH_BLOCK + 1})
-
-
-            # now that we have the image we're ready to collect the metadat and write it to file
-            if not skip_image:
-                try:
-                    # we need to work out the SOC spacecraft ID from the MOC spacecraft id
-                    spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
-                    moc_index = spacecraft_secrets["moc"].index(ordered_image_packet_entries[0].SCI_XFI_HDR_SCID)
-                    soc_spacecraft_id = spacecraft_secrets["soc"][moc_index]
-                    logger.debug("Getting metadata for file")
-                    position_info, fits_info = get_metadata(db_classes,
-                                                            ordered_image_packet_entries[0],
-                                                            image.shape,
-                                                            session, logger)
-                    fits_info['FILEVRSN'] = pipeline_config['file_version']
-                    fits_info['PIPEVRSN'] = punchbowl.__version__
-                    fits_info['NUM_PCKT'] = len(image_packets_entries)
-                    fits_info['PCKTBYTE'] = len(np.concatenate(ordered_image_content).tobytes())
-                    logger.debug("Metadata retrieved")
-                    file_type = fits_info["TYPECODE"]
-                    preliminary_wcs = form_preliminary_wcs(
-                        str(soc_spacecraft_id),
-                        position_info,
-                        float(pipeline_config['plate_scale'][str(soc_spacecraft_id)]))
-
-                    # we're ready to pack this into an NDCube to write as a FITS file using punchbowl
-                    meta = NormalizedMetadata.load_template(file_type + str(soc_spacecraft_id), "0")
-                    for meta_key, meta_value in fits_info.items():
-                        meta[meta_key] = meta_value
-                    cube = NDCube(data=image, meta=meta, wcs=preliminary_wcs)
-
-                    # we also need to add it to the database
-                    l0_db_entry = File(level="0",
-                                       file_type=file_type,
-                                       observatory=str(soc_spacecraft_id),
-                                       file_version=pipeline_config['file_version'],
-                                       software_version=__version__,
-                                       date_created=datetime.now(UTC),
-                                       date_obs=parse_datetime_str(meta["DATE-OBS"].value),
-                                       date_beg=parse_datetime_str(meta['DATE-BEG'].value),
-                                       date_end=parse_datetime_str(meta['DATE-END'].value),
-                                       state="created")
-
-                    # finally time to write to file
-                    out_path =  os.path.join(l0_db_entry.directory(pipeline_config['root']),
-                                             get_base_file_name(cube)) + ".fits"
-                    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-                    logger.info(f"Writing to {out_path}")
-                    write_ndcube_to_fits(cube, out_path, overwrite=True)
-                    session.add(l0_db_entry)
-                    session.commit()
-                    success_count += 1
-                except Exception as e:
-                    session.rollback()
-                    skip_image = True
-                    skip_reason = "Could not make metadata and write image"
-                    logger.error(f"Failed writing image because: {e}")
-                    logger.error(traceback.format_exc())
-                    skip_count += 1
-            else:
-                skip_count += 1
-
-            # go back and do some clean up if we skipped the image
-            if skip_image:
-                now = datetime.now(UTC)
-                for packet in image_packets_entries:
-                    packet.is_used = False
-                    packet.num_attempts = packet.num_attempts + 1 if packet.num_attempts is not None else 1
-                    packet.last_attempt = now
-                    packet.last_skip_reason = skip_reason
-            else:
-                now = datetime.now(UTC)
-                for packet in image_packets_entries:
-                    packet.is_used = True
-                    packet.num_attempts = packet.num_attempts + 1 if packet.num_attempts is not None else 1
-                    packet.last_attempt = now
-            session.commit()
-
-        history = PacketHistory(datetime=datetime.now(UTC),
-                               num_images_succeeded=success_count,
-                               num_images_failed=skip_count)
-        session.add(history)
-        session.commit()
-    logger.info(f"SUCCESS={success_count}")
-    logger.info(f"FAILURE={skip_count}")
+    history = PacketHistory(datetime=datetime.now(UTC),
+                            num_images_succeeded=success_count,
+                            num_images_failed=skip_count)
+    session.add(history)
+    session.commit()
+    # logger.info(f"SUCCESS={success_count}")
+    # logger.info(f"FAILURE={skip_count}")
 
     # Split into multiple files and append updates instead of making a new file each time
     # We label not with the spacecraft telemetry ID but with the spelled out name
@@ -1087,7 +1010,7 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
         try:
             moc_index = spacecraft_secrets["moc"].index(df_spacecraft)
             soc_spacecraft_id = spacecraft_secrets["soc"][moc_index]
-        except ValueError:  # we cannot find the spacecraft id and need to use an unknown indicator
+        except:  # we cannot find the spacecraft id and need to use an unknown indicator
             soc_spacecraft_id = 0
         file_spacecraft_id = {0: "UNKN", 1: "WFI01", 2: "WFI02", 3: "WFI03", 4: "NFI00"}[soc_spacecraft_id]
         df_path = os.path.join(pipeline_config['root'],
@@ -1103,16 +1026,16 @@ def level0_form_images(session, pipeline_config, db_classes, defs, apid_name2num
             new_table = new_entries
         os.makedirs(os.path.dirname(df_path), exist_ok=True)
         new_table.to_csv(df_path, index=False)
+    session.close()
 
 @flow
 def level0_core_flow(pipeline_config: dict):
     logger = get_run_logger()
-    session, engine = get_database_session(get_engine=True)
+    session = Session(engine)
 
     tlm_xls_path = pipeline_config['tlm_xls_path']
     logger.info(f"Using {tlm_xls_path}")
     apids, tlm = read_tlm_defs(tlm_xls_path)
-    database_classes = create_database_from_tlm(tlm, engine)
     apid_name2num = {row['Name']: int(row['APID'], base=16) for _, row in apids.iterrows()}
     defs = create_packet_definitions(tlm, parse_expanding_fields=False)
 
@@ -1120,13 +1043,22 @@ def level0_core_flow(pipeline_config: dict):
     logger.info(f"Found {len(new_tlm_files)} new TLM files")
 
     logger.debug("Proceeding through files")
+    tlm_ingest_inputs = []
     for i, path in enumerate(new_tlm_files):
-        logger.info(f"{i+1}/{len(new_tlm_files)}: Processing {path}")
-        ingest_tlm_file(path, session, defs, apid_name2num, database_classes)
+        tlm_ingest_inputs.append([path, defs, apid_name2num])
+
+    try:
+        num_workers = pipeline_config['flows']['level0']['options']['num_workers']
+    except KeyError:
+        num_workers = 4
+        logger.warning(f"No num_workers defined, using {num_workers} workers")
+
+    with Pool(num_workers) as pool: #, initializer=initializer) as pool:
+        pool.starmap(ingest_tlm_file, tlm_ingest_inputs)
 
     defs = create_packet_definitions(tlm, parse_expanding_fields=True)
-
-    level0_form_images(session, pipeline_config, database_classes, defs, apid_name2num)
+    level0_form_images(pipeline_config, defs, apid_name2num, session)
+    session.close()
 
 @task
 def level0_construct_flow_info(pipeline_config: dict):
@@ -1196,3 +1128,85 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
         flow_db_entry.end_time = datetime.now(UTC)
         # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
         session.commit()
+
+import os
+from collections.abc import Callable
+import io
+from typing import Dict
+
+from ccsdspy.utils import split_by_apid
+
+from punchpipe.control.cache_layer import manager
+from punchpipe.control.cache_layer.loader_base_class import LoaderABC
+
+def open_and_split_packet_file(path: str) -> dict[int, io.BytesIO]:
+    with open(path, "rb") as mixed_file:
+        stream_by_apid = split_by_apid(mixed_file)
+    return stream_by_apid
+
+def parse_telemetry_file(path, defs, apid_name2num):
+    success = True
+    contents = open_and_split_packet_file(path)
+    parsed = {}
+    for packet_name in defs:
+        apid_num = apid_name2num[packet_name]
+        if apid_num in contents:
+            try:
+                parsed[packet_name] = defs[packet_name].load(contents[apid_num], include_primary_header=True)
+            except (ValueError, RuntimeError):
+                success = False
+    return parsed, success
+
+def short_hash(data, length=8):
+    """Generates a short hash of specified length using MD5 and base64 encoding."""
+    hash_object = hashlib.md5(data.encode())
+    digest = hash_object.digest()
+    truncated_digest = digest[:length]
+    return base64.urlsafe_b64encode(truncated_digest).decode('ascii')
+
+class TLMLoader(LoaderABC[Dict]):
+    def __init__(self, path: str, defs, apid_name2num):
+        self.path = path
+        self.defs = defs
+        self.apid_name2num = apid_name2num
+
+    def gen_key(self) -> str:
+        return short_hash(f"tlm-{os.path.basename(self.path)}", length=16)
+
+    def src_repr(self) -> str:
+        return self.path
+
+    def load_from_disk(self):
+        print(f"loading from disk {self.path}!")
+        try:
+            parsed, _ = parse_telemetry_file(self.path, self.defs, self.apid_name2num)
+        except Exception as e:
+            parsed = None
+        return parsed
+
+    def __repr__(self):
+        return f"TLM({self.path})"
+
+
+def wrap_if_appropriate(psf_path: str, defs, apid_name2num) -> str | Callable:
+    if manager.caching_is_enabled():
+        return TLMLoader(psf_path, defs, apid_name2num).load
+    return psf_path
+
+if __name__ == "__main__":
+    pipeline_config = load_pipeline_configuration("/Users/mhughes/repos/punchpipe/process_local_config.yaml")
+    pipeline_config['plate_scale']['1'] = 0.02444444444
+    pipeline_config['plate_scale']['2'] = 0.02444444444
+    pipeline_config['plate_scale']['3'] = 0.02444444444
+    pipeline_config['plate_scale']['4'] = 0.008333333333
+    tlm_xls_path = pipeline_config['tlm_xls_path']
+    apids, tlm = read_tlm_defs(tlm_xls_path)
+    apid_name2num = {row['Name']: int(row['APID'], base=16) for _, row in apids.iterrows()}
+    defs = create_packet_definitions(tlm, parse_expanding_fields=True)
+
+    # spacecraft = 47
+    # timestamp = parse_datetime_str("2025-04-27 07:36:14.388723")
+    # form_single_image(spacecraft, timestamp, defs, apid_name2num, pipeline_config)
+
+    parsed = ingest_tlm_file("/Users/mhughes/data/real_punch/RAW_CCSDS_DATA/PUNCH_WFI01_RAW_2025_089_15_51_V01.tlm", defs, apid_name2num)
+    print(parsed)

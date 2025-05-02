@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 from importlib import import_module
+import multiprocessing as mp
 
 from prefect import Flow, serve
 from prefect.client.schemas.objects import ConcurrencyLimitConfig, ConcurrencyLimitStrategy
@@ -134,13 +135,16 @@ def run(configuration_path):
             print("Dask dashboard available at http://localhost:8787/")
             print("Use ctrl-c to exit.")
 
-            serve(*construct_flows_to_serve(configuration_path))
+            process = mp.Process(target=serve, args=construct_flows_to_serve(configuration_path))
+            process.start()
+            process.join()
 
             prefect_process.wait()
             monitor_process.wait()
             cluster_process.wait()
         except KeyboardInterrupt:
             print("Shutting down.")
+            process.terminate()
             prefect_process.terminate()
             prefect_process.wait()
             time.sleep(5)
@@ -153,6 +157,7 @@ def run(configuration_path):
         except Exception as e:
             print(f"Received error: {e}")
             print(traceback.format_exc())
+            process.terminate()
             prefect_process.terminate()
             prefect_process.wait()
             time.sleep(5)
@@ -162,3 +167,6 @@ def run(configuration_path):
             monitor_process.wait()
             print()
             print("punchpipe abruptly shut down.")
+
+# if __name__ == "__main__":
+#     main()
