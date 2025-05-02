@@ -34,10 +34,27 @@ def level1_query_ready_files(session, pipeline_config: dict, reference_time=None
         if get_vignetting_function_path(f, pipeline_config, session=session) is None:
             logger.info(f"Missing vignetting function for {f.filename()}")
             continue
+        if get_dark_frame_path(f, pipeline_config, session=session) is None:
+            logger.info(f"Missing dark frame for {f.filename()}")
+            continue
         actually_ready.append([f.file_id])
         if len(actually_ready) >= max_n:
             break
     return actually_ready
+
+
+def get_dark_frame_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
+    corresponding_dark_frame_type = {"PM": "GM",
+                                    "PZ": "GZ",
+                                    "PP": "GP",
+                                    "CR": "GR"}
+    vignetting_function_type = corresponding_dark_frame_type[level0_file.file_type]
+    best_function = (session.query(File)
+                     .filter(File.file_type == vignetting_function_type)
+                     .filter(File.observatory == level0_file.observatory)
+                     .where(File.date_obs <= level0_file.date_obs)
+                     .order_by(File.date_obs.desc()).first())
+    return best_function
 
 
 def get_vignetting_function_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
