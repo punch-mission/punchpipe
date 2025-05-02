@@ -687,12 +687,19 @@ def get_metadata(first_image_packet, image_shape, session, defs, apid_name2num) 
         fits_info |= organize_ceb_fits_keywords(best_ceb_db, best_ceb)
 
     fits_info |= organize_compression_and_acquisition_settings(compression_settings, acquisition_settings)
+    if spacecraft_id == 0x2F:
+        fits_info['RAWBITS'] = 19
+    else:
+        fits_info['RAWBITS'] = 16
+
     if fits_info['ISSQRT'] == 0:
         fits_info['BUNIT'] = "DN"
-        fits_info['DSATVAL'] = 65535
+        fits_info['COMPBITS'] = fits_info['RAWBITS']
+        fits_info['DSATVAL'] = 2**fits_info['RAWBITS'] - 1
     else:
         fits_info['BUNIT'] = "sqrt(DN)"
-        fits_info['DSATVAL'] = 65535  # TODO: this should be dynamically set based on the sqrt method
+        fits_info['COMPBITS'] = int((fits_info['RAWBITS'] + int(np.log2(fits_info['SCALE']))) / 2)
+        fits_info['DSATVAL'] = 2**fits_info['COMPBITS'] - 1
 
     fits_info |= organize_gain_info(spacecraft_id)
 
