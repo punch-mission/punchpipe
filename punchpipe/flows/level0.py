@@ -888,6 +888,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config):
                 'start_block': ordered_image_packet_entries[0].flash_block - 1,
                 'replay_length': ordered_image_packet_entries[-1].flash_block
                                  - ordered_image_packet_entries[0].flash_block + 1 + 2})
+            traceback.print_exc()
 
     # now that we have the image we're ready to collect the metadat and write it to file
     if not skip_image:
@@ -961,7 +962,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config):
 
 @flow
 def level0_form_images(pipeline_config, defs, apid_name2num, session):
-    # logger = get_run_logger()
+    logger = get_run_logger()
 
     now = datetime.now(UTC)
     retry_days = float(pipeline_config["flows"]["level0"]["options"].get("retry_days", 3.0))
@@ -990,14 +991,10 @@ def level0_form_images(pipeline_config, defs, apid_name2num, session):
         num_workers = pipeline_config['flows']['level0']['options']['num_workers']
     except KeyError:
         num_workers = 4
-        # logger.warning(f"No num_workers defined, using {num_workers} workers")
+        logger.warning(f"No num_workers defined, using {num_workers} workers")
 
     with Pool(num_workers, initializer=initializer) as pool:
         results = pool.starmap(form_single_image, image_inputs)
-
-    # results = []
-    # for this_input in image_inputs:
-    #     results.append(form_single_image(*this_input))
 
     for new_replay_needs, successful_image in results:
         replay_needs.extend(new_replay_needs)
@@ -1011,8 +1008,8 @@ def level0_form_images(pipeline_config, defs, apid_name2num, session):
                             num_images_failed=skip_count)
     session.add(history)
     session.commit()
-    # logger.info(f"SUCCESS={success_count}")
-    # logger.info(f"FAILURE={skip_count}")
+    logger.info(f"SUCCESS={success_count}")
+    logger.info(f"FAILURE={skip_count}")
 
     # Split into multiple files and append updates instead of making a new file each time
     # We label not with the spacecraft telemetry ID but with the spelled out name
