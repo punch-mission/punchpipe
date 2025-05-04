@@ -1049,7 +1049,7 @@ def level0_core_flow(pipeline_config: dict):
     logger.info(f"Using {tlm_xls_path}")
     apids, tlm = read_tlm_defs(tlm_xls_path)
     apid_name2num = {row['Name']: int(row['APID'], base=16) for _, row in apids.iterrows()}
-    defs = create_packet_definitions(tlm, parse_expanding_fields=False)
+    defs = create_packet_definitions(tlm, parse_expanding_fields=True)
 
     new_tlm_files = detect_new_tlm_files(pipeline_config, session=session)
     logger.info(f"Found {len(new_tlm_files)} new TLM files")
@@ -1068,7 +1068,6 @@ def level0_core_flow(pipeline_config: dict):
     with Pool(num_workers, initializer=initializer) as pool:
         pool.starmap(ingest_tlm_file, tlm_ingest_inputs)
 
-    defs = create_packet_definitions(tlm, parse_expanding_fields=True)
     level0_form_images(pipeline_config, defs, apid_name2num, session)
     session.close()
 
