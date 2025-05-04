@@ -28,6 +28,7 @@ from prefect.blocks.core import Block
 from prefect.blocks.fields import SecretDict
 from prefect.cache_policies import NO_CACHE
 from prefect.context import get_run_context
+from prefect_sqlalchemy import SqlAlchemyConnector
 from punchbowl.data import NormalizedMetadata, get_base_file_name, write_ndcube_to_fits
 from punchbowl.data.wcs import calculate_helio_wcs_from_celestial, calculate_pc_matrix
 from sqlalchemy import Boolean, Column, Integer, String, and_, or_
@@ -44,7 +45,7 @@ from sunpy.coordinates import (
 from punchpipe.__init__ import __version__
 from punchpipe.control import cache_layer
 from punchpipe.control.db import File, Flow, PacketHistory, TLMFiles, PACKETNAME2SQL, SCI_XFI, ENG_CEB, ENG_PFW, ENG_LED, ENG_XACT
-from punchpipe.control.util import get_database_session, load_pipeline_configuration
+from punchpipe.control.util import load_pipeline_configuration
 
 FIXED_PACKETS = ['ENG_XACT', 'ENG_LED', 'ENG_PFW', 'ENG_CEB']
 VARIABLE_PACKETS = ['SCI_XFI']
@@ -52,7 +53,8 @@ PACKET_CADENCE = {}
 SC_TIME_EPOCH = Time(2000.0, format="decimalyear", scale="tai")
 PFW_POSITION_MAPPING = ["Manual", "PM", "opaque", "PZ", "PP", "CR"]
 
-session, engine = get_database_session(get_engine=True)
+credentials = SqlAlchemyConnector.load("mariadb-creds", _sync=True)
+engine = credentials.get_engine()
 
 def initializer():
     """ensure the parent proc's database connections are not touched
@@ -1099,7 +1101,7 @@ def level0_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
     new_flow = level0_construct_flow_info(pipeline_config)
 
     if session is None:
-        session = get_database_session()
+        session = Session(engine)
 
     session.add(new_flow)
     session.commit()
@@ -1110,7 +1112,7 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
     logger = get_run_logger()
 
     if session is None:
-        session = get_database_session()
+        session = Session(engine)
 
     # fetch the appropriate flow db entry
     flow_db_entry = session.query(Flow).where(Flow.flow_id == flow_id).one()
