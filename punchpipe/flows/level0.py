@@ -979,7 +979,7 @@ def level0_form_images(pipeline_config, defs, apid_name2num, session):
         num_workers = 4
         # logger.warning(f"No num_workers defined, using {num_workers} workers")
 
-    with Pool(num_workers) as pool: # , initializer=initializer) as pool:
+    with Pool(num_workers, initializer=initializer) as pool:
         results = pool.starmap(form_single_image, image_inputs)
 
     # results = []
@@ -1053,7 +1053,7 @@ def level0_core_flow(pipeline_config: dict):
         num_workers = 4
         logger.warning(f"No num_workers defined, using {num_workers} workers")
 
-    with Pool(num_workers) as pool: #, initializer=initializer) as pool:
+    with Pool(num_workers, initializer=initializer) as pool:
         pool.starmap(ingest_tlm_file, tlm_ingest_inputs)
 
     defs = create_packet_definitions(tlm, parse_expanding_fields=True)
