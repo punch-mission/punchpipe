@@ -865,8 +865,10 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config):
         except:
             skip_image = True
             skip_reason = "Image could not find all packets"
+            traceback.print_exc()
 
-        # we'll finally try to decompress the image, if it fails, we cannot make the image, so we proceed
+    # we'll finally try to decompress the image, if it fails, we cannot make the image, so we proceed
+    if not skip_image:
         try:
             compression_settings = unpack_compression_settings(ordered_image_packet_entries[0].compression_settings)
             image = decode_image_packets(np.concatenate(ordered_image_content), compression_settings)
