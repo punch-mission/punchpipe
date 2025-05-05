@@ -938,7 +938,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
             write_ndcube_to_fits(cube, out_path, overwrite=True)
             session.add(l0_db_entry)
             session.commit()
-        except IndexError as e:
+        except:
             session.rollback()
             skip_image = True
             skip_reason = "Could not make metadata and write image"
