@@ -872,7 +872,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
         try:
             compression_settings = unpack_compression_settings(ordered_image_packet_entries[0].compression_settings)
             image = decode_image_packets(np.concatenate(ordered_image_content), compression_settings)
-            if image.shape != (2048, 2048) and image.shape != (4192, 2176):
+            if image.shape != (2048, 2048) and image.shape != (2176, 4192):
                 skip_image = True
                 skip_reason = f"Image is wrong shape. Found {image.shape}"
                 replay_needs.append({
