@@ -785,7 +785,7 @@ def form_preliminary_wcs(soc_spacecraft_id, metadata, plate_scale):
     celestial_wcs.wcs.cunit = "deg", "deg"
     return calculate_helio_wcs_from_celestial(celestial_wcs, Time(metadata['datetime']), (2048, 2048))[0]
 
-def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config):
+def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, spacecraft_secrets):
     session = Session(engine)
 
     replay_needs = []
@@ -896,7 +896,6 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config):
     if not skip_image:
         try:
             # we need to work out the SOC spacecraft ID from the MOC spacecraft id
-            spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
             moc_index = spacecraft_secrets["moc"].index(ordered_image_packet_entries[0].spacecraft_id)
             soc_spacecraft_id = spacecraft_secrets["soc"][moc_index]
             position_info, fits_info = get_metadata(ordered_image_packet_entries[0],
@@ -966,6 +965,8 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config):
 def level0_form_images(pipeline_config, defs, apid_name2num, session):
     logger = get_run_logger()
 
+    spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
+
     now = datetime.now(UTC)
     retry_days = float(pipeline_config["flows"]["level0"]["options"].get("retry_days", 3.0))
     retry_window_start = now - timedelta(days=retry_days)
@@ -987,7 +988,7 @@ def level0_form_images(pipeline_config, defs, apid_name2num, session):
                           .distinct()
                           .all())
         for t in distinct_times:
-            image_inputs.append((spacecraft[0], t[0], defs, apid_name2num, pipeline_config))
+            image_inputs.append((spacecraft[0], t[0], defs, apid_name2num, pipeline_config, spacecraft_secrets))
 
     try:
         num_workers = pipeline_config['flows']['level0']['options']['num_workers']
@@ -1203,21 +1204,3 @@ def wrap_if_appropriate(psf_path: str, defs, apid_name2num) -> str | Callable:
     if manager.caching_is_enabled():
         return TLMLoader(psf_path, defs, apid_name2num).load
     return psf_path
-
-if __name__ == "__main__":
-    pipeline_config = load_pipeline_configuration("/Users/mhughes/repos/punchpipe/process_local_config.yaml")
-    pipeline_config['plate_scale']['1'] = 0.02444444444
-    pipeline_config['plate_scale']['2'] = 0.02444444444
-    pipeline_config['plate_scale']['3'] = 0.02444444444
-    pipeline_config['plate_scale']['4'] = 0.008333333333
-    tlm_xls_path = pipeline_config['tlm_xls_path']
-    apids, tlm = read_tlm_defs(tlm_xls_path)
-    apid_name2num = {row['Name']: int(row['APID'], base=16) for _, row in apids.iterrows()}
-    defs = create_packet_definitions(tlm, parse_expanding_fields=True)
-
-    # spacecraft = 47
-    # timestamp = parse_datetime_str("2025-04-27 07:36:14.388723")
-    # form_single_image(spacecraft, timestamp, defs, apid_name2num, pipeline_config)
-
-    parsed = ingest_tlm_file("/Users/mhughes/data/real_punch/RAW_CCSDS_DATA/PUNCH_WFI01_RAW_2025_089_15_51_V01.tlm", defs, apid_name2num)
-    print(parsed)
