@@ -59,7 +59,9 @@ flows:
     schedule: "*/30 * * * *"
     options:
         retry_days: 5.0
-        pfw_recency_requirement: 3.0
+        num_workers: 8
+        pfw_recency_requirement: 3.0  # seconds
+        xact_recency_requirement: 3.0  # seconds
 
   level1:
     description: "Creates Level 1 files."

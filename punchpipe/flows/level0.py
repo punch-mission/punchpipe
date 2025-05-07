@@ -52,7 +52,7 @@ FIXED_PACKETS = ['ENG_XACT', 'ENG_LED', 'ENG_PFW', 'ENG_CEB']
 VARIABLE_PACKETS = ['SCI_XFI']
 PACKET_CADENCE = {}
 SC_TIME_EPOCH = Time(2000.0, format="decimalyear", scale="tai")
-PFW_POSITION_MAPPING = ["PX", "PM", "DK", "PZ", "PP", "CR"]
+PFW_POSITION_MAPPING = ["PM", "DK", "PZ", "PP", "CR"]
 
 credentials = SqlAlchemyConnector.load("mariadb-creds", _sync=True)
 engine = credentials.get_engine()
@@ -563,13 +563,13 @@ def determine_file_type(polarizer_packet, led_info, image_shape) -> str:
     if led_info is not None:
         return "DY"
     else:
-        position = polarizer_packet['RESOLVER_POS_CORR']
+        position = int(polarizer_packet['RESOLVER_POS_CORR'])
         reference_positions = np.array([polarizer_packet['PRIMARY_RESOLVER_POSITION_1'],
                                         polarizer_packet['PRIMARY_RESOLVER_POSITION_2'],
                                         polarizer_packet['PRIMARY_RESOLVER_POSITION_3'],
                                         polarizer_packet['PRIMARY_RESOLVER_POSITION_4'],
-                                        polarizer_packet['PRIMARY_RESOLVER_POSITION_5']])
-        return PFW_POSITION_MAPPING[np.argmin(np.abs(reference_positions - position)) + 1]
+                                        polarizer_packet['PRIMARY_RESOLVER_POSITION_5']], dtype=int)
+        return PFW_POSITION_MAPPING[np.argmin(np.abs(reference_positions - position))]
 
 def get_metadata(first_image_packet,
                  image_shape,
