@@ -3,7 +3,7 @@ import os
 import json
 import traceback
 from glob import glob
-from multiprocessing import Pool
+import multiprocessing
 from typing import Any, Dict, Tuple, List
 from datetime import UTC, datetime, timedelta
 import hashlib
@@ -46,12 +46,13 @@ from punchpipe.__init__ import __version__
 from punchpipe.control import cache_layer
 from punchpipe.control.db import File, Flow, PacketHistory, TLMFiles, PACKETNAME2SQL, SCI_XFI, ENG_CEB, ENG_PFW, ENG_LED, ENG_XACT
 from punchpipe.control.util import load_pipeline_configuration
+from punchpipe.error import MissingCCSDSDataError
 
 FIXED_PACKETS = ['ENG_XACT', 'ENG_LED', 'ENG_PFW', 'ENG_CEB']
 VARIABLE_PACKETS = ['SCI_XFI']
 PACKET_CADENCE = {}
 SC_TIME_EPOCH = Time(2000.0, format="decimalyear", scale="tai")
-PFW_POSITION_MAPPING = ["Manual", "PM", "opaque", "PZ", "PP", "CR"]
+PFW_POSITION_MAPPING = ["PX", "PM", "DK", "PZ", "PP", "CR"]
 
 credentials = SqlAlchemyConnector.load("mariadb-creds", _sync=True)
 engine = credentials.get_engine()
@@ -556,20 +557,27 @@ def decode_image_packets(img_packets, compression_settings):
         return np.ravel(pixel_values)[:width*(num_vals//width)].reshape((-1, width)).T
 
 
-def determine_file_type(polarizer_position, led_info, image_shape) -> str:
+def determine_file_type(polarizer_packet, led_info, image_shape) -> str:
+    if image_shape != (2048, 2048):
+        return "OV"
     if led_info is not None:
         return "DY"
-    elif image_shape != (2048, 2048):
-        return "OV"
-    elif polarizer_position == 0: # position = 0 is manual pointing.
-        return "PX"
-    elif polarizer_position == 2:  # position = 2 is opaque
-        return "DK"
     else:
-        return PFW_POSITION_MAPPING[polarizer_position]
+        position = polarizer_packet['RESOLVER_POS_CORR']
+        reference_positions = np.array([polarizer_packet['PRIMARY_RESOLVER_POSITION_1'],
+                                        polarizer_packet['PRIMARY_RESOLVER_POSITION_2'],
+                                        polarizer_packet['PRIMARY_RESOLVER_POSITION_3'],
+                                        polarizer_packet['PRIMARY_RESOLVER_POSITION_4'],
+                                        polarizer_packet['PRIMARY_RESOLVER_POSITION_5']])
+        return PFW_POSITION_MAPPING[np.argmin(np.abs(reference_positions - position)) + 1]
 
-
-def get_metadata(first_image_packet, image_shape, session, defs, apid_name2num) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+def get_metadata(first_image_packet,
+                 image_shape,
+                 session,
+                 defs,
+                 apid_name2num,
+                 pfw_recency_requirement=3,
+                 xact_recency_requirement=3) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     acquisition_settings  = unpack_acquisition_settings(first_image_packet.acquisition_settings)
     compression_settings  = unpack_compression_settings(first_image_packet.compression_settings)
 
@@ -586,12 +594,20 @@ def get_metadata(first_image_packet, image_shape, session, defs, apid_name2num) 
                   .filter(ENG_XACT.spacecraft_id == spacecraft_id)
                   .filter(ENG_XACT.timestamp >= observation_time)
                   .order_by(ENG_XACT.timestamp.asc()).first())
+    before_xact_recency = abs((before_xact_db.timestamp - observation_time).total_seconds())
+    after_xact_recency = abs((after_xact_db.timestamp - observation_time).total_seconds())
+    if before_xact_recency > xact_recency_requirement or after_xact_recency > xact_recency_requirement:
+        raise MissingCCSDSDataError("XACT packet is out-of-date.")
 
     # get the PFW packet right before the observation
     best_pfw_db = (session.query(ENG_PFW)
                   .filter(ENG_PFW.spacecraft_id == spacecraft_id)
                   .filter(ENG_PFW.timestamp <= observation_time)
                   .order_by(ENG_PFW.timestamp.desc()).first())
+    pfw_recency = abs((best_pfw_db.timestamp - observation_time).total_seconds())
+    if pfw_recency > pfw_recency_requirement:
+        raise MissingCCSDSDataError(f"Best PFW packet is {pfw_recency} seconds old, "
+                                    f"required to be less than {pfw_recency_requirement}.")
 
     # get the CEB packet right before the observation
     best_ceb_db = (session.query(ENG_CEB)
@@ -662,12 +678,12 @@ def get_metadata(first_image_packet, image_shape, session, defs, apid_name2num) 
                                    observation_time.timestamp())
 
     position_info = {'spacecraft_id': spacecraft_id,
-            'datetime': observation_time,
-            'interp_quat': interp_quat,
-            'PFW_POSITION_CURR': best_pfw['POSITION_CURR']}
+                     'datetime': observation_time,
+                     'interp_quat': interp_quat,
+                     'PFW_POSITION_CURR': best_pfw['POSITION_CURR']}
 
     # fill in all the FITS info
-    fits_info = {'TYPECODE': determine_file_type(best_pfw['POSITION_CMD'],  # TODO determine if this should be CURR or CMD
+    fits_info = {'TYPECODE': determine_file_type(best_pfw,
                                                  best_led_db,
                                                  image_shape)}
 
@@ -898,11 +914,17 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
             # we need to work out the SOC spacecraft ID from the MOC spacecraft id
             moc_index = spacecraft_secrets["moc"].index(ordered_image_packet_entries[0].spacecraft_id)
             soc_spacecraft_id = spacecraft_secrets["soc"][moc_index]
+            pfw_recency_requirement = pipeline_config['flows']['level0']['options'].get("pfw_recency_requirement",
+                                                                                        np.inf)
+            xact_recency_requirement = pipeline_config['flows']['level0']['options'].get("xact_recency_requirement",
+                                                                                         np.inf)
             position_info, fits_info = get_metadata(ordered_image_packet_entries[0],
                                                     image.shape,
                                                     session,
                                                     defs,
-                                                    apid_name2num)
+                                                    apid_name2num,
+                                                    pfw_recency_requirement=pfw_recency_requirement,
+                                                    xact_recency_requirement=xact_recency_requirement)
             fits_info['FILEVRSN'] = pipeline_config['file_version']
             fits_info['PIPEVRSN'] = punchbowl.__version__
             fits_info['NUM_PCKT'] = len(image_packets_entries)
@@ -996,7 +1018,7 @@ def level0_form_images(pipeline_config, defs, apid_name2num, session):
         num_workers = 4
         logger.warning(f"No num_workers defined, using {num_workers} workers")
 
-    with Pool(num_workers, initializer=initializer) as pool:
+    with multiprocessing.get_context('spawn').Pool(num_workers, initializer=initializer) as pool:
         results = pool.starmap(form_single_image, image_inputs)
 
     for new_replay_needs, successful_image in results:
@@ -1066,7 +1088,7 @@ def level0_core_flow(pipeline_config: dict):
         num_workers = 4
         logger.warning(f"No num_workers defined, using {num_workers} workers")
 
-    with Pool(num_workers, initializer=initializer) as pool:
+    with multiprocessing.get_context('spawn').Pool(num_workers, initializer=initializer) as pool:
         pool.starmap(ingest_tlm_file, tlm_ingest_inputs)
 
     level0_form_images(pipeline_config, defs, apid_name2num, session)
