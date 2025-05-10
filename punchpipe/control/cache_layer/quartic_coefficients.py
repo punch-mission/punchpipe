@@ -1,6 +1,4 @@
-from collections.abc import Callable
 import os
-import pickle
 from collections.abc import Callable
 
 from ndcube import NDCube

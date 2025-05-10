@@ -1,13 +1,14 @@
 import io
 import os
 import json
-import traceback
-from glob import glob
-import multiprocessing
-from typing import Any, Dict, Tuple, List
-from datetime import UTC, datetime, timedelta
-import hashlib
 import base64
+import hashlib
+import traceback
+import multiprocessing
+from glob import glob
+from typing import Any, Dict, List, Tuple
+from datetime import UTC, datetime, timedelta
+from collections.abc import Callable
 
 import astropy.units as u
 import ccsdspy
@@ -16,11 +17,11 @@ import pandas as pd
 import punchbowl
 import pylibjpeg
 import quaternion  # noqa: F401
-import sqlalchemy
 from astropy.coordinates import GCRS, EarthLocation, HeliocentricMeanEcliptic, SkyCoord
 from astropy.time import Time, TimeDelta
 from astropy.wcs import WCS
 from ccsdspy import PacketArray, PacketField, converters
+from ccsdspy.utils import split_by_apid
 from dateutil.parser import parse as parse_datetime_str
 from ndcube import NDCube
 from prefect import flow, get_run_logger, task
@@ -31,22 +32,32 @@ from prefect.context import get_run_context
 from prefect_sqlalchemy import SqlAlchemyConnector
 from punchbowl.data import NormalizedMetadata, get_base_file_name, write_ndcube_to_fits
 from punchbowl.data.wcs import calculate_helio_wcs_from_celestial, calculate_pc_matrix
-from sqlalchemy import Boolean, Column, Integer, String, and_, or_
-from sqlalchemy.dialects.mysql import DATETIME, FLOAT, INTEGER
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 from sunpy.coordinates import (
     HeliocentricEarthEcliptic,
     HeliocentricInertial,
     HeliographicCarrington,
     HeliographicStonyhurst,
-    sun
+    sun,
 )
 
 from punchpipe.__init__ import __version__
-from punchpipe.control import cache_layer
-from punchpipe.control.db import File, Flow, PacketHistory, TLMFiles, PACKETNAME2SQL, SCI_XFI, ENG_CEB, ENG_PFW, ENG_LED, ENG_XACT
+from punchpipe.control.cache_layer import manager
+from punchpipe.control.cache_layer.loader_base_class import LoaderABC
+from punchpipe.control.db import (
+    ENG_CEB,
+    ENG_LED,
+    ENG_PFW,
+    ENG_XACT,
+    PACKETNAME2SQL,
+    SCI_XFI,
+    File,
+    Flow,
+    PacketHistory,
+    TLMFiles,
+)
 from punchpipe.control.util import load_pipeline_configuration
-from punchpipe.error import MissingCCSDSDataError
 
 FIXED_PACKETS = ['ENG_XACT', 'ENG_LED', 'ENG_PFW', 'ENG_CEB']
 VARIABLE_PACKETS = ['SCI_XFI']
@@ -328,7 +339,7 @@ def ingest_tlm_file(path: str,
                     list(pkts.values())
                 )
                 session.commit()
-            except:
+            except:  # noqa: E722
                 success = False
                 session.rollback()
 
@@ -557,11 +568,13 @@ def decode_image_packets(img_packets, compression_settings):
         return np.ravel(pixel_values)[:width*(num_vals//width)].reshape((-1, width)).T
 
 
-def determine_file_type(polarizer_packet, led_info, image_shape) -> str:
-    if image_shape != (2048, 2048):
-        return "OV"
+def determine_file_type(polarizer_packet, pfw_is_out_of_date, led_info, image_shape) -> str:
     if led_info is not None:
         return "DY"
+    elif image_shape != (2048, 2048):
+        return "OV"
+    elif pfw_is_out_of_date:
+        return "PX"
     else:
         position = int(polarizer_packet['RESOLVER_POS_CORR'])
         reference_positions = np.array([polarizer_packet['PRIMARY_RESOLVER_POSITION_1'],
@@ -581,7 +594,8 @@ def get_metadata(first_image_packet,
     acquisition_settings  = unpack_acquisition_settings(first_image_packet.acquisition_settings)
     compression_settings  = unpack_compression_settings(first_image_packet.compression_settings)
 
-    observation_time = first_image_packet.timestamp
+    offset_for_clearing = timedelta(seconds=3.8)
+    observation_time = first_image_packet.timestamp + offset_for_clearing
     spacecraft_id = first_image_packet.spacecraft_id
     exposure_time = acquisition_settings['EXPOSURE']/10.0 * (1+acquisition_settings['IMG_NUM'])
 
@@ -594,10 +608,6 @@ def get_metadata(first_image_packet,
                   .filter(ENG_XACT.spacecraft_id == spacecraft_id)
                   .filter(ENG_XACT.timestamp >= observation_time)
                   .order_by(ENG_XACT.timestamp.asc()).first())
-    before_xact_recency = abs((before_xact_db.timestamp - observation_time).total_seconds())
-    after_xact_recency = abs((after_xact_db.timestamp - observation_time).total_seconds())
-    if before_xact_recency > xact_recency_requirement or after_xact_recency > xact_recency_requirement:
-        raise MissingCCSDSDataError("XACT packet is out-of-date.")
 
     # get the PFW packet right before the observation
     best_pfw_db = (session.query(ENG_PFW)
@@ -605,9 +615,7 @@ def get_metadata(first_image_packet,
                   .filter(ENG_PFW.timestamp <= observation_time)
                   .order_by(ENG_PFW.timestamp.desc()).first())
     pfw_recency = abs((best_pfw_db.timestamp - observation_time).total_seconds())
-    if pfw_recency > pfw_recency_requirement:
-        raise MissingCCSDSDataError(f"Best PFW packet is {pfw_recency} seconds old, "
-                                    f"required to be less than {pfw_recency_requirement}.")
+    pfw_is_out_of_date = pfw_recency > pfw_recency_requirement
 
     # get the CEB packet right before the observation
     best_ceb_db = (session.query(ENG_CEB)
@@ -684,6 +692,7 @@ def get_metadata(first_image_packet,
 
     # fill in all the FITS info
     fits_info = {'TYPECODE': determine_file_type(best_pfw,
+                                                 pfw_is_out_of_date,
                                                  best_led_db,
                                                  image_shape)}
 
@@ -811,9 +820,6 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                                           SCI_XFI.spacecraft_id == spacecraft))
                              .all())
 
-    if len(image_packets_entries) == 0:
-        return [], True
-
     # Determine all the relevant TLM files
     needed_tlm_ids = set([image_packet.tlm_id for image_packet in image_packets_entries])
     tlm_id_to_tlm_path = {tlm_id: session.query(TLMFiles.path).where(TLMFiles.tlm_id == tlm_id).one().path
@@ -878,9 +884,9 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                     'start_block': ordered_image_packet_entries[0].flash_block - 1,
                     'replay_length': ordered_image_packet_entries[-1].flash_block
                                      - ordered_image_packet_entries[0].flash_block + 1 + 2})
-        except:
+        except Exception as e:
             skip_image = True
-            skip_reason = "Image could not find all packets"
+            skip_reason = f"Image could not find all packets, {e}"
             traceback.print_exc()
 
     # we'll finally try to decompress the image, if it fails, we cannot make the image, so we proceed
@@ -897,9 +903,9 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                     'start_block': ordered_image_packet_entries[0].flash_block - 1,
                     'replay_length': ordered_image_packet_entries[-1].flash_block
                                      - ordered_image_packet_entries[0].flash_block + 1 + 2})
-        except:
+        except Exception as e:
             skip_image = True
-            skip_reason = "Image decoding failed"
+            skip_reason = f"Image decoding failed {e}"
             replay_needs.append({
                 'spacecraft': spacecraft,
                 'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
@@ -930,6 +936,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
             fits_info['NUM_PCKT'] = len(image_packets_entries)
             fits_info['PCKTBYTE'] = len(np.concatenate(ordered_image_content).tobytes())
             file_type = fits_info["TYPECODE"]
+            print(file_type)
             preliminary_wcs = form_preliminary_wcs(
                 str(soc_spacecraft_id),
                 position_info,
@@ -960,10 +967,11 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
             write_ndcube_to_fits(cube, out_path, overwrite=True)
             session.add(l0_db_entry)
             session.commit()
-        except:
+        except Exception as e:
             session.rollback()
             skip_image = True
-            skip_reason = "Could not make metadata and write image"
+            skip_reason = f"Could not make metadata and write image, {e}"
+            traceback.print_exc()
 
     # go back and do some cleanup if we skipped the image
     if skip_image:
@@ -1045,7 +1053,8 @@ def level0_form_images(pipeline_config, defs, apid_name2num, session):
         try:
             moc_index = spacecraft_secrets["moc"].index(df_spacecraft)
             soc_spacecraft_id = spacecraft_secrets["soc"][moc_index]
-        except:  # we cannot find the spacecraft id and need to use an unknown indicator
+        except:  # noqa: E722
+            # we cannot find the spacecraft id and need to use an unknown indicator
             soc_spacecraft_id = 0
         file_spacecraft_id = {0: "UNKN", 1: "WFI01", 2: "WFI02", 3: "WFI03", 4: "NFI00"}[soc_spacecraft_id]
         df_path = os.path.join(pipeline_config['root'],
@@ -1163,15 +1172,6 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
         # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
         session.commit()
 
-import os
-from collections.abc import Callable
-import io
-from typing import Dict
-
-from ccsdspy.utils import split_by_apid
-
-from punchpipe.control.cache_layer import manager
-from punchpipe.control.cache_layer.loader_base_class import LoaderABC
 
 def open_and_split_packet_file(path: str) -> dict[int, io.BytesIO]:
     with open(path, "rb") as mixed_file:
@@ -1214,7 +1214,7 @@ class TLMLoader(LoaderABC[Dict]):
         print(f"loading from disk {self.path}!")
         try:
             parsed, _ = parse_telemetry_file(self.path, self.defs, self.apid_name2num)
-        except Exception as e:
+        except Exception:
             parsed = None
         return parsed
 
