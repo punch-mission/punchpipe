@@ -2,9 +2,10 @@ import contextlib
 from glob import glob
 from multiprocessing.shared_memory import SharedMemory
 
+from prefect import get_run_logger
 from prefect.variables import Variable
 
-CACHE_KEY_PREFIX = "ppc-"
+CACHE_KEY_PREFIX = "punchpipe-cache-"
 
 def caching_is_enabled() -> bool:
     return Variable.get("use_shm_cache", False)
@@ -47,7 +48,7 @@ def try_write_to_key(key, data):
         shm.buf[0] = 0
         shm.buf[1:len(data)+1] = data
         shm.buf[0] = 1
-        # get_run_logger().info(f"Saved to cache key {key}")
+        get_run_logger().info(f"Saved to cache key {key}")
     except FileExistsError:
         pass
     finally:
