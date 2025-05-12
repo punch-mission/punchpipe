@@ -1,9 +1,9 @@
-from collections.abc import Callable
 import os
+from collections.abc import Callable
 
 from ndcube import NDCube
-
 from punchbowl.data import load_ndcube_from_fits
+
 from punchpipe.control.cache_layer import manager
 from punchpipe.control.cache_layer.loader_base_class import LoaderABC
 

@@ -1,7 +1,8 @@
-from datetime import datetime
 import inspect
+from datetime import datetime
 
 from prefect import get_run_logger
+
 from punchpipe.control.db import File, FileRelationship
 from punchpipe.control.util import get_database_session, load_pipeline_configuration, update_file_state
 
