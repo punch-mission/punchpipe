@@ -2,8 +2,9 @@ import os
 
 from prefect import flow, get_run_logger
 
-from punchpipe.control.util import get_database_session, load_pipeline_configuration
 from punchpipe.control.db import File, FileRelationship, Flow
+from punchpipe.control.util import get_database_session, load_pipeline_configuration
+
 
 @flow
 def cleaner(pipeline_config_path: str):
@@ -38,4 +39,3 @@ def cleaner(pipeline_config_path: str):
     session.commit()
     if len(flows):
         logger.info(f"Revived {len(flows)} flows")
-

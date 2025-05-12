@@ -1,10 +1,11 @@
-from collections.abc import Callable
 import os
+from collections.abc import Callable
 
 from regularizepsf import ArrayPSFTransform
 
 from punchpipe.control.cache_layer import manager
 from punchpipe.control.cache_layer.loader_base_class import LoaderABC
+
 
 class PSFLoader(LoaderABC[ArrayPSFTransform]):
     def __init__(self, path: str):

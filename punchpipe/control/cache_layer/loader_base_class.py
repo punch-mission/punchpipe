@@ -4,7 +4,6 @@ from typing import Generic, TypeVar
 
 from punchpipe.control.cache_layer import manager
 
-
 T = TypeVar("T")
 
 

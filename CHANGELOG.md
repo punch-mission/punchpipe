@@ -2,7 +2,7 @@
 
 [This is available in GitHub](https://github.com/punch-mission/punchpipe/releases)
 
-## Latest: unreleased
+## Version 0.0.6: May 12, 2025
 
 * Prepares punchpipe for SOC2NOAA Interface by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/94
 * Specify path for codecov by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/95
@@ -27,6 +27,7 @@
 * Appropriately uses TAI time in https://github.com/punch-mission/punchpipe/pull/146
 * Stores quicklook movies in date-based file structure in https://github.com/punch-mission/punchpipe/pull/150
 * Checks that input files for quicklook movies are sorted and only schedules if files are found in https://github.com/punch-mission/punchpipe/pull/151
+* Updates L0 header generation in https://github.com/punch-mission/punchpipe/pull/156
 * Uses the shared memory cache for simpunch and sets date_created for files in the database in https://github.com/punch-mission/punchpipe/pull/154
 * Improvements to dashboard status cards and flow table in https://github.com/punch-mission/punchpipe/pull/155
 

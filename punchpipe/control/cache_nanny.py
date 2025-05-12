@@ -5,8 +5,9 @@ import time
 from prefect import flow, get_run_logger
 from prefect.variables import Variable
 
-from punchpipe.control.util import load_pipeline_configuration
 from punchpipe.control.cache_layer import manager
+from punchpipe.control.util import load_pipeline_configuration
+
 
 @flow
 def cache_nanny(pipeline_config_path: str):

@@ -50,8 +50,10 @@ def visualize_flow_info(input_files: list[File],
                         ):
     flow_type = "movie"
     state = "planned"
+
     creation_time = datetime.now()
-    out_path = input_files[-1].date_obs.strftime("%Y/%m/%d")
+    out_path = creation_time.strftime("%Y/%m/%d")
+
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
@@ -100,7 +102,7 @@ def generate_flow_run_name():
     parameters = flow_run.parameters
     code = parameters["product_code"]
     files = parameters["file_list"]
-    return f"movie-{code}-{len(files)}-{datetime.now()}"
+    return f"movie-{code}-len={len(files)}-{datetime.now()}"
 
 
 @flow(flow_run_name=generate_flow_run_name)
@@ -153,7 +155,7 @@ def movie_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     flow_db_entry.flow_run_name = flow_run_context.flow_run.name
     flow_db_entry.flow_run_id = flow_run_context.flow_run.id
     flow_db_entry.state = "running"
-    flow_db_entry.start_time = datetime.now(UTC)
+    flow_db_entry.start_time = datetime.now()
     session.commit()
 
     # load the call data and launch the core flow
@@ -162,11 +164,11 @@ def movie_process_flow(flow_id: int, pipeline_config_path=None, session=None):
         movie_core_flow(**flow_call_data)
     except Exception as e:
         flow_db_entry.state = "failed"
-        flow_db_entry.end_time = datetime.now(UTC)
+        flow_db_entry.end_time = datetime.now()
         session.commit()
         raise e
     else:
         flow_db_entry.state = "completed"
-        flow_db_entry.end_time = datetime.now(UTC)
+        flow_db_entry.end_time = datetime.now()
         # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
         session.commit()
