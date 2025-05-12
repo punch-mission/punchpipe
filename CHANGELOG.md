@@ -2,7 +2,7 @@
 
 [This is available in GitHub](https://github.com/punch-mission/punchpipe/releases)
 
-## Latest: unreleased
+## Version 0.0.6: May 12, 2025
 
 * Prepares punchpipe for SOC2NOAA Interface by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/94
 * Specify path for codecov by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/95
