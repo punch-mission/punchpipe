@@ -48,6 +48,7 @@ from punchpipe.control.cache_layer.loader_base_class import LoaderABC
 from punchpipe.control.db import (
     ENG_CEB,
     ENG_LED,
+    ENG_LZ,
     ENG_PFW,
     ENG_XACT,
     PACKETNAME2SQL,
@@ -59,7 +60,7 @@ from punchpipe.control.db import (
 )
 from punchpipe.control.util import load_pipeline_configuration
 
-FIXED_PACKETS = ['ENG_XACT', 'ENG_LED', 'ENG_PFW', 'ENG_CEB']
+FIXED_PACKETS = ['ENG_XACT', 'ENG_LED', 'ENG_PFW', 'ENG_CEB', "ENG_LZ"]
 VARIABLE_PACKETS = ['SCI_XFI']
 PACKET_CADENCE = {}
 SC_TIME_EPOCH = Time(2000.0, format="decimalyear", scale="tai")
@@ -383,6 +384,21 @@ def unpack_n_bit_values(packed: bytes, byteorder: str, n_bits=19) -> np.ndarray:
         results.append(bits_value)
     return np.asanyarray(results)
 
+def organize_lz_fits_keywords(lz_packet_db, lz_packet):
+    return {
+        'LZTIME': lz_packet_db.timestamp.isoformat(),
+        'CCDTEMP': int(lz_packet["LZ_P1_P01_NFI_DET_PRI__WFI_DET_PRI"])*0.21477-428.961,
+        'ICMTEMP': int(lz_packet["LZ_P1_P02_NFI_ICM_PRI__WFI_ICM_PRI"])*0.21477-428.962,
+        'FORTEMP': int(lz_packet["LZ_P1_P03_NFI_BAFFWD_PY__WFI_OLA_PRI"])*0.21477-428.963,
+        'AFTTEMP': int(lz_packet["LZ_P1_P04_NFI_BAFAFT_PZ__WFI_CLAM_PRI"])*0.21477-428.964,
+        'PFWTEMP': int(lz_packet["LZ_P1_P05_NFI_PFW_MOT__WFI_PFW_MOT"])*0.21477-428.965,
+        'DOORTEMP': int(lz_packet["LZ_P1_P06_NFI_HOPA__WFI_RAD_CEN"])*0.21477-428.966,
+        'CEBTEMP': int(lz_packet["LZ_P1_P07_CEB_BASE_PRI"])*0.21477-428.967,
+        'HOUSTEMP': int(lz_packet["LZ_P1_P08_STM_ELEC__WFI_CAM_MX"])*0.21477-428.968,
+        'FINGTEMP': int(lz_packet["LZ_P1_P09_STM_DET_PRI__WFI_COLDF_PZ"])*0.21477-428.969,
+        'FPGATEMP': lz_packet["LZ_XTS_TEMP_FPGA"]
+    }
+
 def organize_pfw_fits_keywords(pfw_packet_db, pfw_packet):
     return {
         'PFWTIME': pfw_packet_db.timestamp.isoformat(),
@@ -623,6 +639,12 @@ def get_metadata(first_image_packet,
                   .filter(ENG_CEB.timestamp < observation_time)
                   .order_by(ENG_CEB.timestamp.desc()).first())
 
+    # get the LZ packet right before the observation
+    best_lz_db = (session.query(ENG_LZ)
+                  .filter(ENG_LZ.spacecraft_id == spacecraft_id)
+                  .filter(ENG_LZ.timestamp < observation_time)
+                  .order_by(ENG_LZ.timestamp.desc()).first())
+
     # get the LED packet that corresponds to this observation if one exists.
     # this is slightly different, we look for an LED packet with a start time and an end time that overlaps
     # with the observation... there is likely not one, so this will be None.
@@ -655,7 +677,7 @@ def get_metadata(first_image_packet,
 
     best_led_db = best_led1 or best_led2 or best_led3 or best_led4
 
-    packet_references = [before_xact_db, after_xact_db, best_ceb_db, best_pfw_db, best_led_db]
+    packet_references = [before_xact_db, after_xact_db, best_ceb_db, best_pfw_db, best_led_db, best_lz_db]
     needed_tlm_ids = set([pkt.tlm_id for pkt in packet_references if pkt is not None])
     tlm_id_to_tlm_path = {tlm_id: session.query(TLMFiles.path).where(TLMFiles.tlm_id == tlm_id).one().path
                           for tlm_id in needed_tlm_ids}
@@ -713,6 +735,11 @@ def get_metadata(first_image_packet,
                     for key in loaded_tlm[best_ceb_db.tlm_id]['ENG_CEB']}
         fits_info |= organize_ceb_fits_keywords(best_ceb_db, best_ceb)
 
+    if best_lz_db is not None:
+        best_lz = {key: loaded_tlm[best_lz_db.tlm_id]['ENG_LZ'][key][best_lz_db.packet_index]
+                    for key in loaded_tlm[best_lz_db.tlm_id]['ENG_LZ']}
+        fits_info |= organize_lz_fits_keywords(best_lz_db, best_lz)
+
     fits_info |= organize_compression_and_acquisition_settings(compression_settings, acquisition_settings)
     if spacecraft_id == 0x2F:
         fits_info['RAWBITS'] = 19
@@ -723,10 +750,12 @@ def get_metadata(first_image_packet,
         fits_info['BUNIT'] = "DN"
         fits_info['COMPBITS'] = fits_info['RAWBITS']
         fits_info['DSATVAL'] = 2**fits_info['RAWBITS'] - 1
+        fits_info['DESCRPTN'] = "PUNCH Level-0 data, DN values in camera coordinates"
     else:
         fits_info['BUNIT'] = "sqrt(DN)"
         fits_info['COMPBITS'] = int((fits_info['RAWBITS'] + int(np.log2(fits_info['SCALE']))) / 2)
         fits_info['DSATVAL'] = 2**fits_info['COMPBITS'] - 1
+        fits_info['DESCRPTN'] = "PUNCH Level-0 data, square-root encoded DN values in camera coordinates"
 
     fits_info |= organize_gain_info(spacecraft_id)
 
@@ -947,6 +976,8 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
             for meta_key, meta_value in fits_info.items():
                 meta[meta_key] = meta_value
             cube = NDCube(data=image, meta=meta, wcs=preliminary_wcs)
+            cube.meta.provenance = [os.path.basename(p) for p in needed_tlm_paths]
+            cube.meta.history.add_now("form_single_image", f"ran with punchpipe v{__version__}")
 
             # we also need to add it to the database
             l0_db_entry = File(level="0",

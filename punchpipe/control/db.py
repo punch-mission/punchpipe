@@ -161,6 +161,16 @@ class ENG_XACT(Base):
     ccsds_packet_length = Column(Integer, nullable=False)
     timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
 
+class ENG_LZ(Base):
+    __tablename__ = "eng_lz"
+    id = Column(Integer, primary_key=True)
+    tlm_id = Column(Integer)
+    spacecraft_id = Column(Integer, nullable=False)
+    packet_index = Column(Integer, nullable=False)
+    ccsds_sequence_count = Column(Integer, nullable=False)
+    ccsds_packet_length = Column(Integer, nullable=False)
+    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
+
 class ENG_LED(Base):
     __tablename__ = "eng_led"
     id = Column(Integer, primary_key=True)
@@ -177,7 +187,8 @@ PACKETNAME2SQL = {'SCI_XFI': SCI_XFI,
                   'ENG_CEB': ENG_CEB,
                   'ENG_PFW': ENG_PFW,
                   'ENG_XACT': ENG_XACT,
-                  'ENG_LED': ENG_LED}
+                  'ENG_LED': ENG_LED,
+                  "ENG_LZ": ENG_LZ}
 
 def get_closest_file(f_target: File, f_others: list[File]) -> File:
     return min(f_others, key=lambda o: abs((f_target.date_obs - o.date_obs).total_seconds()))
