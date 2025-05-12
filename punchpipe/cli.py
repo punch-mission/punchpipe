@@ -117,9 +117,6 @@ def run(configuration_path):
 
     with open(output_path, "a") as f:
         try:
-            # prefect_process = subprocess.Popen(["prefect", "server", "start"],
-            #                                    stdout=f, stderr=f)
-            # time.sleep(10)
             cluster_process = subprocess.Popen(['punchpipe_cluster', configuration_path],
                                                stdout=f, stderr=f)
             monitor_process = subprocess.Popen(["gunicorn",
@@ -128,7 +125,6 @@ def run(configuration_path):
                                                 "cli:server"],
                                                stdout=f, stderr=f)
             Variable.set("punchpipe_config", configuration_path, overwrite=True)
-            # print("Launched Prefect dashboard on http://localhost:4200/")
             print("Launched punchpipe monitor on http://localhost:8050/")
             print("Launched dask cluster on http://localhost:8786/")
             print("Dask dashboard available at http://localhost:8787/")
@@ -138,15 +134,11 @@ def run(configuration_path):
             process.start()
             process.join()
 
-            # prefect_process.wait()
             monitor_process.wait()
             cluster_process.wait()
         except KeyboardInterrupt:
             print("Shutting down.")
             process.terminate()
-            # prefect_process.terminate()
-            # prefect_process.wait()
-            # time.sleep(5)
             cluster_process.terminate()
             monitor_process.terminate()
             cluster_process.wait()
@@ -157,15 +149,9 @@ def run(configuration_path):
             print(f"Received error: {e}")
             print(traceback.format_exc())
             process.terminate()
-            # prefect_process.terminate()
-            # prefect_process.wait()
-            # time.sleep(5)
             cluster_process.terminate()
             monitor_process.terminate()
             cluster_process.wait()
             monitor_process.wait()
             print()
             print("punchpipe abruptly shut down.")
-
-# if __name__ == "__main__":
-#     main()
