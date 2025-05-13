@@ -129,6 +129,7 @@ def normal_core_flow():
 
     meta = NormalizedMetadata.load_template("PM1", "1")
     meta['DATE-OBS'] = str(datetime(2023, 1, 1, 0, 0, 1))
+    meta['FILEVRSN'] = "1"
     output = NDCube(data=data, uncertainty=uncertainty, wcs=wcs, meta=meta)
 
     return [output]
