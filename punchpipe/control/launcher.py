@@ -1,5 +1,7 @@
 import asyncio
+from collections import defaultdict
 from math import ceil
+from random import shuffle
 from typing import List
 from datetime import datetime, timedelta
 
@@ -15,29 +17,50 @@ from punchpipe.control.util import batched, get_database_session, load_pipeline_
 
 
 @task(cache_policy=NO_CACHE)
-def gather_planned_flows(session, max_to_select=9e9):
-    return [f.flow_id for f in session.query(Flow)
-                                      .where(Flow.state == "planned")
-                                      .order_by(Flow.priority.desc())
-                                      .limit(max_to_select).all()]
+def gather_planned_flows(session, amount_to_launch, flow_weights):
+    # We'll have to grab a bunch of possible flows to launch from the DB, and then on our end apply the weights and the
+    # maximum-weight limit. But we can use the smallest weight to set an upper bound on how many launchable flows to
+    # retrieve.
+    max_to_select = amount_to_launch / min(flow_weights.values())
+    flows = (session.query(Flow)
+                   .where(Flow.state == "planned")
+                   .order_by(Flow.priority.desc())
+                   .limit(max_to_select).all())
+    selected_flows = []
+    selected_weight = 0
+    count_per_type = defaultdict(lambda: 0)
+    while selected_weight < amount_to_launch and len(flows):
+        flow = flows.pop(0)
+        selected_flows.append(flow)
+        selected_weight += flow_weights[flow.flow_type]
+        count_per_type[flow.flow_type] += 1
+    # If we don't shuffle, flows will be sorted by priority which may implicitly be a sort by flow type. This could
+    # mean we launch all the quick flows at once and then later all the slow flows at once, but we'll get better
+    # performance by mixing the fast and slow flows since the total CPU demand will be more uniform through this
+    # scheduling window.
+    shuffle(selected_flows)
+    return [f.flow_id for f in selected_flows], selected_weight, count_per_type
 
 
 @task(cache_policy=NO_CACHE)
-def count_flows(session):
+def count_flows(session, weights):
     n_planned, n_running = 0, 0
+    weight_planned, weight_running = 0, 0
     rows = session.execute(
-        select(Flow.state, func.count())
+        select(Flow.state, Flow.flow_type, func.count())
         .select_from(Flow)
-        .where(Flow.state.in_(("planned", "running")))
-        .group_by(Flow.state)
+        .where(Flow.state.in_(("planned", "running", "launched")))
+        .group_by(Flow.state, Flow.flow_type)
     ).all()
     # We won't get results for states that aren't actually in the database, so we have to inspect the returned rows
-    for state, count in rows:
+    for state, flow_type, count in rows:
         if state == "planned":
-            n_planned = count
+            n_planned += count
+            weight_planned += count * weights[flow_type]
         else:
-            n_running = count
-    return n_running, n_planned
+            n_running += count
+            weight_running += count * weights[flow_type]
+    return n_running, n_planned, weight_planned, weight_running
 
 
 @task(cache_policy=NO_CACHE)
@@ -57,16 +80,16 @@ def escalate_long_waiting_flows(session, pipeline_config):
     session.commit()
 
 
-def determine_launchable_flow_count(n_planned, n_running, max_running, max_to_launch):
+def determine_launchable_flow_count(weight_planned, weight_running, max_running, max_to_launch):
     logger = get_run_logger()
-    number_to_launch = max_running - n_running
-    logger.info(f"{number_to_launch} flows can be launched at this time.")
+    amount_to_launch = max_running - weight_running
+    logger.info(f"Total weight {amount_to_launch:.2f} can be launched at this time.")
 
-    number_to_launch = min(number_to_launch, max_to_launch)
-    number_to_launch = max(0, number_to_launch)
-    logger.info(f"Will launch up to {number_to_launch} flows")
+    amount_to_launch = min(amount_to_launch, max_to_launch)
+    amount_to_launch = max(0, amount_to_launch)
+    logger.info(f"Will launch up to {amount_to_launch:.2f} weight")
 
-    return min(number_to_launch, n_planned)
+    return min(amount_to_launch, weight_planned)
 
 
 @task(cache_policy=NO_CACHE)
@@ -97,11 +120,6 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], pipeline_con
         deployments = await client.read_deployments()
         deployment_ids = {d.name: d.id for d in deployments}
 
-        for flow in flow_info:
-            flow.state = "launched"
-            flow.launch_time = datetime.now()
-        session.commit()
-
         # We want to stagger launches through a time window. If our configured time window is 5 minutes, we'll use 4
         # full minutes, plus a portion of the fifth, aiming to end after 4m35s to leave margin so the flow is fully
         # finished after 5 minutes.
@@ -122,6 +140,12 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], pipeline_con
         responses = []
         for batch in batched(flow_info, batch_size):
             start = datetime.now().timestamp()
+
+            for flow in batch:
+                flow.state = "launched"
+                flow.launch_time = datetime.now()
+            session.commit()
+
             # Launch the batch
             for this_flow in batch:
                 this_deployment_id = deployment_ids[this_flow.flow_type + "_process_flow"]
@@ -135,7 +159,6 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], pipeline_con
             if delay_time:
                 # Stagger the launches
                 await asyncio.sleep(delay_time - (datetime.now().timestamp() - start))
-
         # TODO This doesn't seem to be an effective way to check for a failed flow submission, but we should
         # do something like this that works
         ok_responses = [r for r in responses if r.name not in [None, ''] and r.state_name == 'Scheduled']
@@ -151,6 +174,13 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], pipeline_con
             session.commit()
             for r in bad_responses:
                 logger.warning(f"Got bad response {repr(r)}")
+
+
+def load_flow_weights(pipeline_config):
+    flow_weights = dict()
+    for flow_type in pipeline_config["flows"]:
+        flow_weights[flow_type] = pipeline_config["flows"][flow_type].get("launch_weight", 1)
+    return flow_weights
 
 
 @flow
@@ -169,6 +199,7 @@ async def launcher(pipeline_config_path=None):
     if pipeline_config_path is None:
         pipeline_config_path = await Variable.get("punchpipe_config", "punchpipe_config.yaml")
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
+    flow_weights = load_flow_weights(pipeline_config)
 
     logger.info("Establishing database connection")
     session = get_database_session()
@@ -176,15 +207,18 @@ async def launcher(pipeline_config_path=None):
     escalate_long_waiting_flows(session, pipeline_config)
 
     # Perform the launcher flow responsibilities
-    num_running_flows, num_planned_flows = count_flows(session)
-    logger.info(f"There are {num_running_flows} flows running right now and {num_planned_flows} planned flows.")
+    num_running_flows, num_planned_flows, weight_planned, weight_running = count_flows(session, flow_weights)
+    logger.info(f"There are {num_running_flows} flows running right now (weight {weight_running:.2f}) and {num_planned_flows} planned flows (weight {weight_planned:.2f}).")
     max_flows_running = pipeline_config["control"]["launcher"]["max_flows_running"]
     max_flows_to_launch = pipeline_config["control"]["launcher"]["max_flows_to_launch_at_once"]
 
-    number_to_launch = determine_launchable_flow_count(
-        num_planned_flows, num_running_flows, max_flows_running, max_flows_to_launch)
+    amount_to_launch = determine_launchable_flow_count(
+        weight_planned, weight_running, max_flows_running, max_flows_to_launch)
 
-    flows_to_launch = gather_planned_flows(session, number_to_launch)
-    logger.info(f"{len(flows_to_launch)} flows with IDs of {flows_to_launch} will be launched.")
+    flows_to_launch, selected_weight, counts_per_type = gather_planned_flows(session, amount_to_launch, flow_weights)
+    logger.info(f"{len(flows_to_launch)} flows (weight {selected_weight:.2f}) with IDs of {flows_to_launch} will be launched.")
+    counts = [f"{counts_per_type[type]} {type}" for type in sorted(counts_per_type.keys())]
+    if len(counts):
+        logger.info("This consists of " + ", ".join(counts))
     await launch_ready_flows(session, flows_to_launch, pipeline_config)
     logger.info("Launcher flow exit.")
