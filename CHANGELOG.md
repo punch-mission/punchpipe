@@ -2,6 +2,9 @@
 
 [This is available in GitHub](https://github.com/punch-mission/punchpipe/releases)
 
+## Unreleased
+* Weighted launching and NUMA configuration in https://github.com/punch-mission/punchpipe/pull/160
+
 ## Version 0.0.6: May 12, 2025
 
 * Prepares punchpipe for SOC2NOAA Interface by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/94
