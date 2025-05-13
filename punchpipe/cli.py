@@ -157,10 +157,12 @@ def run(configuration_path):
 
             # These processes send a _lot_ of output, so we let it go to the screen instead of making the log file
             # enormous
-            data_process_launcher = lambda: subprocess.Popen(
-                [*numa_prefix_1, "punchpipe", "serve-data", configuration_path])
-            control_process_launcher = lambda: subprocess.Popen(
-                [*numa_prefix_0, "punchpipe", "serve-control", configuration_path])
+            def data_process_launcher() -> subprocess.Popen:
+                return subprocess.Popen([*numa_prefix_1, "punchpipe", "serve-data", configuration_path])
+
+            def control_process_launcher() -> subprocess.Popen:
+                return subprocess.Popen([*numa_prefix_0, "punchpipe", "serve-control", configuration_path])
+
             data_process = data_process_launcher()
             control_process = control_process_launcher()
 
