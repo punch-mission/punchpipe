@@ -1,9 +1,9 @@
 import os
+import time
 import inspect
 import argparse
 import traceback
 import subprocess
-import multiprocessing as mp
 from pathlib import Path
 from datetime import datetime
 from importlib import import_module
@@ -25,11 +25,19 @@ def main():
     subparsers = parser.add_subparsers(dest="command")
 
     run_parser = subparsers.add_parser('run', help="Run the pipeline.")
+    serve_control_parser = subparsers.add_parser('serve-control', help="Serve the control flows.")
+    serve_data_parser = subparsers.add_parser('serve-data', help="Serve the data-processing flows.")
     run_parser.add_argument("config", type=str, help="Path to config.")
+    serve_control_parser.add_argument("config", type=str, help="Path to config.")
+    serve_data_parser.add_argument("config", type=str, help="Path to config.")
     args = parser.parse_args()
 
     if args.command == 'run':
         run(args.config)
+    elif args.command == 'serve-data':
+        run_data(args.config)
+    elif args.command == 'serve-control':
+        run_control(args.config)
     else:
         parser.print_help()
 
@@ -44,65 +52,75 @@ def find_flow(target_flow, subpackage="flows") -> Flow:
     else:
         raise RuntimeError(f"No flow found for {target_flow}")
 
-def construct_flows_to_serve(configuration_path):
+def construct_flows_to_serve(configuration_path, include_data=True, include_control=True):
     config = load_pipeline_configuration(configuration_path)
 
     # create each kind of flow. add both the scheduler and process flow variant of it.
     flows_to_serve = []
-    for flow_name in config["flows"]:
-        # first we deploy the scheduler flow
-        specific_name = flow_name + "_scheduler_flow"
-        specific_tags = config["flows"][flow_name].get("tags", [])
-        specific_description = config["flows"][flow_name].get("description", "")
-        flow_function = find_flow(specific_name)
-        flow_deployment = flow_function.to_deployment(
-            name=specific_name,
-            description="Scheduler: " + specific_description,
-            tags = ["scheduler"] + specific_tags,
-            cron=config['flows'][flow_name].get("schedule", None),
-            concurrency_limit=ConcurrencyLimitConfig(
-                limit=1,
-                collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW
-            ),
-            parameters={"pipeline_config_path": configuration_path}
-        )
-        flows_to_serve.append(flow_deployment)
-
-        # then we deploy the corresponding process flow
-        specific_name = flow_name + "_process_flow"
-        flow_function = find_flow(specific_name)
-        concurrency_value = config["flows"][flow_name].get("concurrency_limit", None)
-        concurrency_config = ConcurrencyLimitConfig(
-                limit=concurrency_value,
-                collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW
-            ) if concurrency_value else None
-        flow_deployment = flow_function.to_deployment(
-            name=specific_name,
-            description="Process: " + specific_description,
-            tags = ["process"] + specific_tags,
-            parameters={"pipeline_config_path": configuration_path},
-            concurrency_limit=concurrency_config
-        )
-        flows_to_serve.append(flow_deployment)
-
-    # there are special control flows that manage the pipeline instead of processing data
-    # time to kick those off!
-    for flow_name in config["control"]:
-        flow_function = find_flow(flow_name, "control")
-        concurrency_config = ConcurrencyLimitConfig(
-                limit=1,
-                collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW
+    if include_data:
+        for flow_name in config["flows"]:
+            # first we deploy the scheduler flow
+            specific_name = flow_name + "_scheduler_flow"
+            specific_tags = config["flows"][flow_name].get("tags", [])
+            specific_description = config["flows"][flow_name].get("description", "")
+            flow_function = find_flow(specific_name)
+            flow_deployment = flow_function.to_deployment(
+                name=specific_name,
+                description="Scheduler: " + specific_description,
+                tags = ["scheduler"] + specific_tags,
+                cron=config['flows'][flow_name].get("schedule", None),
+                concurrency_limit=ConcurrencyLimitConfig(
+                    limit=1,
+                    collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW
+                ),
+                parameters={"pipeline_config_path": configuration_path}
             )
-        flow_deployment = flow_function.to_deployment(
-            name=flow_name,
-            description=config["control"][flow_name].get("description", ""),
-            tags=["control"],
-            cron=config['control'][flow_name].get("schedule", "* * * * *"),
-            parameters={"pipeline_config_path": configuration_path},
-            concurrency_limit=concurrency_config
-        )
-        flows_to_serve.append(flow_deployment)
+            flows_to_serve.append(flow_deployment)
+
+            # then we deploy the corresponding process flow
+            specific_name = flow_name + "_process_flow"
+            flow_function = find_flow(specific_name)
+            concurrency_value = config["flows"][flow_name].get("concurrency_limit", None)
+            concurrency_config = ConcurrencyLimitConfig(
+                    limit=concurrency_value,
+                    collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW
+                ) if concurrency_value else None
+            flow_deployment = flow_function.to_deployment(
+                name=specific_name,
+                description="Process: " + specific_description,
+                tags = ["process"] + specific_tags,
+                parameters={"pipeline_config_path": configuration_path},
+                concurrency_limit=concurrency_config
+            )
+            flows_to_serve.append(flow_deployment)
+
+    if include_control:
+        # there are special control flows that manage the pipeline instead of processing data
+        # time to kick those off!
+        for flow_name in config["control"]:
+            flow_function = find_flow(flow_name, "control")
+            concurrency_config = ConcurrencyLimitConfig(
+                    limit=1,
+                    collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW
+                )
+            flow_deployment = flow_function.to_deployment(
+                name=flow_name,
+                description=config["control"][flow_name].get("description", ""),
+                tags=["control"],
+                cron=config['control'][flow_name].get("schedule", "* * * * *"),
+                parameters={"pipeline_config_path": configuration_path},
+                concurrency_limit=concurrency_config
+            )
+            flows_to_serve.append(flow_deployment)
     return flows_to_serve
+
+def run_data(configuration_path):
+    configuration_path = str(Path(configuration_path).resolve())
+    serve(*construct_flows_to_serve(configuration_path, include_control=False, include_data=True))
+
+def run_control(configuration_path):
+    configuration_path = str(Path(configuration_path).resolve())
+    serve(*construct_flows_to_serve(configuration_path, include_control=True, include_data=False))
 
 def run(configuration_path):
     now = datetime.now()
@@ -117,28 +135,75 @@ def run(configuration_path):
 
     with open(output_path, "a") as f:
         try:
-            cluster_process = subprocess.Popen(['punchpipe_cluster', configuration_path],
+            numa_prefix_0 = ['numactl', '--membind', '0', '--cpunodebind', '0']
+            numa_prefix_1 = ['numactl', '--membind', '1', '--cpunodebind', '1']
+            prefect_process = subprocess.Popen([*numa_prefix_0, "prefect", "server", "start", "--no-services"],
                                                stdout=f, stderr=f)
-            monitor_process = subprocess.Popen(["gunicorn",
+            time.sleep(5)
+            # Separating the server and the background services may help avoid overwhelming the database connections
+            # https://github.com/PrefectHQ/prefect/issues/16299#issuecomment-2698732783
+            prefect_services_process = subprocess.Popen([*numa_prefix_0, "prefect", "server", "services", "start"],
+                                               stdout=f, stderr=f)
+
+            cluster_process = subprocess.Popen([*numa_prefix_1, 'punchpipe_cluster', configuration_path],
+                                               stdout=f, stderr=f)
+            monitor_process = subprocess.Popen([*numa_prefix_0, "gunicorn",
                                                 "-b", "0.0.0.0:8050",
                                                 "--chdir", THIS_DIR,
                                                 "cli:server"],
                                                stdout=f, stderr=f)
+            time.sleep(1)
             Variable.set("punchpipe_config", configuration_path, overwrite=True)
+
+            # These processes send a _lot_ of output, so we let it go to the screen instead of making the log file
+            # enormous
+            data_process_launcher = lambda: subprocess.Popen(
+                [*numa_prefix_1, "punchpipe", "serve-data", configuration_path])
+            control_process_launcher = lambda: subprocess.Popen(
+                [*numa_prefix_0, "punchpipe", "serve-control", configuration_path])
+            data_process = data_process_launcher()
+            control_process = control_process_launcher()
+
+            print("Launched Prefect dashboard on http://localhost:4200/")
             print("Launched punchpipe monitor on http://localhost:8050/")
             print("Launched dask cluster on http://localhost:8786/")
             print("Dask dashboard available at http://localhost:8787/")
             print("Use ctrl-c to exit.")
 
-            process = mp.Process(target=serve, args=construct_flows_to_serve(configuration_path))
-            process.start()
-            process.join()
-
-            monitor_process.wait()
-            cluster_process.wait()
+            time.sleep(5)
+            while True:
+                # This updates but does not return the object's returncode attribute
+                prefect_process.poll()
+                prefect_services_process.poll()
+                cluster_process.poll()
+                control_process.poll()
+                data_process.poll()
+                if prefect_process.returncode or prefect_services_process.returncode or cluster_process.returncode:
+                    print("Child process exited unexpectedly")
+                    break
+                else:
+                    # Core processes are still running. Now check worker processes, which we can restart safely
+                    if control_process.returncode:
+                        print(f"Restarted control process at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                        control_process = control_process_launcher()
+                    if data_process.returncode:
+                        print(f"Restarted data process at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                        data_process = data_process_launcher()
+                    time.sleep(10)
+            raise RuntimeError()
         except KeyboardInterrupt:
             print("Shutting down.")
-            process.terminate()
+            control_process.terminate()
+            data_process.terminate()
+            control_process.wait()
+            data_process.wait()
+            time.sleep(1)
+            prefect_services_process.terminate()
+            prefect_services_process.wait()
+            time.sleep(3)
+            prefect_process.terminate()
+            prefect_process.wait()
+            time.sleep(3)
             cluster_process.terminate()
             monitor_process.terminate()
             cluster_process.wait()
@@ -148,7 +213,17 @@ def run(configuration_path):
         except Exception as e:
             print(f"Received error: {e}")
             print(traceback.format_exc())
-            process.terminate()
+            control_process.terminate()
+            data_process.terminate()
+            control_process.wait()
+            data_process.wait()
+            time.sleep(1)
+            prefect_services_process.terminate()
+            prefect_services_process.wait()
+            time.sleep(3)
+            prefect_process.terminate()
+            prefect_process.wait()
+            time.sleep(3)
             cluster_process.terminate()
             monitor_process.terminate()
             cluster_process.wait()
