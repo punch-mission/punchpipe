@@ -27,13 +27,15 @@ def main():
     run_parser = subparsers.add_parser('run', help="Run the pipeline.")
     serve_control_parser = subparsers.add_parser('serve-control', help="Serve the control flows.")
     serve_data_parser = subparsers.add_parser('serve-data', help="Serve the data-processing flows.")
+
     run_parser.add_argument("config", type=str, help="Path to config.")
+    run_parser.add_argument("--launch-prefect", action="store_true", help="Launch the prefect server")
     serve_control_parser.add_argument("config", type=str, help="Path to config.")
     serve_data_parser.add_argument("config", type=str, help="Path to config.")
     args = parser.parse_args()
 
     if args.command == 'run':
-        run(args.config)
+        run(args.config, args.launch_prefect)
     elif args.command == 'serve-data':
         run_data(args.config)
     elif args.command == 'serve-control':
@@ -122,7 +124,7 @@ def run_control(configuration_path):
     configuration_path = str(Path(configuration_path).resolve())
     serve(*construct_flows_to_serve(configuration_path, include_control=True, include_data=False))
 
-def run(configuration_path):
+def run(configuration_path, launch_prefect=False):
     now = datetime.now()
 
     configuration_path = str(Path(configuration_path).resolve())
@@ -134,16 +136,24 @@ def run(configuration_path):
 
 
     with open(output_path, "a") as f:
+        shutdown_expected = False
+        prefect_process = None
+        prefect_services_process = None
+        cluster_process = None
+        data_process = None
+        control_process = None
         try:
             numa_prefix_0 = ['numactl', '--membind', '0', '--cpunodebind', '0']
             numa_prefix_1 = ['numactl', '--membind', '1', '--cpunodebind', '1']
-            prefect_process = subprocess.Popen([*numa_prefix_0, "prefect", "server", "start", "--no-services"],
-                                               stdout=f, stderr=f)
-            time.sleep(5)
-            # Separating the server and the background services may help avoid overwhelming the database connections
-            # https://github.com/PrefectHQ/prefect/issues/16299#issuecomment-2698732783
-            prefect_services_process = subprocess.Popen([*numa_prefix_0, "prefect", "server", "services", "start"],
-                                               stdout=f, stderr=f)
+            if launch_prefect:
+                print("Launcing prefect")
+                prefect_process = subprocess.Popen(
+                    [*numa_prefix_0, "prefect", "server", "start", "--no-services"], stdout=f, stderr=f)
+                time.sleep(5)
+                # Separating the server and the background services may help avoid overwhelming the database connections
+                # https://github.com/PrefectHQ/prefect/issues/16299#issuecomment-2698732783
+                prefect_services_process = subprocess.Popen(
+                    [*numa_prefix_0, "prefect", "server", "services", "start"], stdout=f, stderr=f)
 
             cluster_process = subprocess.Popen([*numa_prefix_1, 'punchpipe_cluster', configuration_path],
                                                stdout=f, stderr=f)
@@ -166,69 +176,62 @@ def run(configuration_path):
             data_process = data_process_launcher()
             control_process = control_process_launcher()
 
-            print("Launched Prefect dashboard on http://localhost:4200/")
+            if launch_prefect is not None:
+                print("Launched Prefect dashboard on http://localhost:4200/")
             print("Launched punchpipe monitor on http://localhost:8050/")
             print("Launched dask cluster on http://localhost:8786/")
             print("Dask dashboard available at http://localhost:8787/")
             print("Use ctrl-c to exit.")
 
-            time.sleep(5)
+            time.sleep(10)
             while True:
-                # This updates but does not return the object's returncode attribute
-                prefect_process.poll()
-                prefect_services_process.poll()
+                # `.poll()` updates but does not return the object's returncode attribute
                 cluster_process.poll()
                 control_process.poll()
                 data_process.poll()
-                if prefect_process.returncode or prefect_services_process.returncode or cluster_process.returncode:
-                    print("Child process exited unexpectedly")
+                if launch_prefect:
+                    prefect_process.poll()
+                    prefect_services_process.poll()
+                    if prefect_process.returncode or prefect_services_process.returncode:
+                        print("Prefect process exited unexpectedly")
+                        break
+                if cluster_process.returncode:
+                    print("Cluster process exited unexpectedly")
                     break
-                else:
-                    # Core processes are still running. Now check worker processes, which we can restart safely
-                    if control_process.returncode:
-                        print(f"Restarted control process at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                        control_process = control_process_launcher()
-                    if data_process.returncode:
-                        print(f"Restarted data process at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                        data_process = data_process_launcher()
-                    time.sleep(10)
+                # Core processes are still running. Now check worker processes, which we can restart safely
+                if control_process.returncode:
+                    print(f"Restarted control process at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                    control_process = control_process_launcher()
+                if data_process.returncode:
+                    print(f"Restarted data process at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                    data_process = data_process_launcher()
+                time.sleep(10)
             raise RuntimeError()
         except KeyboardInterrupt:
             print("Shutting down.")
-            control_process.terminate()
-            data_process.terminate()
-            control_process.wait()
-            data_process.wait()
-            time.sleep(1)
-            prefect_services_process.terminate()
-            prefect_services_process.wait()
-            time.sleep(3)
-            prefect_process.terminate()
-            prefect_process.wait()
-            time.sleep(3)
-            cluster_process.terminate()
-            monitor_process.terminate()
-            cluster_process.wait()
-            monitor_process.wait()
-            print()
-            print("punchpipe safely shut down.")
+            shutdown_expected = True
         except Exception as e:
             print(f"Received error: {e}")
             print(traceback.format_exc())
-            control_process.terminate()
-            data_process.terminate()
-            control_process.wait()
-            data_process.wait()
+        finally:
+            control_process.terminate() if control_process else None
+            data_process.terminate() if data_process else None
+            control_process.wait() if control_process else None
+            data_process.wait() if data_process else None
             time.sleep(1)
-            prefect_services_process.terminate()
-            prefect_services_process.wait()
-            time.sleep(3)
-            prefect_process.terminate()
-            prefect_process.wait()
-            time.sleep(3)
-            cluster_process.terminate()
-            monitor_process.terminate()
-            cluster_process.wait()
-            monitor_process.wait()
+            if launch_prefect:
+                prefect_services_process.terminate() if prefect_services_process else None
+                prefect_services_process.wait() if prefect_services_process else None
+                time.sleep(3)
+                prefect_process.terminate() if prefect_process else None
+                prefect_process.wait() if prefect_process else None
+                time.sleep(3)
+            cluster_process.terminate() if cluster_process else None
+            monitor_process.terminate() if monitor_process else None
+            cluster_process.wait() if cluster_process else None
+            monitor_process.wait() if monitor_process else None
             print()
-            print("punchpipe abruptly shut down.")
+            if shutdown_expected:
+                print("punchpipe safely shut down")
+            else:
+                print("punchpipe abruptly shut down")
