@@ -2,6 +2,10 @@
 
 [This is available in GitHub](https://github.com/punch-mission/punchpipe/releases)
 
+## Unreleased
+
+* Save floating-point values for COMPBITS when appropriate in L0 in https://github.com/punch-mission/punchpipe/pull/164
+
 ## Version 0.0.6: May 12, 2025
 
 * Prepares punchpipe for SOC2NOAA Interface by @jmbhughes in https://github.com/punch-mission/punchpipe/pull/94
