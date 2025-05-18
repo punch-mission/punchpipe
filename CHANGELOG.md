@@ -3,7 +3,9 @@
 [This is available in GitHub](https://github.com/punch-mission/punchpipe/releases)
 
 ## Unreleased
+
 * Weighted launching and NUMA configuration in https://github.com/punch-mission/punchpipe/pull/160
+* Save floating-point values for COMPBITS when appropriate in L0 in https://github.com/punch-mission/punchpipe/pull/164
 
 ## Version 0.0.6: May 12, 2025
 
