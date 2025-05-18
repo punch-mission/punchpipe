@@ -5,6 +5,7 @@
 ## Unreleased
 
 * Disables logging in cache manager if not in a flow context in https://github.com/punch-mission/punchpipe/pull/159
+* Save floating-point values for COMPBITS when appropriate in L0 in https://github.com/punch-mission/punchpipe/pull/164
 
 ## Version 0.0.6: May 12, 2025
 
