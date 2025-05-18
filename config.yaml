@@ -71,6 +71,7 @@ flows:
       seconds: [ 30, 120, 600 ]
       escalation: [ 11, 21, 31 ]
     schedule: "* * * * *"
+    launch_weight: 0.6
     options:
 
   level2:
@@ -91,6 +92,7 @@ flows:
       seconds: [ 3000, 12000, 60000 ]
       escalation: [ 1000, 1000, 1000 ]
     schedule: "* * * * *"
+    launch_weight: 1
     options:
 
   levelq:
@@ -211,6 +213,7 @@ flows:
       seconds: [1]
       escalation: [1]
     schedule: "0 */8 * * *"
+    launch_weight: 1.5
     options:
       gamera_files_dir: "/Users/mhughes/data/punch_simulation/synthetic_cme/"
       out_dir: "/Users/mhughes/data/punch_simulation/outputs/"

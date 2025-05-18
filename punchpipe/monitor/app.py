@@ -12,7 +12,7 @@ from punchpipe.control.util import get_database_session
 REFRESH_RATE = 60  # seconds
 
 column_names = [ "flow_level", "flow_type", "state", "priority",
-                 "creation_time", "start_time", "end_time",
+                 "creation_time", "launch_time", "start_time", "end_time",
                  "flow_id", "flow_run_id",
                  "flow_run_name", "call_data"]
 schedule_columns =[{'name': v.replace("_", " ").capitalize(), 'id': v} for v in column_names]
