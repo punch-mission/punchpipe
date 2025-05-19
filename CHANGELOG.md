@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+* Disables logging in cache manager if not in a flow context in https://github.com/punch-mission/punchpipe/pull/159
 * Weighted launching and NUMA configuration in https://github.com/punch-mission/punchpipe/pull/160
 * Save floating-point values for COMPBITS when appropriate in L0 in https://github.com/punch-mission/punchpipe/pull/164
 
