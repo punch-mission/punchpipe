@@ -385,17 +385,19 @@ def unpack_n_bit_values(packed: bytes, byteorder: str, n_bits=19) -> np.ndarray:
     return np.asanyarray(results)
 
 def organize_lz_fits_keywords(lz_packet_db, lz_packet):
+    def temperature_formula(value):
+        return -7.19959E-11*(value**3)+1.74252E-06*(value**2)+(0.067873*value)-239.6134821
     return {
         'LZTIME': lz_packet_db.timestamp.isoformat(),
-        'CCDTEMP': int(lz_packet["LZ_P1_P01_NFI_DET_PRI__WFI_DET_PRI"])*0.21477-428.961,
-        'ICMTEMP': int(lz_packet["LZ_P1_P02_NFI_ICM_PRI__WFI_ICM_PRI"])*0.21477-428.962,
-        'FORTEMP': int(lz_packet["LZ_P1_P03_NFI_BAFFWD_PY__WFI_OLA_PRI"])*0.21477-428.963,
-        'AFTTEMP': int(lz_packet["LZ_P1_P04_NFI_BAFAFT_PZ__WFI_CLAM_PRI"])*0.21477-428.964,
-        'PFWTEMP': int(lz_packet["LZ_P1_P05_NFI_PFW_MOT__WFI_PFW_MOT"])*0.21477-428.965,
-        'DOORTEMP': int(lz_packet["LZ_P1_P06_NFI_HOPA__WFI_RAD_CEN"])*0.21477-428.966,
-        'CEBTEMP': int(lz_packet["LZ_P1_P07_CEB_BASE_PRI"])*0.21477-428.967,
-        'HOUSTEMP': int(lz_packet["LZ_P1_P08_STM_ELEC__WFI_CAM_MX"])*0.21477-428.968,
-        'FINGTEMP': int(lz_packet["LZ_P1_P09_STM_DET_PRI__WFI_COLDF_PZ"])*0.21477-428.969,
+        'CCDTEMP': temperature_formula(int(lz_packet["LZ_P1_P01_NFI_DET_PRI__WFI_DET_PRI"])),
+        'ICMTEMP': temperature_formula(int(lz_packet["LZ_P1_P02_NFI_ICM_PRI__WFI_ICM_PRI"])),
+        'FORTEMP': temperature_formula(int(lz_packet["LZ_P1_P03_NFI_BAFFWD_PY__WFI_OLA_PRI"])),
+        'AFTTEMP': temperature_formula(int(lz_packet["LZ_P1_P04_NFI_BAFAFT_PZ__WFI_CLAM_PRI"])),
+        'PFWTEMP': temperature_formula(int(lz_packet["LZ_P1_P05_NFI_PFW_MOT__WFI_PFW_MOT"])),
+        'DOORTEMP': temperature_formula(int(lz_packet["LZ_P1_P06_NFI_HOPA__WFI_RAD_CEN"])),
+        'CEBTEMP': temperature_formula(int(lz_packet["LZ_P1_P07_CEB_BASE_PRI"])),
+        'HOUSTEMP': temperature_formula(int(lz_packet["LZ_P1_P08_STM_ELEC__WFI_CAM_MX"])),
+        'FINGTEMP': temperature_formula(int(lz_packet["LZ_P1_P09_STM_DET_PRI__WFI_COLDF_PZ"])),
         'FPGATEMP': lz_packet["LZ_XTS_TEMP_FPGA"]
     }
 
