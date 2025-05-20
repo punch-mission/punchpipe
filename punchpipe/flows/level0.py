@@ -755,7 +755,7 @@ def get_metadata(first_image_packet,
         fits_info['DESCRPTN'] = "PUNCH Level-0 data, DN values in camera coordinates"
     else:
         fits_info['BUNIT'] = "sqrt(DN)"
-        fits_info['COMPBITS'] = round((fits_info['RAWBITS'] + int(np.log2(fits_info['SCALE']))) / 2, .1)
+        fits_info['COMPBITS'] = round((fits_info['RAWBITS'] + int(np.log2(fits_info['SCALE']))) / 2, 2)
         fits_info['DSATVAL'] = 2**fits_info['COMPBITS'] - 1
         fits_info['DESCRPTN'] = "PUNCH Level-0 data, square-root encoded DN values in camera coordinates"
 
