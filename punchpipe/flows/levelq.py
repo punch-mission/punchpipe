@@ -1,3 +1,4 @@
+from collections import defaultdict
 import os
 import json
 import random
@@ -17,19 +18,25 @@ from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 
 @task(cache_policy=NO_CACHE)
-def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None):
+def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
     all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(File.level == "1")
                        .filter(File.file_type == "CR").order_by(File.date_obs.asc()).all())
     logger.info(f"{len(all_ready_files)} ready files")
-    unique_times = set(f.date_obs for f in all_ready_files)
-    logger.info(f"{len(unique_times)} unique times: {unique_times}")
-    grouped_ready_files = [[f.file_id for f in all_ready_files if f.date_obs == time] for time in unique_times]
-    logger.info(f"{len(grouped_ready_files)} grouped ready files")
-    out = [g for g in grouped_ready_files if len(g) == 4]
-    logger.info(f"{len(out)} groups heading out")
-    return out
+    files_by_time = defaultdict(list)
+    for f in all_ready_files:
+        files_by_time[f.date_obs].append(f.file_id)
+    logger.info(f"{len(files_by_time)} unique times")
+    grouped_ready_files = []
+    for time in sorted(files_by_time.keys()):
+        files = files_by_time[time]
+        if len(files) == 4:
+            grouped_ready_files.append(files)
+            if len(grouped_ready_files) >= max_n:
+                break
+    logger.info(f"{len(grouped_ready_files)} groups heading out")
+    return grouped_ready_files
 
 
 @task(cache_policy=NO_CACHE)
