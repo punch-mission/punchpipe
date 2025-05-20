@@ -13,8 +13,18 @@ class NFIL1Loader(LoaderABC[NDCube]):
     def __init__(self, path: str):
         self.path = path
 
+    def load(self, into: np.ndarray) -> None:
+        with manager.try_read_from_key(self.gen_key()) as buffer:
+            if buffer is None:
+                result = self.load_from_disk()
+                self.try_caching(result)
+            else:
+                result = self.from_bytes(buffer.data)
+            into[:] = result
+            del result
+
     def gen_key(self) -> str:
-        return f"fits-{os.path.basename(self.path)}-{os.path.getmtime(self.path)}"
+        return f"nfi_l1-{os.path.basename(self.path)}-{os.path.getmtime(self.path)}"
 
     def src_repr(self) -> str:
         return self.path
