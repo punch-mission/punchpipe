@@ -10,8 +10,10 @@ from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from punchbowl.levelq.f_corona_model import construct_qp_f_corona_model
 from punchbowl.levelq.flow import levelq_core_flow
+from sqlalchemy import func, select, text
 
 from punchpipe import __version__
+from punchpipe.control.cache_layer.nfi_l1 import wrap_if_appropriate
 from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
@@ -50,7 +52,8 @@ def levelq_construct_flow_info(level1_files: list[File], levelq_file: File, pipe
             "data_list": [
                 os.path.join(level1_file.directory(pipeline_config["root"]), level1_file.filename())
                 for level1_file in level1_files
-            ]
+            ],
+            "date_obs": level1_files[0].date_obs.strftime("%Y-%m-%d %H:%M:%S"),
         }
     )
     return Flow(
@@ -99,9 +102,29 @@ def levelq_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
     )
 
 
+def levelq_call_data_processor(call_data: dict, pipeline_config, session) -> dict:
+    files_to_fit = session.execute(
+        select(File,
+               dt := func.abs(func.timestampdiff(text("second"), File.date_obs, call_data['date_obs'])))
+        .filter(File.state.in_(("created", "progressed")))
+        .filter(File.level == "1")
+        .filter(File.file_type == "CR")
+        .filter(File.observatory == "4")
+        .filter(dt > 10 * 60)
+        .order_by(dt.asc()).limit(1000)).all()
+
+    files_to_fit = [os.path.join(f.directory(pipeline_config["root"]), f.filename()) for f, _ in files_to_fit]
+    files_to_fit = [wrap_if_appropriate(f) for f in files_to_fit]
+
+    call_data['files_to_fit'] = files_to_fit
+    del call_data['date_obs']
+    return call_data
+
+
 @flow
 def levelq_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, levelq_core_flow, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, levelq_core_flow, pipeline_config_path, session=session,
+                               call_data_processor=levelq_call_data_processor)
 
 
 @task

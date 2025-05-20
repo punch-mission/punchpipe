@@ -147,7 +147,7 @@ def level1_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
     )
 
 
-def level1_call_data_processor(call_data: dict) -> dict:
+def level1_call_data_processor(call_data: dict, pipeline_config=None, session=None) -> dict:
     call_data['psf_model_path'] = cache_layer.psf.wrap_if_appropriate(call_data['psf_model_path'])
     call_data['quartic_coefficient_path'] = cache_layer.quartic_coefficients.wrap_if_appropriate(
         call_data['quartic_coefficient_path'])
