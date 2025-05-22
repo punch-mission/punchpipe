@@ -10,6 +10,7 @@
 * Updates precision of square root decoding table bitrate in https://github.com/punch-mission/punchpipe/pull/167
 * LQ speedup, PCA support, and fixes to DB file state in https://github.com/punch-mission/punchpipe/pull/168
 * Adds script to add calibration files to database and adds distortion to Level 1 processing in https://github.com/punch-mission/punchpipe/pull/169
+* Group L2 and LQ inputs with time flexiblity, check there are enough files to fit for LQ, and fix L2 input file queries in https://github.com/punch-mission/punchpipe/pull/170
 
 ## Version 0.0.6: May 12, 2025
 
