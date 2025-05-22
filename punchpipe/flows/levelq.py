@@ -24,7 +24,7 @@ def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None
     all_fittable_files = (session.query(File).filter(File.state.in_(("created", "quickpunched", "progressed")))
                           .filter(File.level == "1")
                           .filter(File.file_type == "CR").limit(1000).all())
-    if all_fittable_files < 1000:
+    if len(all_fittable_files) < 1000:
         logger.info("Not enough fittable files")
         return []
     all_ready_files = (session.query(File).filter(File.state == "created")
