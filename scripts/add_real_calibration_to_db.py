@@ -1,0 +1,44 @@
+import os
+import sys
+import shutil
+from glob import glob
+from datetime import datetime
+
+from punchpipe.control.db import File
+from punchpipe.control.util import get_database_session
+
+model_directory = sys.argv[1]
+root_dir = sys.argv[2]
+
+session = get_database_session()
+
+model_paths = sorted(glob(os.path.join(model_directory, "PUNCH_L1_R*.fits")))
+model_paths += sorted(glob(os.path.join(model_directory, "PUNCH_L1_FQ*.fits")))
+model_paths += sorted(glob(os.path.join(root_dir, "PUNCH_L1_G*.fits")))
+model_paths += sorted(glob(os.path.join(root_dir, "PUNCH_L1_S*.fits")))
+
+for model_path in model_paths:
+    base_path = os.path.basename(model_path)
+    code = base_path.split("_")[2][:2]
+    obs = base_path.split("_")[2][-1]
+    date = datetime.strptime(base_path.split("_")[3], "%Y%m%d%H%M%S")
+    version = base_path.split("_")[-1].split(".fits")[0]
+
+    file = File(
+        level="1",
+        file_type=code,
+        observatory=obs,
+        file_version=version,
+        software_version=version,
+        date_obs=date,
+        polarization=code[1] if code[0] == 'P' else 'C',
+        state='created',
+    )
+    session.add(file)
+    output_filename = os.path.join(
+        file.directory(root_dir), file.filename()
+    )
+    os.makedirs(os.path.dirname(output_filename), exist_ok=True)
+    shutil.copyfile(model_path, output_filename)
+    print(f"Created {output_filename}")
+session.commit()
