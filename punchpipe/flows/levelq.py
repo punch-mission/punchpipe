@@ -22,6 +22,12 @@ from punchpipe.control.scheduler import generic_scheduler_flow_logic
 @task(cache_policy=NO_CACHE)
 def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
+    all_fittable_files = (session.query(File).filter(File.state.in_(("created", "quickpunched", "progressed")))
+                          .filter(File.level == "1")
+                          .filter(File.file_type == "CR").limit(1000).all())
+    if all_fittable_files < 1000:
+        logger.info("Not enough fittable files")
+        return []
     all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(File.level == "1")
                        .filter(File.file_type == "CR").order_by(File.date_obs.asc()).all())
