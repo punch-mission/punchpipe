@@ -2,7 +2,7 @@
 
 [This is available in GitHub](https://github.com/punch-mission/punchpipe/releases)
 
-## Unreleased
+## Version 0.0.7: May 22, 2025
 
 * Disables logging in cache manager if not in a flow context in https://github.com/punch-mission/punchpipe/pull/159
 * Weighted launching and NUMA configuration in https://github.com/punch-mission/punchpipe/pull/160
