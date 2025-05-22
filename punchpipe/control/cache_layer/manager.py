@@ -3,6 +3,7 @@ from glob import glob
 from multiprocessing.shared_memory import SharedMemory
 
 from prefect import get_run_logger
+from prefect.exceptions import MissingContextError
 from prefect.variables import Variable
 
 CACHE_KEY_PREFIX = "punchpipe-cache-"
@@ -48,7 +49,10 @@ def try_write_to_key(key, data):
         shm.buf[0] = 0
         shm.buf[1:len(data)+1] = data
         shm.buf[0] = 1
-        get_run_logger().info(f"Saved to cache key {key}")
+        try:
+            get_run_logger().info(f"Saved to cache key {key}")
+        except MissingContextError:
+            pass  # we're not in a flow so we don't log
     except FileExistsError:
         pass
     finally:

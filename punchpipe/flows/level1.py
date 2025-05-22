@@ -34,11 +34,21 @@ def level1_query_ready_files(session, pipeline_config: dict, reference_time=None
         if get_vignetting_function_path(f, pipeline_config, session=session) is None:
             logger.info(f"Missing vignetting function for {f.filename()}")
             continue
+        if get_distortion_path(f, pipeline_config, session=session) is None:
+            logger.info(f"Missing distortion function for {f.filename()}")
+            continue
         actually_ready.append([f.file_id])
         if len(actually_ready) >= max_n:
             break
     return actually_ready
 
+def get_distortion_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
+    best_function = (session.query(File)
+                     .filter(File.file_type == "DS")
+                     .filter(File.observatory == level0_file.observatory)
+                     .where(File.date_obs <= level0_file.date_obs)
+                     .order_by(File.date_obs.desc()).first())
+    return best_function
 
 def get_vignetting_function_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
     corresponding_vignetting_function_type = {"PM": "GM",
@@ -92,6 +102,7 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
     best_vignetting_function = get_vignetting_function_path(level0_files[0], pipeline_config, session=session)
     best_psf_model = get_psf_model_path(level0_files[0], pipeline_config, session=session)
     best_quartic_model = get_quartic_model_path(level0_files[0], pipeline_config, session=session)
+    best_distortion = get_distortion_path(level0_files[0], pipeline_config, session=session)
     ccd_parameters = get_ccd_parameters(level0_files[0], pipeline_config, session=session)
 
     call_data = json.dumps(
@@ -107,7 +118,9 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
             "quartic_coefficient_path": os.path.join(best_quartic_model.directory(pipeline_config['root']),
                                                      best_quartic_model.filename()),
             "gain_left": ccd_parameters['gain_left'],
-            "gain_right": ccd_parameters['gain_right']
+            "gain_right": ccd_parameters['gain_right'],
+            "distortion_path": os.path.join(best_distortion.directory(pipeline_config['root']),
+                                            best_distortion.filename())
         }
     )
     return Flow(
@@ -144,11 +157,10 @@ def level1_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
         pipeline_config_path,
         reference_time=reference_time,
         session=session,
-            new_input_file_state="quickpunched"
     )
 
 
-def level1_call_data_processor(call_data: dict) -> dict:
+def level1_call_data_processor(call_data: dict, pipeline_config=None, session=None) -> dict:
     call_data['psf_model_path'] = cache_layer.psf.wrap_if_appropriate(call_data['psf_model_path'])
     call_data['quartic_coefficient_path'] = cache_layer.quartic_coefficients.wrap_if_appropriate(
         call_data['quartic_coefficient_path'])

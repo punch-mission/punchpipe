@@ -19,7 +19,7 @@ SCIENCE_CLEAR_LEVEL1_TYPES = ["CR"]
 @task(cache_policy=NO_CACHE)
 def level2_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
-    all_ready_files = (session.query(File).filter(File.state == "created")
+    all_ready_files = (session.query(File).filter(File.state == "quickpunched")
                        .filter(File.level == "1")
                        .filter(File.file_type.in_(SCIENCE_POLARIZED_LEVEL1_TYPES))
                        .order_by(File.date_obs.asc()).all())

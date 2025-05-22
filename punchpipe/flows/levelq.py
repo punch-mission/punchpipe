@@ -1,3 +1,4 @@
+from collections import defaultdict
 import os
 import json
 import random
@@ -9,27 +10,35 @@ from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from punchbowl.levelq.f_corona_model import construct_qp_f_corona_model
 from punchbowl.levelq.flow import levelq_core_flow
+from sqlalchemy import func, select, text
 
 from punchpipe import __version__
+from punchpipe.control.cache_layer.nfi_l1 import wrap_if_appropriate
 from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 
 @task(cache_policy=NO_CACHE)
-def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None):
+def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
     all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(File.level == "1")
                        .filter(File.file_type == "CR").order_by(File.date_obs.asc()).all())
     logger.info(f"{len(all_ready_files)} ready files")
-    unique_times = set(f.date_obs for f in all_ready_files)
-    logger.info(f"{len(unique_times)} unique times: {unique_times}")
-    grouped_ready_files = [[f.file_id for f in all_ready_files if f.date_obs == time] for time in unique_times]
-    logger.info(f"{len(grouped_ready_files)} grouped ready files")
-    out = [g for g in grouped_ready_files if len(g) == 4]
-    logger.info(f"{len(out)} groups heading out")
-    return out
+    files_by_time = defaultdict(list)
+    for f in all_ready_files:
+        files_by_time[f.date_obs].append(f.file_id)
+    logger.info(f"{len(files_by_time)} unique times")
+    grouped_ready_files = []
+    for time in sorted(files_by_time.keys()):
+        files = files_by_time[time]
+        if len(files) == 4:
+            grouped_ready_files.append(files)
+            if len(grouped_ready_files) >= max_n:
+                break
+    logger.info(f"{len(grouped_ready_files)} groups heading out")
+    return grouped_ready_files
 
 
 @task(cache_policy=NO_CACHE)
@@ -43,7 +52,8 @@ def levelq_construct_flow_info(level1_files: list[File], levelq_file: File, pipe
             "data_list": [
                 os.path.join(level1_file.directory(pipeline_config["root"]), level1_file.filename())
                 for level1_file in level1_files
-            ]
+            ],
+            "date_obs": level1_files[0].date_obs.strftime("%Y-%m-%d %H:%M:%S"),
         }
     )
     return Flow(
@@ -88,12 +98,33 @@ def levelq_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
         pipeline_config_path,
         reference_time=reference_time,
         session=session,
+        new_input_file_state="quickpunched"
     )
+
+
+def levelq_call_data_processor(call_data: dict, pipeline_config, session) -> dict:
+    files_to_fit = session.execute(
+        select(File,
+               dt := func.abs(func.timestampdiff(text("second"), File.date_obs, call_data['date_obs'])))
+        .filter(File.state.in_(("created", "progressed")))
+        .filter(File.level == "1")
+        .filter(File.file_type == "CR")
+        .filter(File.observatory == "4")
+        .filter(dt > 10 * 60)
+        .order_by(dt.asc()).limit(1000)).all()
+
+    files_to_fit = [os.path.join(f.directory(pipeline_config["root"]), f.filename()) for f, _ in files_to_fit]
+    files_to_fit = [wrap_if_appropriate(f) for f in files_to_fit]
+
+    call_data['files_to_fit'] = files_to_fit
+    del call_data['date_obs']
+    return call_data
 
 
 @flow
 def levelq_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, levelq_core_flow, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, levelq_core_flow, pipeline_config_path, session=session,
+                               call_data_processor=levelq_call_data_processor)
 
 
 @task
