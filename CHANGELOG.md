@@ -9,7 +9,7 @@
 * Save floating-point values for COMPBITS when appropriate in L0 in https://github.com/punch-mission/punchpipe/pull/164
 * Updates precision of square root decoding table bitrate in https://github.com/punch-mission/punchpipe/pull/167
 * LQ speedup, PCA support, and fixes to DB file state in https://github.com/punch-mission/punchpipe/pull/168
-* Adds script to add calibration files to database in https://github.com/punch-mission/punchpipe/pull/169
+* Adds script to add calibration files to database and adds distortion to Level 1 processing in https://github.com/punch-mission/punchpipe/pull/169
 
 ## Version 0.0.6: May 12, 2025
 
