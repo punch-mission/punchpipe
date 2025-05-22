@@ -2,6 +2,10 @@
 
 [This is available in GitHub](https://github.com/punch-mission/punchpipe/releases)
 
+## Unreleased
+
+* Group L2 and LQ inputs with time flexiblity, check there are enough files to fit for LQ, and fix L2 input file queries in https://github.com/punch-mission/punchpipe/pull/170
+
 ## Version 0.0.7: May 22, 2025
 
 * Disables logging in cache manager if not in a flow context in https://github.com/punch-mission/punchpipe/pull/159
