@@ -12,6 +12,7 @@ from yaml.loader import FullLoader
 
 from punchpipe.control.db import File
 
+DEFAULT_SCALING = (1e-15, 8e-13)
 
 def get_database_session(get_engine=False):
     """Sets up a session to connect to the MariaDB punchpipe database"""
@@ -38,12 +39,22 @@ def load_pipeline_configuration(path: str = None) -> dict:
     # TODO: add validation
     return config
 
-def load_quicklook_scaling(path: str = None) -> (float, float):
+
+def load_quicklook_scaling(level: str = None, product: str = None, path: str = None) -> (float, float):
     if path is None:
         path = Variable.get("punchpipe_config", "punchpipe_config.yaml")
     with open(path) as f:
         config = yaml.load(f, Loader=FullLoader)
-    return config["quicklook_scaling"][0]
+    if "quicklook_scaling" in config:
+        if level:
+            level_data = config.get('quicklook_scaling', {}).get(level, {})
+            if product and isinstance(level_data, dict):
+                return level_data.get(product, level_data.get('default'))
+            return level_data if not isinstance(level_data, dict) else level_data.get('default')
+        else:
+            return DEFAULT_SCALING
+    else:
+        return DEFAULT_SCALING
 
 
 def write_file(data: NDCube, corresponding_file_db_entry, pipeline_config) -> None:
