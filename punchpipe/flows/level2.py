@@ -24,6 +24,9 @@ def level2_query_ready_files(session, pipeline_config: dict, reference_time=None
                        .order_by(File.date_obs.asc()).all())
     logger.info(f"{len(all_ready_files)} ready files")
 
+    if len(all_ready_files) == 0:
+        return []
+
     # We need to group up files by date_obs, but we need to handle small variations in date_obs. The files are coming
     # from the database already sorted, so let's just walk through the list of files and cut a group boundary every time
     # date_obs increases by more than a threshold.
@@ -63,6 +66,9 @@ def level2_query_ready_clear_files(session, pipeline_config: dict, reference_tim
                        .filter(File.file_type.in_(SCIENCE_CLEAR_LEVEL1_TYPES))
                        .order_by(File.date_obs.asc()).all())
     logger.info(f"{len(all_ready_files)} ready files")
+
+    if len(all_ready_files) == 0:
+        return []
 
     # We need to group up files by date_obs, but we need to handle small variations in date_obs. The files are coming
     # from the database already sorted, so let's just walk through the list of files and cut a group boundary every time
