@@ -127,6 +127,10 @@ def movie_core_flow(file_list: list, product_code: str, output_movie_dir: str,
 
             vmin, vmax = load_quicklook_scaling(level=cube.meta["LEVEL"].value, product=cube.meta["TYPECODE"].value)
 
+            if cube.meta["LEVEL"].value == 0 and cube.meta["ISSQRT"].value == 0:
+                vmin = vmin**2
+                vmax = vmax**2
+
             write_ndcube_to_quicklook(cube, filename=img_file, annotation=annotation, vmin=vmin, vmax=vmax)
 
         out_filename = os.path.join(output_movie_dir,
