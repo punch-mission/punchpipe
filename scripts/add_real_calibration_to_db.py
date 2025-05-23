@@ -41,7 +41,7 @@ for model_path in model_paths:
         file.directory(root_dir), file.filename()
     )
     if code == "MS":
-        output_filename.replace(".fits", ".bin")
+        output_filename = output_filename.replace(".fits", ".bin")
     os.makedirs(os.path.dirname(output_filename), exist_ok=True)
     shutil.copyfile(model_path, output_filename)
     print(f"Created {output_filename}")
