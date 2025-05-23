@@ -24,7 +24,7 @@ for model_path in model_paths:
     code = base_path.split("_")[2][:2]
     obs = base_path.split("_")[2][-1]
     date = datetime.strptime(base_path.split("_")[3], "%Y%m%d%H%M%S")
-    version = base_path.split("_")[-1].split(".")[0]
+    version = base_path.split("_")[-1].split(".")[0][1:]
 
     file = File(
         level="1",
@@ -40,6 +40,8 @@ for model_path in model_paths:
     output_filename = os.path.join(
         file.directory(root_dir), file.filename()
     )
+    if code == "MS":
+        output_filename.replace(".fits", ".bin")
     os.makedirs(os.path.dirname(output_filename), exist_ok=True)
     shutil.copyfile(model_path, output_filename)
     print(f"Created {output_filename}")
