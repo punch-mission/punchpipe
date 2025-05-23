@@ -59,7 +59,7 @@ def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None
     grouped_ready_files = []
     for group in grouped_files:
         if len(group) == 4:
-            grouped_ready_files.append(group)
+            grouped_ready_files.append([f.file_id for f in group])
         if len(grouped_ready_files) >= max_n:
             break
     logger.info(f"{len(grouped_ready_files)} groups heading out")
