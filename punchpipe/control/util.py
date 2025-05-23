@@ -12,7 +12,7 @@ from yaml.loader import FullLoader
 
 from punchpipe.control.db import File
 
-DEFAULT_SCALING = (1e-15, 8e-13)
+DEFAULT_SCALING = (5e-13, 5e-11)
 
 def get_database_session(get_engine=False):
     """Sets up a session to connect to the MariaDB punchpipe database"""
@@ -40,7 +40,7 @@ def load_pipeline_configuration(path: str = None) -> dict:
     return config
 
 
-def load_quicklook_scaling(level: str = None, product: str = None, path: str = None) -> (float, float):
+def load_quicklook_scaling(level: str = None, product: str = None, obscode: str = None, path: str = None) -> (float, float):
     if path is None:
         path = Variable.get("punchpipe_config", "punchpipe_config.yaml")
     with open(path) as f:
@@ -49,8 +49,15 @@ def load_quicklook_scaling(level: str = None, product: str = None, path: str = N
         if level:
             level_data = config.get('quicklook_scaling', {}).get(level, {})
             if product and isinstance(level_data, dict):
-                return level_data.get(product, level_data.get('default'))
-            return level_data if not isinstance(level_data, dict) else level_data.get('default')
+                product_data = level_data.get(product, level_data.get('default'))
+                if obscode == "4":
+                    return product_data[1]
+                else:
+                    return product_data[0]
+            if obscode == "4":
+                return level_data.get('default')[1]
+            else:
+                return level_data.get('default')[0]
         else:
             return DEFAULT_SCALING
     else:
