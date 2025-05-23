@@ -68,9 +68,6 @@ def write_file(data: NDCube, corresponding_file_db_entry, pipeline_config) -> No
     corresponding_file_db_entry.state = "created"
 
     # TODO - Configure to write each layer separately?
-    # TODO - need to break down by product code
-    # TODO - if square rooted, take square root of scaling values too
-    # TODO - have defaults, but change if specified (eg. darks should be darker)
     layer = 0 if len(data.data.shape) > 2 else None
     write_ndcube_to_quicklook(data, output_filename.replace(".fits", ".jp2"), layer=layer)
 
