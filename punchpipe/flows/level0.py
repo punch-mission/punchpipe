@@ -1106,7 +1106,7 @@ def level0_form_images(pipeline_config, defs, apid_name2num, session):
     session.close()
 
 @flow
-def level0_core_flow(pipeline_config: dict):
+def level0_core_flow(pipeline_config: dict, skip_if_no_new_tlm: bool = True):
     logger = get_run_logger()
     session = Session(engine)
 
@@ -1119,25 +1119,26 @@ def level0_core_flow(pipeline_config: dict):
     new_tlm_files = detect_new_tlm_files(pipeline_config, session=session)
     logger.info(f"Found {len(new_tlm_files)} new TLM files")
 
-    logger.debug("Proceeding through files")
-    tlm_ingest_inputs = []
-    for i, path in enumerate(new_tlm_files):
-        tlm_ingest_inputs.append([path, defs, apid_name2num])
+    if new_tlm_files or not skip_if_no_new_tlm:
+        logger.debug("Proceeding through files")
+        tlm_ingest_inputs = []
+        for i, path in enumerate(new_tlm_files):
+            tlm_ingest_inputs.append([path, defs, apid_name2num])
 
-    try:
-        num_workers = pipeline_config['flows']['level0']['options']['num_workers']
-    except KeyError:
-        num_workers = 4
-        logger.warning(f"No num_workers defined, using {num_workers} workers")
+        try:
+            num_workers = pipeline_config['flows']['level0']['options']['num_workers']
+        except KeyError:
+            num_workers = 4
+            logger.warning(f"No num_workers defined, using {num_workers} workers")
 
-    with multiprocessing.get_context('spawn').Pool(num_workers, initializer=initializer) as pool:
-        pool.starmap(ingest_tlm_file, tlm_ingest_inputs)
+        with multiprocessing.get_context('spawn').Pool(num_workers, initializer=initializer) as pool:
+            pool.starmap(ingest_tlm_file, tlm_ingest_inputs)
 
-    level0_form_images(pipeline_config, defs, apid_name2num, session)
+        level0_form_images(pipeline_config, defs, apid_name2num, session)
     session.close()
 
 @task
-def level0_construct_flow_info(pipeline_config: dict):
+def level0_construct_flow_info(pipeline_config: dict, skip_if_no_new_tlm: bool = True):
     flow_type = "level0"
     state = "planned"
     creation_time = datetime.now(UTC)
@@ -1146,6 +1147,7 @@ def level0_construct_flow_info(pipeline_config: dict):
     call_data = json.dumps(
         {
             "pipeline_config": pipeline_config,
+            "skip_if_no_new_tlm": skip_if_no_new_tlm,
         }
     )
     return Flow(
@@ -1159,9 +1161,9 @@ def level0_construct_flow_info(pipeline_config: dict):
 
 
 @flow
-def level0_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
+def level0_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None, skip_if_no_new_tlm: bool=True):
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
-    new_flow = level0_construct_flow_info(pipeline_config)
+    new_flow = level0_construct_flow_info(pipeline_config, skip_if_no_new_tlm=skip_if_no_new_tlm)
 
     if session is None:
         session = Session(engine)
