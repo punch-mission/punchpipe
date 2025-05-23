@@ -54,6 +54,7 @@ def write_file(data: NDCube, corresponding_file_db_entry, pipeline_config) -> No
     # TODO - Configure to use specified vmin/vmax on a per-product level basis?
     layer = 0 if len(data.data.shape) > 2 else None
     write_ndcube_to_quicklook(data, output_filename.replace(".fits", ".jp2"), layer=layer)
+    return output_filename
 
 
 def match_data_with_file_db_entry(data: NDCube, file_db_entry_list):

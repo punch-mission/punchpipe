@@ -60,7 +60,8 @@ def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_confi
             file_db_entry = match_data_with_file_db_entry(result, file_db_entry_list)
             logger.info(f"Preparing to write {file_db_entry.file_id}.")
             output_file_ids.add(file_db_entry.file_id)
-            write_file(result, file_db_entry, pipeline_config)
+            filename = write_file(result, file_db_entry, pipeline_config)
+            logger.info(f"Wrote to {filename}")
 
         for file_id in expected_file_ids.difference(output_file_ids):
             entry = session.query(File).where(File.file_id == file_id).one()
