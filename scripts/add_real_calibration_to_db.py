@@ -16,6 +16,7 @@ model_paths = sorted(glob(os.path.join(model_directory, "PUNCH_L1_R*.fits")))
 model_paths += sorted(glob(os.path.join(model_directory, "PUNCH_L1_FQ*.fits")))
 model_paths += sorted(glob(os.path.join(model_directory, "PUNCH_L1_G*.fits")))
 model_paths += sorted(glob(os.path.join(model_directory, "PUNCH_L1_S*.fits")))
+model_paths += sorted(glob(os.path.join(model_directory, "PUNCH_L1_D*.fits")))
 
 for model_path in model_paths:
     base_path = os.path.basename(model_path)
