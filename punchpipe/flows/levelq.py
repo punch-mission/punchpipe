@@ -24,6 +24,7 @@ def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None
     logger = get_run_logger()
     all_fittable_files = (session.query(File).filter(File.state.in_(("created", "quickpunched", "progressed")))
                           .filter(File.level == "1")
+                          .filter(File.observatory == "4")
                           .filter(File.file_type == "CR").limit(1000).all())
     if len(all_fittable_files) < 1000:
         logger.info("Not enough fittable files")
@@ -132,7 +133,7 @@ def levelq_call_data_processor(call_data: dict, pipeline_config, session) -> dic
     files_to_fit = session.execute(
         select(File,
                dt := func.abs(func.timestampdiff(text("second"), File.date_obs, call_data['date_obs'])))
-        .filter(File.state.in_(("created", "progressed")))
+        .filter(File.state.in_(("created", "quickpunched", "progressed")))
         .filter(File.level == "1")
         .filter(File.file_type == "CR")
         .filter(File.observatory == "4")
