@@ -9,6 +9,7 @@ from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from punchbowl.levelq.f_corona_model import construct_qp_f_corona_model
 from punchbowl.levelq.flow import levelq_core_flow
+from punchbowl.util import average_datetime
 from sqlalchemy import func, select, text
 
 from punchpipe import __version__
@@ -99,7 +100,7 @@ def levelq_construct_file_info(level1_files: t.List[File], pipeline_config: dict
                 observatory="M",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
-                date_obs=level1_files[0].date_obs,
+                date_obs=average_datetime([f.date_obs for f in level1_files]),
                 state="planned",
             ),
             File(
@@ -108,7 +109,7 @@ def levelq_construct_file_info(level1_files: t.List[File], pipeline_config: dict
                 observatory="N",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
-                date_obs=level1_files[0].date_obs,
+                date_obs=[f.date_obs for f in level1_files if f.observatory == "4"][0],
                 state="planned",
             )
     ]
