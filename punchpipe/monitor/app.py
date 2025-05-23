@@ -138,48 +138,31 @@ def create_app():
     def update_cards(n):
         reference_time = datetime.now() - timedelta(hours=24)
         with get_database_session() as session:
-            query = (f"SELECT SUM(num_images_succeeded), SUM(num_images_failed) "
-                     f"FROM packet_history WHERE datetime > '{reference_time}';")
-            l0_df = pd.read_sql_query(query, session.connection())
             query = (f"SELECT flow_level AS level, SUM(state = 'completed') AS n_good, "
                       "SUM(state = 'failed') AS n_bad, SUM(state = 'running') AS n_running "
                      f"FROM flows WHERE start_time > '{reference_time}' "
                       "GROUP BY level;")
-            l1plus_df = pd.read_sql_query(query, session.connection())
+            df = pd.read_sql_query(query, session.connection())
             # These states don't have a start_time set
             query = ("SELECT flow_level AS level, "
                      "SUM(state = 'launched') AS n_launched, SUM(state = 'planned') AS n_planned "
                      "FROM flows GROUP BY level;")
-            l1plus_second_df = pd.read_sql_query(query, session.connection())
-            l1plus_df = l1plus_df.join(l1plus_second_df.set_index('level'), on='level')
-            l1plus_df.fillna(0, inplace=True)
-        num_l0_success = l0_df['SUM(num_images_succeeded)'].sum()
-        num_l0_fails = l0_df['SUM(num_images_failed)'].sum()
-        l0_fraction = num_l0_success / (1 + num_l0_success + num_l0_fails)  # add one to avoid div by 0 errors
-        message = f"{num_l0_success} ✅     {num_l0_fails} ⛔"
-        if (num_l0_success + num_l0_fails) == 0:
-            status = ""
-            message = "No activity"
-            color = "light"
-        elif l0_fraction > 0.95:
-            status = "Good"
-            color = "success"
-        else:
-            status = "Bad"
-            color = "danger"
-        cards = [dbc.Col(dbc.Card(create_card_content(0, status, message), color=color, inverse=color != 'light'))]
+            second_df = pd.read_sql_query(query, session.connection())
+            df = df.join(second_df.set_index('level'), on='level')
+            df.fillna(0, inplace=True)
 
-        for level in ['1', '2', '3', 'S']:
-            if level not in l1plus_df['level'].values:
+        cards = []
+        for level in ['0', '1', '2', '3', 'S', 'Q']:
+            if level not in df['level'].values:
                 cards.append(dbc.Col(dbc.Card(create_card_content(level, "", "No activity"),
                                               color="light", inverse=False)))
                 continue
 
-            df = l1plus_df.loc[(l1plus_df['level'] == level)]
-            n_good, n_bad, n_running = df['n_good'].iloc[0], df['n_bad'].iloc[0], df['n_running'].iloc[0]
-            n_launched, n_planned = df['n_launched'].iloc[0], df['n_planned'].iloc[0]
+            sub_df = df.loc[(df['level'] == level)]
+            n_good, n_bad, n_running = sub_df['n_good'].iloc[0], sub_df['n_bad'].iloc[0], sub_df['n_running'].iloc[0]
+            n_launched, n_planned = sub_df['n_launched'].iloc[0], sub_df['n_planned'].iloc[0]
 
-            n_planned = df['n_planned'].iloc[0]
+            n_planned = sub_df['n_planned'].iloc[0]
             message = (f"{n_good:.0f} ✅     {n_bad:.0f} ⛔     {n_launched:.0f} 🚀     {n_running:.0f} ⏳     "
                        f"{n_planned:.0f} 💭")
             if n_good == 0 and n_bad == 0:
