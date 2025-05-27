@@ -764,13 +764,14 @@ def get_metadata(first_image_packet,
     exposure_time = float(fits_info['EXPTIME'])
     fits_info['COM_SET'] = first_image_packet.compression_settings
     fits_info['ACQ_SET'] = first_image_packet.acquisition_settings
-    fits_info['DATE-BEG'] = observation_time.isoformat()
+    fits_info['DATE-BEG'] = f"{observation_time:%Y-%m-%dT%H:%M:%S}.{observation_time.microsecond // 100000}"
     date_end = observation_time + timedelta(seconds=exposure_time)
-    fits_info['DATE-END'] = date_end.isoformat()
+    fits_info['DATE-END'] = f"{date_end:%Y-%m-%dT%H:%M:%S}.{date_end.microsecond // 100000}"
     date_avg =  observation_time + timedelta(seconds=exposure_time/2)
-    fits_info['DATE-AVG'] = date_avg.isoformat()
-    fits_info['DATE-OBS'] = date_avg.isoformat()
-    fits_info['DATE'] = datetime.now(UTC).isoformat()
+    fits_info['DATE-AVG'] = f"{date_avg:%Y-%m-%dT%H:%M:%S}.{date_avg.microsecond // 100000}"
+    fits_info['DATE-OBS'] = f"{date_avg:%Y-%m-%dT%H:%M:%S}.{date_avg.microsecond // 100000}"
+    date_now = datetime.now(UTC)
+    fits_info['DATE'] = f"{date_now:%Y-%m-%dT%H:%M:%S}.{date_now.microsecond // 100000}"
 
     return position_info, fits_info
 
