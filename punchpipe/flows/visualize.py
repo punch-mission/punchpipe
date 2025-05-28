@@ -10,7 +10,7 @@ from punchbowl.data.meta import construct_all_product_codes
 from punchbowl.data.punch_io import load_ndcube_from_fits, write_ndcube_to_quicklook, write_quicklook_to_mp4
 
 from punchpipe.control.db import File, Flow
-from punchpipe.control.util import get_database_session, load_pipeline_configuration
+from punchpipe.control.util import get_database_session, load_pipeline_configuration, load_quicklook_scaling
 
 
 @task
@@ -127,8 +127,13 @@ def movie_core_flow(file_list: list, product_code: str, output_movie_dir: str,
 
             written_list.append(img_file)
 
-            write_ndcube_to_quicklook(cube, filename=img_file, annotation=annotation, vmin=400, vmax=10_000)
+            vmin, vmax = load_quicklook_scaling(level=cube.meta["LEVEL"].value, product=cube.meta["TYPECODE"].value, obscode=cube.meta["OBSCODE"])
 
+            if cube.meta["LEVEL"].value == 0 and cube.meta["ISSQRT"].value == 0:
+                vmin = vmin**2
+                vmax = vmax**2
+
+            write_ndcube_to_quicklook(cube, filename=img_file, annotation=annotation, vmin=vmin, vmax=vmax)
 
         out_filename = os.path.join(output_movie_dir,
                                     f"{product_code}_{obs_start.isoformat()}-{obs_end.isoformat()}.mp4")
