@@ -31,6 +31,9 @@ def create_app():
         html.Div(
             id="status-cards"
         ),
+        html.Div(
+            id="file-status-cards"
+        ),
         html.Div([
             html.Div(children=[dcc.Graph(id='flow-throughput')], style={'padding': 10, 'flex': 1}),
 
@@ -174,8 +177,71 @@ def create_app():
                 status = "Bad"
             else:
                 color = "success"
-                status = "Good "
+                status = "Good"
             cards.append(dbc.Col(dbc.Card(create_card_content(level, status, message),
+                                          color=color, inverse=color != 'light',
+                                          # This preserves the multiple spaces separating the status count indicators
+                                          style={'white-space': 'pre'})))
+
+        return html.Div([dbc.Row(cards, className="mb-4")])
+
+
+    def create_file_card_content(level: int | str, status: str, message: str):
+        return [
+            dbc.CardBody(
+                [
+                    html.H5(f"Level {level} File Status: {status}", className="card-title"),
+                    html.P(
+                        message,
+                        className="card-text",
+                    ),
+                ]
+            ),
+        ]
+
+    @callback(
+        Output('file-status-cards', 'children'),
+        Input('interval-component', 'n_intervals'),
+    )
+    def update_file_cards(n):
+        with get_database_session() as session:
+            query = (f"SELECT level, SUM(state = 'created') AS n_created, "
+                      "SUM(state = 'failed') AS n_failed, SUM(state = 'planned') AS n_planned, "
+                      "SUM(state = 'creating') AS n_creating, SUM(state = 'progressed') AS n_progressed, "
+                     f"SUM(state = 'quickpunched') AS n_quickpunched FROM files GROUP BY level;")
+            df = pd.read_sql_query(query, session.connection())
+
+        cards = []
+        for level in ['0', '1', '2', '3', 'S', 'Q']:
+            if level not in df['level'].values:
+                cards.append(dbc.Col(dbc.Card(create_card_content(level, "", "No activity"),
+                                              color="light", inverse=False)))
+                continue
+
+            sub_df = df.loc[(df['level'] == level)]
+            n_created, n_failed = sub_df['n_created'].iloc[0], sub_df['n_failed'].iloc[0]
+            n_creating, n_progressed = sub_df['n_creating'].iloc[0], sub_df['n_progressed'].iloc[0]
+            n_quickpunched, n_planned = sub_df['n_quickpunched'].iloc[0], sub_df['n_planned'].iloc[0]
+
+            n_good = n_created + n_quickpunched + n_progressed
+
+            if level == '1':
+                sub_status = f"({n_created:.0f} 🏁 + {n_quickpunched:.0f} ⚡ + {n_progressed:.0f} ➡️)"
+            else:
+                sub_status = f"({n_created:.0f} 🏁 + {n_progressed:.0f} ➡️)"
+            message = (f"{n_good:.0f} ✅ {sub_status}\n{n_failed:.0f} ⛔     {n_creating:.0f} ⏳     "
+                       f"{n_planned:.0f} 💭️")
+            if n_good == 0 and n_failed == 0:
+                color = "light"
+                status = ""
+                message = "No activity"
+            elif n_failed / n_good > 0.95:
+                color = "danger"
+                status = "Bad"
+            else:
+                color = "success"
+                status = "Good"
+            cards.append(dbc.Col(dbc.Card(create_file_card_content(level, status, message),
                                           color=color, inverse=color != 'light',
                                           # This preserves the multiple spaces separating the status count indicators
                                           style={'white-space': 'pre'})))
