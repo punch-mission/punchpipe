@@ -135,6 +135,7 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], pipeline_con
         total_delay_time += (pipeline_config['control']['launcher']['launch_time_window_minutes'] - 1) * 60
         # Launch a batch every 10 seconds through this window
         n_batches = total_delay_time // 10
+        n_batches = max(n_batches, 1)
         batch_size = ceil(len(flow_info) / n_batches)
         logger.info(f"Total delay time: {total_delay_time}")
         if batch_size >= len(flow_info):
