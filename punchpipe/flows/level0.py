@@ -764,13 +764,13 @@ def get_metadata(first_image_packet,
     exposure_time = float(fits_info['EXPTIME'])
     fits_info['COM_SET'] = first_image_packet.compression_settings
     fits_info['ACQ_SET'] = first_image_packet.acquisition_settings
-    fits_info['DATE-BEG'] = observation_time.isoformat(timespec='milliseconds')[:-6]
+    fits_info['DATE-BEG'] = observation_time.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
     date_end = observation_time + timedelta(seconds=exposure_time)
-    fits_info['DATE-END'] = date_end.isoformat(timespec='milliseconds')[:-6]
+    fits_info['DATE-END'] = date_end.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
     date_avg =  observation_time + timedelta(seconds=exposure_time/2)
-    fits_info['DATE-AVG'] = date_avg.isoformat(timespec='milliseconds')[:-6]
-    fits_info['DATE-OBS'] = date_avg.isoformat(timespec='milliseconds')[:-6]
-    fits_info['DATE'] = datetime.now(UTC).isoformat(timespec='milliseconds')[:-6]
+    fits_info['DATE-AVG'] = date_avg.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
+    fits_info['DATE-OBS'] = date_avg.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
+    fits_info['DATE'] = datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
 
     return position_info, fits_info
 
@@ -843,6 +843,7 @@ def form_preliminary_wcs(soc_spacecraft_id, metadata, plate_scale):
 
 def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, spacecraft_secrets):
     session = Session(engine)
+    logger = get_run_logger()
 
     replay_needs = []
     skip_image, skip_reason = False, ""
@@ -867,6 +868,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
         else:
             skip_image = True
             skip_reason = "Could not load all needed TLM files"
+            logger.info(f"Could not load all needed TLM files for spacecraft {spacecraft}")
 
     if not skip_image:
         # we want to get the packet contents and order them so an image can be made
@@ -1199,6 +1201,7 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
     except Exception as e:
         flow_db_entry.state = "failed"
         flow_db_entry.end_time = datetime.now(UTC)
+        logger.info("Something's gone wrong - level0_core_flow failed")
         session.commit()
         raise e
     else:
@@ -1214,6 +1217,7 @@ def open_and_split_packet_file(path: str) -> dict[int, io.BytesIO]:
     return stream_by_apid
 
 def parse_telemetry_file(path, defs, apid_name2num):
+    logger = get_run_logger()
     success = True
     contents = open_and_split_packet_file(path)
     parsed = {}
@@ -1223,6 +1227,7 @@ def parse_telemetry_file(path, defs, apid_name2num):
             try:
                 parsed[packet_name] = defs[packet_name].load(contents[apid_num], include_primary_header=True)
             except (ValueError, RuntimeError):
+                logger.info(f"Unable to parse telemetry file {packet_name}")
                 success = False
     return parsed, success
 
