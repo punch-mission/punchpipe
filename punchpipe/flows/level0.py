@@ -1164,10 +1164,22 @@ def level0_construct_flow_info(pipeline_config: dict, skip_if_no_new_tlm: bool =
 @flow
 def level0_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None, skip_if_no_new_tlm: bool=True):
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
-    new_flow = level0_construct_flow_info(pipeline_config, skip_if_no_new_tlm=skip_if_no_new_tlm)
 
     if session is None:
         session = Session(engine)
+
+    # We have a concurrency limit set for the L0 flow. If we schedule another one while there's one pending or
+    # running, that one could be launched, but then it could be cancelled by Prefect and so its state never gets
+    # progressed beyond 'launched'. That will still count as something running for the launcher and will bog down the
+    # pipeline.
+    flows = (session.query(Flow)
+             .where(Flow.state.in_(["planned", "running", "launched"]))
+             .where(Flow.flow_type == 'level0')
+             .all())
+    if len(flows):
+        return
+
+    new_flow = level0_construct_flow_info(pipeline_config, skip_if_no_new_tlm=skip_if_no_new_tlm)
 
     session.add(new_flow)
     session.commit()
