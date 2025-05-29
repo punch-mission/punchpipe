@@ -1142,7 +1142,7 @@ def level0_core_flow(pipeline_config: dict, skip_if_no_new_tlm: bool = True):
 def level0_construct_flow_info(pipeline_config: dict, skip_if_no_new_tlm: bool = True):
     flow_type = "level0"
     state = "planned"
-    creation_time = datetime.now(UTC)
+    creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
     call_data = json.dumps(
