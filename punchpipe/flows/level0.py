@@ -843,7 +843,6 @@ def form_preliminary_wcs(soc_spacecraft_id, metadata, plate_scale):
 
 def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, spacecraft_secrets):
     session = Session(engine)
-    logger = get_run_logger()
 
     replay_needs = []
     skip_image, skip_reason = False, ""
@@ -868,7 +867,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
         else:
             skip_image = True
             skip_reason = "Could not load all needed TLM files"
-            logger.info(f"Could not load all needed TLM files for spacecraft {spacecraft}")
+            print(f"Could not load all needed TLM files for spacecraft {spacecraft}")
 
     if not skip_image:
         # we want to get the packet contents and order them so an image can be made
@@ -1107,7 +1106,7 @@ def level0_form_images(pipeline_config, defs, apid_name2num, session):
         new_table.to_csv(df_path, index=False)
     session.close()
 
-@flow
+@flow(log_prints=True)
 def level0_core_flow(pipeline_config: dict, skip_if_no_new_tlm: bool = True):
     logger = get_run_logger()
     session = Session(engine)
@@ -1217,7 +1216,6 @@ def open_and_split_packet_file(path: str) -> dict[int, io.BytesIO]:
     return stream_by_apid
 
 def parse_telemetry_file(path, defs, apid_name2num):
-    logger = get_run_logger()
     success = True
     contents = open_and_split_packet_file(path)
     parsed = {}
@@ -1227,7 +1225,7 @@ def parse_telemetry_file(path, defs, apid_name2num):
             try:
                 parsed[packet_name] = defs[packet_name].load(contents[apid_num], include_primary_header=True)
             except (ValueError, RuntimeError):
-                logger.info(f"Unable to parse telemetry file {packet_name}")
+                print(f"Unable to parse telemetry file {packet_name}")
                 success = False
     return parsed, success
 
