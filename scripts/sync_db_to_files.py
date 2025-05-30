@@ -1,22 +1,35 @@
+"""This is for if you're keeping a mirror of the L0 files on punch190 (to process to L1 with newer code). This script
+will add the files in the given directories to the database, skipping files that are already in the database."""
 import os
 import sys
-import shutil
 from glob import glob
 from datetime import datetime
 
 from punchpipe.control.db import File
 from punchpipe.control.util import get_database_session
 
-root_dir = sys.argv[1]
+root_dirs = sys.argv[1:]
 
 session = get_database_session()
 
-files = glob(f"{root_dir}/**/*.fits", recursive=True)
-files += glob(f"{root_dir}/**/MS*/**/*.bin", recursive=True)
+files = set()
+for root_dir in root_dirs:
+    files.update(glob(f"{root_dir}/**/*.fits", recursive=True))
+    files.update(glob(f"{root_dir}/**/MS*/**/*.bin", recursive=True))
+
+print(f"Found {len(files)} files on disk")
 
 print("TODO: This script probably doesn't set the 'polarization' column correctly for every polarized file code")
 
 
+existing_files = session.query(File).all()
+
+existing_files = {f.filename() for f in existing_files}
+
+print(f"Loaded {len(existing_files)} existing files from the DB")
+
+n_added = 0
+n_existing = 0
 for file in files:
     base_path = os.path.basename(file)
     level = base_path.split("_")[1][1]
@@ -35,7 +48,11 @@ for file in files:
         polarization=code[1] if code[0] == 'P' else 'C',
         state='created',
     )
-    session.add(file)
+    if file.filename() not in existing_files:
+        session.add(file)
+        n_added += 1
+    else:
+        n_existing += 1
 session.commit()
 
-print(f"Added {len(files)} files")
+print(f"Added {n_added} files, skipped {n_existing} files")
