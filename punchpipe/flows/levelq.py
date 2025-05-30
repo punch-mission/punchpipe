@@ -31,7 +31,7 @@ def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None
         return []
     all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(File.level == "1")
-                       .filter(File.file_type == "CR").order_by(File.date_obs.asc()).all())
+                       .filter(File.file_type == "CR").order_by(File.date_obs.desc()).all())
     logger.info(f"{len(all_ready_files)} ready files")
 
     if len(all_ready_files) == 0:
