@@ -764,13 +764,13 @@ def get_metadata(first_image_packet,
     exposure_time = float(fits_info['EXPTIME'])
     fits_info['COM_SET'] = first_image_packet.compression_settings
     fits_info['ACQ_SET'] = first_image_packet.acquisition_settings
-    fits_info['DATE-BEG'] = observation_time.isoformat()
+    fits_info['DATE-BEG'] = observation_time.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
     date_end = observation_time + timedelta(seconds=exposure_time)
-    fits_info['DATE-END'] = date_end.isoformat()
+    fits_info['DATE-END'] = date_end.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
     date_avg =  observation_time + timedelta(seconds=exposure_time/2)
-    fits_info['DATE-AVG'] = date_avg.isoformat()
-    fits_info['DATE-OBS'] = date_avg.isoformat()
-    fits_info['DATE'] = datetime.now(UTC).isoformat()
+    fits_info['DATE-AVG'] = date_avg.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
+    fits_info['DATE-OBS'] = date_avg.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
+    fits_info['DATE'] = datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3]
 
     return position_info, fits_info
 
@@ -867,6 +867,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
         else:
             skip_image = True
             skip_reason = "Could not load all needed TLM files"
+            print(f"Could not load all needed TLM files for spacecraft {spacecraft}")
 
     if not skip_image:
         # we want to get the packet contents and order them so an image can be made
@@ -1105,8 +1106,8 @@ def level0_form_images(pipeline_config, defs, apid_name2num, session):
         new_table.to_csv(df_path, index=False)
     session.close()
 
-@flow
-def level0_core_flow(pipeline_config: dict):
+@flow(log_prints=True)
+def level0_core_flow(pipeline_config: dict, skip_if_no_new_tlm: bool = True):
     logger = get_run_logger()
     session = Session(engine)
 
@@ -1119,33 +1120,35 @@ def level0_core_flow(pipeline_config: dict):
     new_tlm_files = detect_new_tlm_files(pipeline_config, session=session)
     logger.info(f"Found {len(new_tlm_files)} new TLM files")
 
-    logger.debug("Proceeding through files")
-    tlm_ingest_inputs = []
-    for i, path in enumerate(new_tlm_files):
-        tlm_ingest_inputs.append([path, defs, apid_name2num])
+    if new_tlm_files or not skip_if_no_new_tlm:
+        logger.debug("Proceeding through files")
+        tlm_ingest_inputs = []
+        for i, path in enumerate(new_tlm_files):
+            tlm_ingest_inputs.append([path, defs, apid_name2num])
 
-    try:
-        num_workers = pipeline_config['flows']['level0']['options']['num_workers']
-    except KeyError:
-        num_workers = 4
-        logger.warning(f"No num_workers defined, using {num_workers} workers")
+        try:
+            num_workers = pipeline_config['flows']['level0']['options']['num_workers']
+        except KeyError:
+            num_workers = 4
+            logger.warning(f"No num_workers defined, using {num_workers} workers")
 
-    with multiprocessing.get_context('spawn').Pool(num_workers, initializer=initializer) as pool:
-        pool.starmap(ingest_tlm_file, tlm_ingest_inputs)
+        with multiprocessing.get_context('spawn').Pool(num_workers, initializer=initializer) as pool:
+            pool.starmap(ingest_tlm_file, tlm_ingest_inputs)
 
-    level0_form_images(pipeline_config, defs, apid_name2num, session)
+        level0_form_images(pipeline_config, defs, apid_name2num, session)
     session.close()
 
 @task
-def level0_construct_flow_info(pipeline_config: dict):
+def level0_construct_flow_info(pipeline_config: dict, skip_if_no_new_tlm: bool = True):
     flow_type = "level0"
     state = "planned"
-    creation_time = datetime.now(UTC)
+    creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
     call_data = json.dumps(
         {
             "pipeline_config": pipeline_config,
+            "skip_if_no_new_tlm": skip_if_no_new_tlm,
         }
     )
     return Flow(
@@ -1159,12 +1162,24 @@ def level0_construct_flow_info(pipeline_config: dict):
 
 
 @flow
-def level0_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
+def level0_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None, skip_if_no_new_tlm: bool=True):
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
-    new_flow = level0_construct_flow_info(pipeline_config)
 
     if session is None:
         session = Session(engine)
+
+    # We have a concurrency limit set for the L0 flow. If we schedule another one while there's one pending or
+    # running, that one could be launched, but then it could be cancelled by Prefect and so its state never gets
+    # progressed beyond 'launched'. That will still count as something running for the launcher and will bog down the
+    # pipeline.
+    flows = (session.query(Flow)
+             .where(Flow.state.in_(["planned", "running", "launched"]))
+             .where(Flow.flow_type == 'level0')
+             .all())
+    if len(flows):
+        return
+
+    new_flow = level0_construct_flow_info(pipeline_config, skip_if_no_new_tlm=skip_if_no_new_tlm)
 
     session.add(new_flow)
     session.commit()
@@ -1197,6 +1212,7 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
     except Exception as e:
         flow_db_entry.state = "failed"
         flow_db_entry.end_time = datetime.now(UTC)
+        logger.info("Something's gone wrong - level0_core_flow failed")
         session.commit()
         raise e
     else:
@@ -1221,6 +1237,7 @@ def parse_telemetry_file(path, defs, apid_name2num):
             try:
                 parsed[packet_name] = defs[packet_name].load(contents[apid_num], include_primary_header=True)
             except (ValueError, RuntimeError):
+                print(f"Unable to parse telemetry file {packet_name}")
                 success = False
     return parsed, success
 
