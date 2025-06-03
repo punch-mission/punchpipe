@@ -2,8 +2,8 @@ import os
 import struct
 from collections.abc import Callable
 
-from ndcube import NDCube
 import numpy as np
+from ndcube import NDCube
 from punchbowl.data import load_ndcube_from_fits
 from punchbowl.levelq.pca import find_bodies_in_image
 

@@ -1,9 +1,9 @@
 import asyncio
-from collections import defaultdict
 from math import ceil
 from random import shuffle
 from typing import List
 from datetime import datetime, timedelta
+from collections import defaultdict
 
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
