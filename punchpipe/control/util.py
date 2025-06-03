@@ -13,6 +13,7 @@ from yaml.loader import FullLoader
 
 from punchpipe.control.db import File
 
+DEFAULT_SCALING = (5e-13, 5e-11)
 
 def get_database_session(get_engine=False):
     """Sets up a session to connect to the MariaDB punchpipe database"""
@@ -40,6 +41,30 @@ def load_pipeline_configuration(path: str = None) -> dict:
     return config
 
 
+def load_quicklook_scaling(level: str = None, product: str = None, obscode: str = None, path: str = None) -> (float, float):
+    if path is None:
+        path = Variable.get("punchpipe_config", "punchpipe_config.yaml")
+    with open(path) as f:
+        config = yaml.load(f, Loader=FullLoader)
+    if "quicklook_scaling" in config:
+        if level:
+            level_data = config.get('quicklook_scaling', {}).get(level, {})
+            if product and isinstance(level_data, dict):
+                product_data = level_data.get(product, level_data.get('default'))
+                if obscode == "4":
+                    return product_data[1]
+                else:
+                    return product_data[0]
+            if obscode == "4":
+                return level_data.get('default')[1]
+            else:
+                return level_data.get('default')[0]
+        else:
+            return DEFAULT_SCALING
+    else:
+        return DEFAULT_SCALING
+
+
 def write_file(data: NDCube, corresponding_file_db_entry, pipeline_config) -> None:
     output_filename = os.path.join(
         corresponding_file_db_entry.directory(pipeline_config["root"]), corresponding_file_db_entry.filename()
@@ -51,9 +76,9 @@ def write_file(data: NDCube, corresponding_file_db_entry, pipeline_config) -> No
     corresponding_file_db_entry.date_created = datetime.now()
 
     # TODO - Configure to write each layer separately?
-    # TODO - Configure to use specified vmin/vmax on a per-product level basis?
     layer = 0 if len(data.data.shape) > 2 else None
     write_ndcube_to_quicklook(data, output_filename.replace(".fits", ".jp2"), layer=layer)
+    return output_filename
 
 
 def match_data_with_file_db_entry(data: NDCube, file_db_entry_list):
