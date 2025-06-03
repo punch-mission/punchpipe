@@ -205,10 +205,10 @@ def create_app():
     )
     def update_file_cards(n):
         with get_database_session() as session:
-            query = (f"SELECT level, SUM(state = 'created') AS n_created, "
-                      "SUM(state = 'failed') AS n_failed, SUM(state = 'planned') AS n_planned, "
-                      "SUM(state = 'creating') AS n_creating, SUM(state = 'progressed') AS n_progressed, "
-                     f"SUM(state = 'quickpunched') AS n_quickpunched FROM files GROUP BY level;")
+            query = ("SELECT level, SUM(state = 'created') AS n_created, "
+                     "SUM(state = 'failed') AS n_failed, SUM(state = 'planned') AS n_planned, "
+                     "SUM(state = 'creating') AS n_creating, SUM(state = 'progressed') AS n_progressed, "
+                     "SUM(state = 'quickpunched') AS n_quickpunched FROM files GROUP BY level;")
             df = pd.read_sql_query(query, session.connection())
 
         cards = []
