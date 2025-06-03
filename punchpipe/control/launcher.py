@@ -1,6 +1,5 @@
 import asyncio
 from collections import defaultdict
-from gc import enable
 from math import ceil
 from random import shuffle
 from typing import List
