@@ -5,6 +5,8 @@ import sys
 from glob import glob
 from datetime import datetime
 
+from astropy.io import fits
+
 from punchpipe.control.db import File
 from punchpipe.control.util import get_database_session
 
@@ -30,13 +32,13 @@ print(f"Loaded {len(existing_files)} existing files from the DB")
 
 n_added = 0
 n_existing = 0
-for file in files:
-    base_path = os.path.basename(file)
+for path in files:
+    base_path = os.path.basename(path)
     level = base_path.split("_")[1][1]
     code = base_path.split("_")[2][:2]
     obs = base_path.split("_")[2][-1]
-    date = datetime.strptime(base_path.split("_")[3], "%Y%m%d%H%M%S")
     version = base_path.split("_")[-1].split(".")[0][1:]
+    date = datetime.strptime(base_path.split("_")[3], "%Y%m%d%H%M%S")
 
     file = File(
         level=level,
@@ -48,7 +50,17 @@ for file in files:
         polarization=code[1] if code[0] == 'P' else 'C',
         state='created',
     )
+
     if file.filename() not in existing_files:
+        # Get the correct number of microsseconds from the FITS header
+        if file.file_type != 'MS':
+            with fits.open(path, disable_image_compression=True) as hdul:
+                if len(hdul) > 1 and 'DATE-OBS' in hdul[1].header:
+                    p = hdul[1].header['DATE-OBS'].split('.')
+                    if len(p) == 2:
+                        ms = p[1]
+                        ms = ms + '0' * (6 - len(ms))
+                        file.date_obs = file.date_obs.replace(microsecond=int(ms))
         session.add(file)
         n_added += 1
     else:
