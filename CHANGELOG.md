@@ -2,7 +2,7 @@
 
 [This is available in GitHub](https://github.com/punch-mission/punchpipe/releases)
 
-## Unreleased 
+## Unreleased
 
 * Relabels the polarizers for WFI for the flipped orientation in https://github.com/punch-mission/punchpipe/pull/179
 
