@@ -2,6 +2,10 @@
 
 [This is available in GitHub](https://github.com/punch-mission/punchpipe/releases)
 
+## Unreleased
+
+* Relabels the polarizers for WFI for the flipped orientation in https://github.com/punch-mission/punchpipe/pull/179
+
 ## Version 0.0.8: June 3, 2025
 
 * Group L2 and LQ inputs with time flexiblity, check there are enough files to fit for LQ, and fix L2 input file queries in https://github.com/punch-mission/punchpipe/pull/170
