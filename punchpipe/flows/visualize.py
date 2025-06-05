@@ -127,7 +127,7 @@ def movie_core_flow(file_list: list, product_code: str, output_movie_dir: str,
 
             written_list.append(img_file)
 
-            vmin, vmax = load_quicklook_scaling(level=cube.meta["LEVEL"].value, product=cube.meta["TYPECODE"].value, obscode=cube.meta["OBSCODE"])
+            vmin, vmax = load_quicklook_scaling(level=cube.meta["LEVEL"].value, product=cube.meta["TYPECODE"].value, obscode=cube.meta["OBSCODE"].value)
 
             if cube.meta["LEVEL"].value == 0 and cube.meta["ISSQRT"].value == 0:
                 vmin = vmin**2
