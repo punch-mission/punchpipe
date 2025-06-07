@@ -2,6 +2,10 @@
 
 [This is available in GitHub](https://github.com/punch-mission/punchpipe/releases)
 
+## Unreleased
+
+* Fixes metadata usage for quicklook animations in https://github.com/punch-mission/punchpipe/pull/185
+
 ## Version 0.0.9: June 4, 2025
 
 * Relabels the polarizers for WFI for the flipped orientation in https://github.com/punch-mission/punchpipe/pull/179
