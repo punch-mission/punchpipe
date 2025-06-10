@@ -544,15 +544,15 @@ def organize_compression_and_acquisition_settings(compression_settings, acquisit
 def organize_gain_info(spacecraft_id):
     match spacecraft_id:
         case 0x2F:
-            gains = {'GAINLEFT': 4.98,'GAINRGHT': 4.92}
+            gains = {'GAINBTM': 4.98,'GAINTOP': 4.92}
         case 0x10:
-            gains = {'GAINLEFT': 4.93, 'GAINRGHT': 4.90}
+            gains = {'GAINBTM': 4.93, 'GAINTOP': 4.90}
         case 0x2C:
-            gains = {'GAINLEFT': 4.90, 'GAINRGHT': 5.04}
+            gains = {'GAINBTM': 4.90, 'GAINTOP': 5.04}
         case 0xF9:
-            gains = {'GAINLEFT': 4.94, 'GAINRGHT': 4.89}
+            gains = {'GAINBTM': 4.94, 'GAINTOP': 4.89}
         case _:
-            gains = {'GAINLEFT': 4.9, 'GAINRGHT': 4.9}
+            gains = {'GAINBTM': 4.9, 'GAINTOP': 4.9}
     return gains
 
 

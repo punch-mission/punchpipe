@@ -49,8 +49,8 @@ def levelh_construct_flow_info(level0_files: list[File], level1_files: File,
             ],
             "psf_model_path": os.path.join(best_psf_model.directory(pipeline_config['root']),
                                            best_psf_model.filename()),
-            "gain_left": ccd_parameters['gain_left'],
-            "gain_right": ccd_parameters['gain_right']
+            "gain_bottom": ccd_parameters['gain_bottom'],
+            "gain_top": ccd_parameters['gain_top']
         }
     )
     return Flow(
