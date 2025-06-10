@@ -62,4 +62,4 @@ print(f"Results written to {output_file_soc}")
 # Write directly to file without modifying the DataFrame
 with open(output_file, 'w') as f:
     for _, row in result_df.iterrows():
-        f.write(f"start mops_fsw_start_fast_replay(nom,{row['start_block']},{row['replay_length']})\n")
+        f.write(f"start mops_fsw_start_fast_replay(xfi,{row['start_block']},{row['replay_length']})\n")
