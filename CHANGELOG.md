@@ -5,6 +5,7 @@
 ## Unreleased
 
 * Group L2 and LQ inputs with time flexiblity, check there are enough files to fit for LQ, and fix L2 input file queries in https://github.com/punch-mission/punchpipe/pull/170
+* Relabels CCD halves in https://github.com/punch-mission/punchpipe/pull/174
 
 ## Version 0.0.7: May 22, 2025
 
