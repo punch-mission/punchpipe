@@ -1,9 +1,9 @@
 import asyncio
-from collections import defaultdict
 from math import ceil
 from random import shuffle
 from typing import List
 from datetime import datetime, timedelta
+from collections import defaultdict
 
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
@@ -17,13 +17,15 @@ from punchpipe.control.util import batched, get_database_session, load_pipeline_
 
 
 @task(cache_policy=NO_CACHE)
-def gather_planned_flows(session, amount_to_launch, flow_weights):
+def gather_planned_flows(session, amount_to_launch, flow_weights, flow_enabled):
     # We'll have to grab a bunch of possible flows to launch from the DB, and then on our end apply the weights and the
     # maximum-weight limit. But we can use the smallest weight to set an upper bound on how many launchable flows to
     # retrieve.
-    max_to_select = amount_to_launch / min(flow_weights.values())
+    enabled_flows = [flow for flow, enabled in flow_enabled.items() if enabled]
+    max_to_select = amount_to_launch / min([flow_weights[k] for k in enabled_flows])
     flows = (session.query(Flow)
                    .where(Flow.state == "planned")
+                   .where(Flow.flow_type.in_(enabled_flows))
                    .order_by(Flow.priority.desc())
                    .limit(max_to_select).all())
     selected_flows = []
@@ -31,6 +33,8 @@ def gather_planned_flows(session, amount_to_launch, flow_weights):
     count_per_type = defaultdict(lambda: 0)
     while selected_weight < amount_to_launch and len(flows):
         flow = flows.pop(0)
+        if not flow_enabled[flow.flow_type]:
+            continue
         selected_flows.append(flow)
         selected_weight += flow_weights[flow.flow_type]
         count_per_type[flow.flow_type] += 1
@@ -130,6 +134,7 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], pipeline_con
         total_delay_time += (pipeline_config['control']['launcher']['launch_time_window_minutes'] - 1) * 60
         # Launch a batch every 10 seconds through this window
         n_batches = total_delay_time // 10
+        n_batches = max(n_batches, 1)
         batch_size = ceil(len(flow_info) / n_batches)
         logger.info(f"Total delay time: {total_delay_time}")
         if batch_size >= len(flow_info):
@@ -178,9 +183,11 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], pipeline_con
 
 def load_flow_weights(pipeline_config):
     flow_weights = dict()
+    flow_enabled = dict()
     for flow_type in pipeline_config["flows"]:
+        flow_enabled[flow_type] = pipeline_config["flows"][flow_type].get("enabled", True)
         flow_weights[flow_type] = pipeline_config["flows"][flow_type].get("launch_weight", 1)
-    return flow_weights
+    return flow_weights, flow_enabled
 
 
 @flow
@@ -199,7 +206,8 @@ async def launcher(pipeline_config_path=None):
     if pipeline_config_path is None:
         pipeline_config_path = await Variable.get("punchpipe_config", "punchpipe_config.yaml")
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
-    flow_weights = load_flow_weights(pipeline_config)
+    flow_weights, flow_enabled = load_flow_weights(pipeline_config)
+    logger.info(f"Enabled flows: {', '.join([flow for flow, enabled in flow_enabled.items() if enabled])}")
 
     logger.info("Establishing database connection")
     session = get_database_session()
@@ -215,7 +223,8 @@ async def launcher(pipeline_config_path=None):
     amount_to_launch = determine_launchable_flow_count(
         weight_planned, weight_running, max_flows_running, max_flows_to_launch)
 
-    flows_to_launch, selected_weight, counts_per_type = gather_planned_flows(session, amount_to_launch, flow_weights)
+    flows_to_launch, selected_weight, counts_per_type = gather_planned_flows(
+        session, amount_to_launch, flow_weights, flow_enabled)
     logger.info(f"{len(flows_to_launch)} flows (weight {selected_weight:.2f}) with IDs of {flows_to_launch} will be launched.")
     counts = [f"{counts_per_type[type]} {type}" for type in sorted(counts_per_type.keys())]
     if len(counts):

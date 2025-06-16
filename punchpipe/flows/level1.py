@@ -31,6 +31,9 @@ def level1_query_ready_files(session, pipeline_config: dict, reference_time=None
         if get_quartic_model_path(f, pipeline_config, session=session) is None:
             logger.info(f"Missing quartic model for {f.filename()}")
             continue
+        if get_stray_light(f, pipeline_config, session=session) is None:
+            logger.info(f"Missing stray light model for {f.filename()}")
+            continue
         if get_vignetting_function_path(f, pipeline_config, session=session) is None:
             logger.info(f"Missing vignetting function for {f.filename()}")
             continue
@@ -77,10 +80,32 @@ def get_psf_model_path(level0_file, pipeline_config: dict, session=None, referen
                   .order_by(File.date_obs.desc()).first())
     return best_model
 
+def get_stray_light(level0_file, pipeline_config: dict, session=None, reference_time=None):
+    corresponding_type = {"PM": "SM",
+                          "PZ": "SZ",
+                          "PP": "SP",
+                          "CR": "SR"}
+    model_type = corresponding_type[level0_file.file_type]
+    best_model = (session.query(File)
+                  .filter(File.file_type == model_type)
+                  .filter(File.observatory == level0_file.observatory)
+                  .where(File.date_obs <= level0_file.date_obs)
+                  .order_by(File.date_obs.desc()).first())
+    return best_model
+
 
 def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
     best_model = (session.query(File)
                   .filter(File.file_type == 'FQ')
+                  .filter(File.observatory == level0_file.observatory)
+                  .where(File.date_obs <= level0_file.date_obs)
+                  .order_by(File.date_obs.desc()).first())
+    return best_model
+
+
+def get_mask_file(level0_file, pipeline_config: dict, session=None, reference_time=None):
+    best_model = (session.query(File)
+                  .filter(File.file_type == 'MS')
                   .filter(File.observatory == level0_file.observatory)
                   .where(File.date_obs <= level0_file.date_obs)
                   .order_by(File.date_obs.desc()).first())
@@ -104,6 +129,8 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
     best_quartic_model = get_quartic_model_path(level0_files[0], pipeline_config, session=session)
     best_distortion = get_distortion_path(level0_files[0], pipeline_config, session=session)
     ccd_parameters = get_ccd_parameters(level0_files[0], pipeline_config, session=session)
+    best_stray_light = get_stray_light(level0_files[0], pipeline_config, session=session)
+    mask_function = get_mask_file(level0_files[0], pipeline_config, session=session)
 
     call_data = json.dumps(
         {
@@ -120,7 +147,11 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
             "gain_bottom": ccd_parameters['gain_bottom'],
             "gain_top": ccd_parameters['gain_top'],
             "distortion_path": os.path.join(best_distortion.directory(pipeline_config['root']),
-                                            best_distortion.filename())
+                                            best_distortion.filename()),
+            "stray_light_path": os.path.join(best_stray_light.directory(pipeline_config['root']),
+                                            best_stray_light.filename()),
+            "mask_path": os.path.join(mask_function.directory(pipeline_config['root']),
+                                      mask_function.filename().replace('.fits', '.bin'))
         }
     )
     return Flow(

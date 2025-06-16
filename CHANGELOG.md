@@ -4,8 +4,17 @@
 
 ## Unreleased
 
-* Group L2 and LQ inputs with time flexiblity, check there are enough files to fit for LQ, and fix L2 input file queries in https://github.com/punch-mission/punchpipe/pull/170
+* Fixes metadata usage for quicklook animations in https://github.com/punch-mission/punchpipe/pull/185
 * Relabels CCD halves in https://github.com/punch-mission/punchpipe/pull/174
+
+## Version 0.0.9: June 4, 2025
+
+* Relabels the polarizers for WFI for the flipped orientation in https://github.com/punch-mission/punchpipe/pull/179
+
+## Version 0.0.8: June 3, 2025
+
+* Group L2 and LQ inputs with time flexiblity, check there are enough files to fit for LQ, and fix L2 input file queries in https://github.com/punch-mission/punchpipe/pull/170
+* Many changes for QuickPUNCH compatibility in https://github.com/punch-mission/punchpipe/pull/175
 
 ## Version 0.0.7: May 22, 2025
 
