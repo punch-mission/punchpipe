@@ -42,6 +42,8 @@ def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_confi
         # update the file database entries as being created
         if file_db_entry_list:
             for file_db_entry in file_db_entry_list:
+                if file_db_entry.state == "created":
+                    raise RuntimeError(f"File id {file_db_entry.file_id} has already been created.")
                 file_db_entry.state = "creating"
         else:
             raise RuntimeError("There should be at least one file associated with this flow. Found 0.")
