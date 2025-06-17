@@ -32,11 +32,12 @@ if __name__ == "__main__":
         length = row['replay_length']
         end = start + length
         start_time = row['start_time']
-
+        wrapped_replay = False
         if length < 0:
             length = length + blocks_science[1] - blocks_science[0] + 1
+            wrapped_replay=True
 
-        if merged_blocks and (start <= merged_blocks[-1]['end'] or end >= merged_blocks[0]['start']):
+        if merged_blocks and (start <= merged_blocks[-1]['end'] or (wrapped_replay and end >= merged_blocks[0]['start']):
             last_block = merged_blocks[-1]
 
             print(f"Overlap found: Block {start}-{end} overlaps with {last_block['start_block']}-{last_block['end']}")
