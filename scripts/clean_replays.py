@@ -61,6 +61,8 @@ if __name__ == "__main__":
     print(f"Merged blocks: {len(result_df)}")
     print(f"Blocks merged: {len(df) - len(result_df)}")
 
+    result_df = result_df.sort_values('start_time').reset_index(drop=True)
+
     result_df.to_csv(output_file_soc, index=False)
     print(f"Results written to {output_file_soc}")
 
