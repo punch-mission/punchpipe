@@ -20,9 +20,14 @@ if __name__ == "__main__":
     df_week = df[pd.to_datetime(df['start_time']) >= (datetime.now() - timedelta(days=7))]
     df_week = df_week[pd.to_datetime(df_week['start_time']) <= datetime.now()]
 
+    blocks_science = [8192, 24575]
+
+    df_buffer = df_week[df_week['start_block'] >= blocks_science[0]]
+    df_buffer = df_buffer[df_buffer['start_block'] <= blocks_science[1]]
+
     merged_blocks = []
 
-    for _, row in df_week.iterrows():
+    for _, row in df_buffer.iterrows():
         start = row['start_block']
         length = row['replay_length']
         end = start + length
