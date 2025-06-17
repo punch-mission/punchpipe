@@ -33,6 +33,9 @@ if __name__ == "__main__":
         end = start + length
         start_time = row['start_time']
 
+        if length < 0:
+            length = length + blocks_science[1] - blocks_science[0] + 1
+
         if merged_blocks and start <= merged_blocks[-1]['end']:
             last_block = merged_blocks[-1]
 
