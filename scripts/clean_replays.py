@@ -32,12 +32,14 @@ if __name__ == "__main__":
         length = row['replay_length']
         end = start + length
         start_time = row['start_time']
-        wrapped_replay = False
+
         if length < 0:
             length = length + blocks_science[1] - blocks_science[0] + 1
-            wrapped_replay=True
+            wrapped_replay = True
+        else:
+            wrapped_replay = False
 
-        if merged_blocks and (start <= merged_blocks[-1]['end'] or (wrapped_replay and end >= merged_blocks[0]['start_block'])):
+        if merged_blocks and (start <= merged_blocks[-1]['end']):
             last_block = merged_blocks[-1]
 
             print(f"Overlap found: Block {start}-{end} overlaps with {last_block['start_block']}-{last_block['end']}")
@@ -50,8 +52,21 @@ if __name__ == "__main__":
 
             print(f"Merged into: Block {last_block['start_block']}-{new_end} (length: {new_length})")
 
+        elif merged_blocks and wrapped_replay and (end >= merged_blocks[0]['start_block']):
+            first_block = merged_blocks[0]
+
+            print(f"Overlap found: Block {start}-{end} overlaps with {first_block['start_block']}-{first_block['end']}")
+
+            new_end = max(first_block['end'], end)
+            new_length = new_end - start + blocks_science[1] - blocks_science[0] + 1
+
+            merged_blocks[0]['start_block'] = start
+            merged_blocks[0]['end'] = new_end
+            merged_blocks[0]['replay_length'] = new_length
+
+            print(f"Merged into: Block {first_block['start_block']}-{new_end} (length: {new_length})")
+
         else:
-            # No overlap - add as new block
             merged_blocks.append({
                 'start_time': start_time,
                 'start_block': start,
