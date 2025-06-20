@@ -59,7 +59,7 @@ def create_app():
             id='interval-component',
             interval=REFRESH_RATE * 1000,  # in milliseconds
             n_intervals=0)
-    ])
+    ], style={'margin': '10px'})
 
     operators = [(['ge ', '>='], '__ge__'),
                  (['le ', '<='], '__le__'),
