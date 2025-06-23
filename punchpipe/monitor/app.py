@@ -121,11 +121,16 @@ def create_app():
         return dff.to_dict('records')
 
 
-    def create_card_content(level: int | str, status: str, message: str):
+    def create_card_content(level: int | str, type: str | None, status: str, message: str):
+        if type == "levelq_CNN":
+            type = "CNN"
+        if type == "levelq_CTM":
+            type = "CTM"
+        type_insert = f" {type}" if type is not None else ""
         return [
             dbc.CardBody(
                 [
-                    html.H5(f"Level {level} Status: {status}", className="card-title"),
+                    html.H5(f"Level {level}{type_insert} Status: {status}", className="card-title"),
                     html.P(
                         message,
                         className="card-text",
@@ -141,34 +146,38 @@ def create_app():
     def update_cards(n):
         reference_time = datetime.now() - timedelta(hours=24)
         with get_database_session() as session:
-            query = (f"SELECT flow_level AS level, SUM(state = 'completed') AS n_good, "
+            query = (f"SELECT flow_level AS level, flow_type, SUM(state = 'completed') AS n_good, "
                       "SUM(state = 'failed') AS n_bad, SUM(state = 'running') AS n_running "
                      f"FROM flows WHERE start_time > '{reference_time}' "
-                      "GROUP BY level;")
+                      "GROUP BY level, flow_type;")
             df = pd.read_sql_query(query, session.connection())
             # These states don't have a start_time set
-            query = ("SELECT flow_level AS level, "
+            query = ("SELECT flow_level AS level, flow_type, "
                      "SUM(state = 'launched') AS n_launched, SUM(state = 'planned') AS n_planned "
-                     "FROM flows GROUP BY level;")
+                     "FROM flows GROUP BY level, flow_type;")
             second_df = pd.read_sql_query(query, session.connection())
-            df = df.join(second_df.set_index('level'), on='level')
+            df = df.merge(second_df.set_index('level'), on=['level', 'flow_type'], how='outer')
             df.fillna(0, inplace=True)
 
         cards = []
-        for level in ['0', '1', '2', '3', 'S', 'Q']:
-            if level not in df['level'].values:
-                cards.append(dbc.Col(dbc.Card(create_card_content(level, "", "No activity"),
+        for level, type in zip(['0', '1', '2', '3', 'S', 'Q', 'Q'],
+                               [None, None, None, None, None, 'levelq_CNN', 'levelq_CTM']):
+            sub_df = df.loc[(df['level'] == level)]
+            if type is not None:
+                sub_df = sub_df.loc[(sub_df['flow_type'] == type)]
+
+            if len(sub_df) == 0:
+                cards.append(dbc.Col(dbc.Card(create_card_content(level,  type, "", "No activity"),
                                               color="light", inverse=False)))
                 continue
 
-            sub_df = df.loc[(df['level'] == level)]
             n_good, n_bad, n_running = sub_df['n_good'].iloc[0], sub_df['n_bad'].iloc[0], sub_df['n_running'].iloc[0]
             n_launched, n_planned = sub_df['n_launched'].iloc[0], sub_df['n_planned'].iloc[0]
 
             n_planned = sub_df['n_planned'].iloc[0]
             message = (f"{n_good:.0f} ✅     {n_bad:.0f} ⛔     {n_launched:.0f} 🚀     {n_running:.0f} ⏳     "
                        f"{n_planned:.0f} 💭")
-            if n_good == 0 and n_bad == 0:
+            if n_good == 0 and n_bad == 0 and n_planned == 0 and n_launched == 0 and n_running == 0:
                 color = "light"
                 status = ""
                 message = "No activity"
@@ -178,7 +187,7 @@ def create_app():
             else:
                 color = "success"
                 status = "Good"
-            cards.append(dbc.Col(dbc.Card(create_card_content(level, status, message),
+            cards.append(dbc.Col(dbc.Card(create_card_content(level, type, status, message),
                                           color=color, inverse=color != 'light',
                                           # This preserves the multiple spaces separating the status count indicators
                                           style={'white-space': 'pre'})))
@@ -186,11 +195,16 @@ def create_app():
         return html.Div([dbc.Row(cards, className="mb-4")])
 
 
-    def create_file_card_content(level: int | str, status: str, message: str):
+    def create_file_card_content(level: int | str, type: str | None, status: str, message: str):
+        if type == "CN":
+            type = "CNN"
+        if type == "CT":
+            type = "CTM"
+        type_insert = f" {type}" if type is not None else ""
         return [
             dbc.CardBody(
                 [
-                    html.H5(f"Level {level} File Status: {status}", className="card-title"),
+                    html.H5(f"Level {level}{type_insert} File Status: {status}", className="card-title"),
                     html.P(
                         message,
                         className="card-text",
@@ -205,27 +219,30 @@ def create_app():
     )
     def update_file_cards(n):
         with get_database_session() as session:
-            query = ("SELECT level, SUM(state = 'created') AS n_created, "
+            query = ("SELECT level, file_type, SUM(state = 'created') AS n_created, "
                      "SUM(state = 'failed') AS n_failed, SUM(state = 'planned') AS n_planned, "
                      "SUM(state = 'creating') AS n_creating, SUM(state = 'progressed') AS n_progressed, "
-                     "SUM(state = 'quickpunched') AS n_quickpunched FROM files GROUP BY level;")
+                     "SUM(state = 'quickpunched') AS n_quickpunched FROM files GROUP BY level, file_type;")
             df = pd.read_sql_query(query, session.connection())
 
         cards = []
-        for level in ['0', '1', '2', '3', 'S', 'Q']:
-            if level not in df['level'].values:
-                cards.append(dbc.Col(dbc.Card(create_card_content(level, "", "No activity"),
+        for level, type in zip(['0', '1', '2', '3', 'S', 'Q', 'Q'], [None, None, None, None, None, 'CN', 'CT']):
+            sub_df = df.loc[(df['level'] == level)]
+            if type is not None:
+                sub_df = sub_df.loc[(sub_df['file_type'] == type)]
+
+            if len(sub_df) == 0:
+                cards.append(dbc.Col(dbc.Card(create_file_card_content(level, type, "", "No activity"),
                                               color="light", inverse=False)))
                 continue
 
-            sub_df = df.loc[(df['level'] == level)]
             n_created, n_failed = sub_df['n_created'].iloc[0], sub_df['n_failed'].iloc[0]
             n_creating, n_progressed = sub_df['n_creating'].iloc[0], sub_df['n_progressed'].iloc[0]
             n_quickpunched, n_planned = sub_df['n_quickpunched'].iloc[0], sub_df['n_planned'].iloc[0]
 
             n_good = n_created + n_quickpunched + n_progressed
 
-            if level == '1':
+            if level == '1' or (level == 'Q' and type == 'CN'):
                 sub_status = f"({n_created:.0f} 🏁 + {n_quickpunched:.0f} ⚡ + {n_progressed:.0f} ➡️)"
             else:
                 sub_status = f"({n_created:.0f} 🏁 + {n_progressed:.0f} ➡️)"
@@ -241,7 +258,7 @@ def create_app():
             else:
                 color = "success"
                 status = "Good"
-            cards.append(dbc.Col(dbc.Card(create_file_card_content(level, status, message),
+            cards.append(dbc.Col(dbc.Card(create_file_card_content(level, type, status, message),
                                           color=color, inverse=color != 'light',
                                           # This preserves the multiple spaces separating the status count indicators
                                           style={'white-space': 'pre'})))
