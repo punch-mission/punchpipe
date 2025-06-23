@@ -8,9 +8,9 @@ from functools import partial
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from punchbowl.levelq.f_corona_model import construct_qp_f_corona_model
-from punchbowl.levelq.flow import levelq_core_flow
+from punchbowl.levelq.flow import levelq_CNN_core_flow, levelq_CTM_core_flow
 from punchbowl.util import average_datetime
-from sqlalchemy import func, select, text
+from sqlalchemy import and_, func, or_, select, text
 
 from punchpipe import __version__
 from punchpipe.control.cache_layer.nfi_l1 import wrap_if_appropriate
@@ -20,7 +20,7 @@ from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 
 @task(cache_policy=NO_CACHE)
-def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
+def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
     all_fittable_files = (session.query(File).filter(File.state.in_(("created", "quickpunched", "progressed")))
                           .filter(File.level == "1")
@@ -31,7 +31,102 @@ def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None
         return []
     all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(File.level == "1")
+                       .filter(File.observatory == "4")
                        .filter(File.file_type == "CR").order_by(File.date_obs.desc()).all())
+    logger.info(f"{len(all_ready_files)} ready files")
+
+    if len(all_ready_files) == 0:
+        return []
+
+    logger.info(f"{len(all_ready_files)} groups heading out")
+    return [[f.file_id] for f in all_ready_files]
+
+
+@task(cache_policy=NO_CACHE)
+def levelq_CNN_construct_flow_info(level1_files: list[File], levelq_file: File, pipeline_config: dict, session=None, reference_time=None):
+    flow_type = "levelq_CNN"
+    state = "planned"
+    creation_time = datetime.now()
+    priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
+    call_data = json.dumps(
+        {
+            "data_list": [
+                os.path.join(level1_file.directory(pipeline_config["root"]), level1_file.filename())
+                for level1_file in level1_files
+            ],
+            "date_obs": level1_files[0].date_obs.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+    )
+    return Flow(
+        flow_type=flow_type,
+        state=state,
+        flow_level="Q",
+        creation_time=creation_time,
+        priority=priority,
+        call_data=call_data,
+    )
+
+
+@task
+def levelq_CNN_construct_file_info(level1_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
+    return [File(
+                level="Q",
+                file_type="CN",
+                observatory="N",
+                file_version=pipeline_config["file_version"],
+                software_version=__version__,
+                date_obs=[f.date_obs for f in level1_files if f.observatory == "4"][0],
+                state="planned",
+            )
+    ]
+
+
+@flow
+def levelq_CNN_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
+    generic_scheduler_flow_logic(
+        levelq_CNN_query_ready_files,
+        levelq_CNN_construct_file_info,
+        levelq_CNN_construct_flow_info,
+        pipeline_config_path,
+        reference_time=reference_time,
+        session=session,
+        new_input_file_state="quickpunched"
+    )
+
+
+def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) -> dict:
+    files_to_fit = session.execute(
+        select(File,
+               dt := func.abs(func.timestampdiff(text("second"), File.date_obs, call_data['date_obs'])))
+        .filter(File.state.in_(("created", "quickpunched", "progressed")))
+        .filter(File.level == "1")
+        .filter(File.file_type == "CR")
+        .filter(File.observatory == "4")
+        .filter(dt > 10 * 60)
+        .order_by(dt.asc()).limit(1000)).all()
+
+    files_to_fit = [os.path.join(f.directory(pipeline_config["root"]), f.filename()) for f, _ in files_to_fit]
+    files_to_fit = [wrap_if_appropriate(f) for f in files_to_fit]
+
+    call_data['files_to_fit'] = files_to_fit
+    del call_data['date_obs']
+    return call_data
+
+
+@flow
+def levelq_CNN_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+    generic_process_flow_logic(flow_id, levelq_CNN_core_flow, pipeline_config_path, session=session,
+                               call_data_processor=levelq_CNN_call_data_processor)
+
+
+@task(cache_policy=NO_CACHE)
+def levelq_CTM_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
+    logger = get_run_logger()
+    all_ready_files = (session.query(File).filter(File.state == "created")
+                       .filter(or_(
+                            and_(File.level == "1", File.file_type == "CR", File.observatory.in_(['1', '2', '3'])),
+                            and_(File.level == "Q", File.file_type == "CN"),
+                       )).order_by(File.date_obs.desc()).all())
     logger.info(f"{len(all_ready_files)} ready files")
 
     if len(all_ready_files) == 0:
@@ -69,8 +164,8 @@ def levelq_query_ready_files(session, pipeline_config: dict, reference_time=None
 
 
 @task(cache_policy=NO_CACHE)
-def levelq_construct_flow_info(level1_files: list[File], levelq_file: File, pipeline_config: dict, session=None, reference_time=None):
-    flow_type = "levelq"
+def levelq_CTM_construct_flow_info(level1_files: list[File], levelq_file: File, pipeline_config: dict, session=None, reference_time=None):
+    flow_type = "levelq_CTM"
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
@@ -80,7 +175,6 @@ def levelq_construct_flow_info(level1_files: list[File], levelq_file: File, pipe
                 os.path.join(level1_file.directory(pipeline_config["root"]), level1_file.filename())
                 for level1_file in level1_files
             ],
-            "date_obs": level1_files[0].date_obs.strftime("%Y-%m-%d %H:%M:%S"),
         }
     )
     return Flow(
@@ -94,7 +188,7 @@ def levelq_construct_flow_info(level1_files: list[File], levelq_file: File, pipe
 
 
 @task
-def levelq_construct_file_info(level1_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
+def levelq_CTM_construct_file_info(level1_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
     return [File(
                 level="Q",
                 file_type="CT",
@@ -104,24 +198,15 @@ def levelq_construct_file_info(level1_files: t.List[File], pipeline_config: dict
                 date_obs=average_datetime([f.date_obs for f in level1_files]),
                 state="planned",
             ),
-            File(
-                level="Q",
-                file_type="CN",
-                observatory="N",
-                file_version=pipeline_config["file_version"],
-                software_version=__version__,
-                date_obs=[f.date_obs for f in level1_files if f.observatory == "4"][0],
-                state="planned",
-            )
     ]
 
 
 @flow
-def levelq_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
+def levelq_CTM_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
     generic_scheduler_flow_logic(
-        levelq_query_ready_files,
-        levelq_construct_file_info,
-        levelq_construct_flow_info,
+        levelq_CTM_query_ready_files,
+        levelq_CTM_construct_file_info,
+        levelq_CTM_construct_flow_info,
         pipeline_config_path,
         reference_time=reference_time,
         session=session,
@@ -129,29 +214,9 @@ def levelq_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
     )
 
 
-def levelq_call_data_processor(call_data: dict, pipeline_config, session) -> dict:
-    files_to_fit = session.execute(
-        select(File,
-               dt := func.abs(func.timestampdiff(text("second"), File.date_obs, call_data['date_obs'])))
-        .filter(File.state.in_(("created", "quickpunched", "progressed")))
-        .filter(File.level == "1")
-        .filter(File.file_type == "CR")
-        .filter(File.observatory == "4")
-        .filter(dt > 10 * 60)
-        .order_by(dt.asc()).limit(1000)).all()
-
-    files_to_fit = [os.path.join(f.directory(pipeline_config["root"]), f.filename()) for f, _ in files_to_fit]
-    files_to_fit = [wrap_if_appropriate(f) for f in files_to_fit]
-
-    call_data['files_to_fit'] = files_to_fit
-    del call_data['date_obs']
-    return call_data
-
-
 @flow
-def levelq_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, levelq_core_flow, pipeline_config_path, session=session,
-                               call_data_processor=levelq_call_data_processor)
+def levelq_CTM_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+    generic_process_flow_logic(flow_id, levelq_CTM_core_flow, pipeline_config_path, session=session)
 
 
 @task
