@@ -23,8 +23,12 @@ def cleaner(pipeline_config_path: str):
     parents = (session.query(File).join(FileRelationship, File.file_id == FileRelationship.parent)
                       .where(FileRelationship.child.in_(children_ids)).all())
     relationships = session.query(FileRelationship).where(FileRelationship.child.in_(children_ids)).all()
+
+    logger.info(f"Resetting {len(parents)} parent files")
     for parent in parents:
         parent.state = "created"
+
+    logger.info(f"Deleting {len(children)} child files")
     for child in children:
         output_path = os.path.join(
             child.directory(pipeline_config["root"]), child.filename()
@@ -32,10 +36,15 @@ def cleaner(pipeline_config_path: str):
         if os.path.exists(output_path):
             os.remove(output_path)
         session.delete(child)
+
+    logger.info(f"Clearing {len(relationships)} file relationships")
     for relationship in relationships:
         session.delete(relationship)
+
+    logger.info(f"Deleting {len(flows)} flows")
     for f in flows:
         session.delete(f)
+
     session.commit()
     if len(flows):
         logger.info(f"Revived {len(flows)} flows")
