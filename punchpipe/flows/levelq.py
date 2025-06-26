@@ -125,7 +125,8 @@ def levelq_CTM_query_ready_files(session, pipeline_config: dict, reference_time=
     all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(or_(
                             and_(File.level == "1", File.file_type == "CR", File.observatory.in_(['1', '2', '3'])),
-                            and_(File.level == "Q", File.file_type == "CN"),
+                            # TODO: We're excluding NFI for now
+                            # and_(File.level == "Q", File.file_type == "CN"),
                        )).order_by(File.date_obs.desc()).all())
     logger.info(f"{len(all_ready_files)} ready files")
 
@@ -155,7 +156,9 @@ def levelq_CTM_query_ready_files(session, pipeline_config: dict, reference_time=
     logger.info(f"{len(grouped_files)} unique times")
     grouped_ready_files = []
     for group in grouped_files:
-        if len(group) == 4:
+        # TODO: We're excluding NFI for now
+        # if len(group) == 4:
+        if len(group) == 3:
             grouped_ready_files.append([f.file_id for f in group])
         if len(grouped_ready_files) >= max_n:
             break
