@@ -155,10 +155,13 @@ def levelq_CTM_query_ready_files(session, pipeline_config: dict, reference_time=
 
     logger.info(f"{len(grouped_files)} unique times")
     grouped_ready_files = []
+    cutoff_time = pipeline_config["flows"]["levelq_CTM"].get("ignore_missing_after_days", None)
+    if cutoff_time is not None:
+        cutoff_time = datetime.now(tz=UTC) - timedelta(days=cutoff_time)
     for group in grouped_files:
         # TODO: We're excluding NFI for now
-        # if len(group) == 4:
-        if len(group) == 3:
+        # if len(group) == 4 or group[-1].date_obs.replace(tzinfo=UTC) < cutoff_time:
+        if len(group) == 3 or (cutoff_time and group[-1].date_obs.replace(tzinfo=UTC) < cutoff_time):
             grouped_ready_files.append([f.file_id for f in group])
         if len(grouped_ready_files) >= max_n:
             break

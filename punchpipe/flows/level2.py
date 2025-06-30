@@ -1,7 +1,7 @@
 import os
 import json
 import typing as t
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
@@ -14,6 +14,7 @@ from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 SCIENCE_POLARIZED_LEVEL1_TYPES = ["PM", "PZ", "PP"]
 SCIENCE_CLEAR_LEVEL1_TYPES = ["CR"]
+
 
 @task(cache_policy=NO_CACHE)
 def level2_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
@@ -49,8 +50,11 @@ def level2_query_ready_files(session, pipeline_config: dict, reference_time=None
 
     logger.info(f"{len(grouped_files)} unique times")
     grouped_ready_files = []
+    cutoff_time = pipeline_config["flows"]["level2"].get("ignore_missing_after_days", None)
+    if cutoff_time is not None:
+        cutoff_time = datetime.now(tz=UTC) - timedelta(days=cutoff_time)
     for group in grouped_files:
-        if len(group) == 4:
+        if len(group) == 4 or (cutoff_time and group[-1].date_obs.replace(tzinfo=UTC) < cutoff_time):
             grouped_ready_files.append([f.file_id for f in group])
         if len(grouped_ready_files) >= max_n:
             break
@@ -92,8 +96,11 @@ def level2_query_ready_clear_files(session, pipeline_config: dict, reference_tim
 
     logger.info(f"{len(grouped_files)} unique times")
     grouped_ready_files = []
+    cutoff_time = pipeline_config["flows"]["level2_clear"].get("ignore_missing_after_days", None)
+    if cutoff_time is not None:
+        cutoff_time = datetime.now(tz=UTC) - timedelta(days=cutoff_time)
     for group in grouped_files:
-        if len(group) == 4:
+        if len(group) == 4 or (cutoff_time and group[-1].date_obs.replace(tzinfo=UTC) < cutoff_time):
             grouped_ready_files.append([f.file_id for f in group])
         if len(grouped_ready_files) >= max_n:
             break
