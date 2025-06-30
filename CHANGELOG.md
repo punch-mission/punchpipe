@@ -8,6 +8,7 @@
 * Relabels CCD halves in https://github.com/punch-mission/punchpipe/pull/174
 * Don't remake existing files in https://github.com/punch-mission/punchpipe/pull/188
 * Support separated LQ flows and exclude NFI from LQ CTM in https://github.com/punch-mission/punchpipe/pull/192
+* Clear .jp2, .sha, and parent directories in cleaner flow in https://github.com/punch-mission/punchpipe/pull/191
 
 ## Version 0.0.9: June 4, 2025
 
