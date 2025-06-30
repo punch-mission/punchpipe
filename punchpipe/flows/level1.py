@@ -152,7 +152,7 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
                                             best_stray_light.filename()),
             "mask_path": os.path.join(mask_function.directory(pipeline_config['root']),
                                       mask_function.filename().replace('.fits', '.bin')),
-            "ret_with_stray_light": True,
+            "return_with_stray_light": True,
         }
     )
     return Flow(
