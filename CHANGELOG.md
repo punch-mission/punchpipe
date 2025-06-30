@@ -8,6 +8,7 @@
 * Relabels CCD halves in https://github.com/punch-mission/punchpipe/pull/174
 * Don't remake existing files in https://github.com/punch-mission/punchpipe/pull/188
 * Save an L1-with-stray-light intermediate file in https://github.com/punch-mission/punchpipe/pull/193
+* Clear .jp2, .sha, and parent directories in cleaner flow in https://github.com/punch-mission/punchpipe/pull/191
 
 ## Version 0.0.9: June 4, 2025
 
