@@ -12,8 +12,8 @@ from punchpipe.control.util import load_pipeline_configuration
 from punchpipe.flows.level2 import (
     level2_construct_file_info,
     level2_construct_flow_info,
-    level2_query_ready_files,
     level2_query_ready_clear_files,
+    level2_query_ready_files,
     level2_scheduler_flow,
 )
 
