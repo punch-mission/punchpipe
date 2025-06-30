@@ -152,6 +152,7 @@ def levelq_CTM_query_ready_files(session, pipeline_config: dict, reference_time=
             grouped_files.append(all_ready_files[group_start:file_under_consideration])
             group_start = file_under_consideration
             tstamp_start = this_tstamp
+    grouped_files.append(all_ready_files[group_start:])
 
     logger.info(f"{len(grouped_files)} unique times")
     grouped_ready_files = []
