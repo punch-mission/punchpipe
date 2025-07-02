@@ -79,6 +79,9 @@ class Flow(Base):
     priority = Column(Integer, nullable=False)
     call_data = Column(TEXT, nullable=True)
 
+    def __repr__(self):
+        return f"Flow(id={self.flow_id!r})"
+
 
 class FileRelationship(Base):
     __tablename__ = "relationships"
