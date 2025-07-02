@@ -31,6 +31,8 @@ def _level2_query_ready_files(session, polarized: bool, pipeline_config: dict, m
     logger = get_run_logger()
     all_ready_files = (session.query(File).filter(File.state == "quickpunched")
                        .filter(File.level == "1")
+                        # TODO: This line temporarily excludes NFI
+                       .filter(File.observatory.in_(['1', '2', '3']))
                        .filter(File.file_type.in_(
                             SCIENCE_POLARIZED_LEVEL1_TYPES if polarized else SCIENCE_CLEAR_LEVEL1_TYPES))
                        .order_by(File.date_obs.asc()).all())
@@ -67,7 +69,9 @@ def _level2_query_ready_files(session, polarized: bool, pipeline_config: dict, m
     if cutoff_time is not None:
         cutoff_time = datetime.now(tz=UTC) - timedelta(days=cutoff_time)
     for group in grouped_files:
-        if (len(group) == (12 if polarized else 4)
+        # TODO: This line temporarily excludes NFI
+        # if (len(group) == (12 if polarized else 4)
+        if (len(group) == (9 if polarized else 3)
                 or (cutoff_time and group[-1].date_obs.replace(tzinfo=UTC) < cutoff_time)):
             grouped_ready_files.append([f.file_id for f in group])
         if len(grouped_ready_files) >= max_n:
