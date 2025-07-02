@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta
 import os
+from datetime import datetime, timedelta
 
 import pytest
 import yaml
@@ -7,8 +7,8 @@ from prefect.logging import disable_run_logger
 from prefect.testing.utilities import prefect_test_harness
 from pytest_mock_resources import create_mysql_fixture
 
-from punchpipe.control.db import Base, File, FileRelationship, Flow
 from punchpipe.control.cleaner import cleaner
+from punchpipe.control.db import Base, File, FileRelationship, Flow
 from punchpipe.control.util import load_pipeline_configuration
 
 
