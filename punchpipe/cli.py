@@ -5,9 +5,10 @@ import argparse
 import traceback
 import subprocess
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from importlib import import_module
 
+import pandas as pd
 from prefect import Flow, serve
 from prefect.client.schemas.objects import ConcurrencyLimitConfig, ConcurrencyLimitStrategy
 from prefect.variables import Variable
@@ -235,3 +236,96 @@ def run(configuration_path, launch_prefect=False):
                 print("punchpipe safely shut down")
             else:
                 print("punchpipe abruptly shut down")
+
+
+def clean_replay(input_file: str, write: bool = True, timerange: int = 5) -> None | pd.DataFrame:
+    """Clean replay requests"""
+
+    input_path = Path(input_file)
+
+    output_file = input_path.parent / f"merged_{input_path.name}"
+    output_file_soc = input_path.parent / f"merged_soc_{input_path.name}"
+
+    # df = pd.read_csv(args.file)
+    df = pd.read_csv(input_file)
+
+    df = df.sort_values('start_block').reset_index(drop=True)
+
+    if timerange is not None:
+        df = df[pd.to_datetime(df['start_time']) >= (datetime.now() - timedelta(days=timerange))]
+        df = df[pd.to_datetime(df['start_time']) <= datetime.now()]
+
+    blocks_science = [8192, 24575]
+
+    df = df[df['start_block'] >= blocks_science[0]]
+    df = df[df['start_block'] <= blocks_science[1]]
+
+    merged_blocks = []
+
+    for _, row in df.iterrows():
+        start = row['start_block']
+        length = row['replay_length']
+        end = start + length
+        start_time = row['start_time']
+
+        if length < 0:
+            length = length + blocks_science[1] - blocks_science[0] + 1
+            wrapped_replay = True
+        else:
+            wrapped_replay = False
+
+        if merged_blocks and (start <= merged_blocks[-1]['end']):
+            last_block = merged_blocks[-1]
+
+            print(f"Overlap found: Block {start}-{end} overlaps with {last_block['start_block']}-{last_block['end']}")
+
+            new_end = max(last_block['end'], end)
+            new_length = new_end - last_block['start_block'] + 1
+
+            merged_blocks[-1]['end'] = new_end
+            merged_blocks[-1]['replay_length'] = new_length
+
+            print(f"Merged into: Block {last_block['start_block']}-{new_end} (length: {new_length})")
+
+        elif merged_blocks and wrapped_replay and (end >= merged_blocks[0]['start_block']):
+            first_block = merged_blocks[0]
+
+            print(f"Overlap found: Block {start}-{end} overlaps with {first_block['start_block']}-{first_block['end']}")
+
+            new_end = max(first_block['end'], end)
+            new_length = new_end - start + blocks_science[1] - blocks_science[0] + 1
+
+            merged_blocks[0]['start_block'] = start
+            merged_blocks[0]['end'] = new_end
+            merged_blocks[0]['replay_length'] = new_length
+
+            print(f"Merged into: Block {first_block['start_block']}-{new_end} (length: {new_length})")
+
+        else:
+            merged_blocks.append({
+                'start_time': start_time,
+                'start_block': start,
+                'replay_length': length,
+                'end': end
+            })
+
+    if len(merged_blocks) != 0:
+        result_df = pd.DataFrame(merged_blocks).drop('end', axis=1)
+
+        print(f"\nOriginal blocks: {len(df)}")
+        print(f"Merged blocks: {len(result_df)}")
+        print(f"Blocks merged: {len(df) - len(result_df)}")
+
+        result_df = result_df.sort_values('start_time').reset_index(drop=True)
+    else:
+        result_df = pd.DataFrame([])
+
+    if write:
+        result_df.to_csv(output_file_soc, index=False)
+        print(f"Results written to {output_file_soc}")
+
+        with open(output_file.with_suffix(".txt"), 'w') as f:
+            for _, row in result_df.iterrows():
+                f.write(f"start mops_fsw_start_fast_replay(xfi,{row['start_block']},{row['replay_length']})\n")
+    else:
+        return result_df
