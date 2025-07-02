@@ -8,6 +8,10 @@
 * Relabels CCD halves in https://github.com/punch-mission/punchpipe/pull/174
 * Don't remake existing files in https://github.com/punch-mission/punchpipe/pull/188
 * Updates replay request cleaning script in https://github.com/punch-mission/punchpipe/pull/190
+* Support separated LQ flows and exclude NFI from LQ CTM in https://github.com/punch-mission/punchpipe/pull/192
+* Clear .jp2, .sha, and parent directories in cleaner flow in https://github.com/punch-mission/punchpipe/pull/191
+* L2s and LQ CTMs with missing input files can be made anyway after a certain number of days in https://github.com/punch-mission/punchpipe/pull/194
+* Reduces L2 code duplication in https://github.com/punch-mission/punchpipe/pull/195
 
 ## Version 0.0.9: June 4, 2025
 

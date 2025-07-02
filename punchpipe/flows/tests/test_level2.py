@@ -12,6 +12,7 @@ from punchpipe.control.util import load_pipeline_configuration
 from punchpipe.flows.level2 import (
     level2_construct_file_info,
     level2_construct_flow_info,
+    level2_query_ready_clear_files,
     level2_query_ready_files,
     level2_scheduler_flow,
 )
@@ -20,7 +21,7 @@ TEST_DIR = os.path.dirname(__file__)
 
 
 def session_fn(session):
-    level0_file = File(level=0,
+    level0_file = File(level='0',
                        file_type='XX',
                        observatory='0',
                        state='created',
@@ -28,16 +29,34 @@ def session_fn(session):
                        software_version='none',
                        date_obs=datetime(2023, 1, 1, 0, 0, 0))
 
-    level1_file = File(level=1,
-                       file_type="XX",
-                       observatory='0',
-                       state='created',
+    level1_file_not_ready = File(level='1',
+                                 file_type='PM',
+                                 observatory='4',
+                                 state='created',
+                                 file_version='none',
+                                 software_version='none',
+                                 date_obs=datetime(2023, 1, 1, 0, 0, 0))
+
+    level1_file = File(level='1',
+                       file_type='PM',
+                       observatory='4',
+                       state='quickpunched',
                        file_version='none',
                        software_version='none',
                        date_obs=datetime(2023, 1, 1, 0, 0, 0))
 
+    level1_file_clear = File(level='1',
+                             file_type='CR',
+                             observatory='4',
+                             state='quickpunched',
+                             file_version='none',
+                             software_version='none',
+                             date_obs=datetime(2023, 1, 1, 0, 0, 0))
+
     session.add(level0_file)
+    session.add(level1_file_not_ready)
     session.add(level1_file)
+    session.add(level1_file_clear)
 
 
 db = create_mysql_fixture(Base, session_fn, session=True)
@@ -46,10 +65,31 @@ db = create_mysql_fixture(Base, session_fn, session=True)
 def test_level2_query_ready_files(db):
     with disable_run_logger():
         with freeze_time(datetime(2023, 1, 1, 0, 5, 0)) as frozen_datatime:  # noqa: F841
-            pipeline_config = {'levels': {'level2_process_flow': {'schedule':
-                                                                      {'latency': 3, 'window_duration_seconds': 3}}}}
+            pipeline_config = {'flows': {'level2': {}}}
             ready_file_ids = level2_query_ready_files.fn(db, pipeline_config)
             assert len(ready_file_ids) == 0
+
+
+def test_level2_query_ready_files_ignore_missing(db):
+    with disable_run_logger():
+        with freeze_time(datetime(2023, 1, 2, 0, 0, 0, tzinfo=UTC)) as frozen_datatime:  # noqa: F841
+            pipeline_config = {'flows': {'level2': {'ignore_missing_after_days': 1.05}}}
+            ready_file_ids = level2_query_ready_files.fn(db, pipeline_config)
+            assert len(ready_file_ids) == 0
+            pipeline_config = {'flows': {'level2': {'ignore_missing_after_days': 0.95}}}
+            ready_file_ids = level2_query_ready_files.fn(db, pipeline_config)
+            assert len(ready_file_ids) == 1
+
+
+def test_level2_query_ready_files_ignore_missing_clear(db):
+    with disable_run_logger():
+        with freeze_time(datetime(2023, 1, 2, 0, 0, 0, tzinfo=UTC)) as frozen_datatime:  # noqa: F841
+            pipeline_config = {'flows': {'level2_clear': {'ignore_missing_after_days': 1.05}}}
+            ready_file_ids = level2_query_ready_clear_files.fn(db, pipeline_config)
+            assert len(ready_file_ids) == 0
+            pipeline_config = {'flows': {'level2_clear': {'ignore_missing_after_days': 0.95}}}
+            ready_file_ids = level2_query_ready_clear_files.fn(db, pipeline_config)
+            assert len(ready_file_ids) == 1
 
 
 def test_level2_construct_file_info():
