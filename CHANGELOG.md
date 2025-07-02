@@ -11,6 +11,7 @@
 * Clear .jp2, .sha, and parent directories in cleaner flow in https://github.com/punch-mission/punchpipe/pull/191
 * L2s and LQ CTMs with missing input files can be made anyway after a certain number of days in https://github.com/punch-mission/punchpipe/pull/194
 * Reduces L2 code duplication in https://github.com/punch-mission/punchpipe/pull/195
+* Temporarily disabled NFI in L2s in https://github.com/punch-mission/punchpipe/pull/197
 
 ## Version 0.0.9: June 4, 2025
 
