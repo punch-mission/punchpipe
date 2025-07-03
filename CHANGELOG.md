@@ -2,7 +2,7 @@
 
 [This is available in GitHub](https://github.com/punch-mission/punchpipe/releases)
 
-## Unreleased
+## Version 0.0.10: July 3, 2025
 
 * Fixes metadata usage for quicklook animations in https://github.com/punch-mission/punchpipe/pull/185
 * Relabels CCD halves in https://github.com/punch-mission/punchpipe/pull/174
