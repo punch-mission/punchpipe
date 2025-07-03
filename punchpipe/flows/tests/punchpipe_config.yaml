@@ -8,7 +8,7 @@ plate_scale:
   3: 0.02444444444
   4: 0.008333333333
 
-# CCD gain for [left, right] sides of chip
+# CCD gain for [bottom, top] sides of chip
 ccd_gain:
   1: [4.93, 4.92]
   2: [4.90, 5.04]
@@ -59,8 +59,8 @@ flows:
     tags: ["L2"]
     options:
 
-  levelq:
-    description: "Creates Level Q files."
+  levelq_CTM:
+    description: "Creates Level Q CTM files."
     priority:
       initial: 1000
       seconds: [ 3000, 12000, 60000 ]

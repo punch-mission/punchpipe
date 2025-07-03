@@ -113,8 +113,8 @@ def get_mask_file(level0_file, pipeline_config: dict, session=None, reference_ti
 
 
 def get_ccd_parameters(level0_file, pipeline_config: dict, session=None):
-    gain_left, gain_right = pipeline_config['ccd_gain'][int(level0_file.observatory)]
-    return {"gain_left": gain_left, "gain_right": gain_right}
+    gain_bottom, gain_top = pipeline_config['ccd_gain'][int(level0_file.observatory)]
+    return {"gain_bottom": gain_bottom, "gain_top": gain_top}
 
 
 def level1_construct_flow_info(level0_files: list[File], level1_files: File,
@@ -144,14 +144,15 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
                                            best_psf_model.filename()),
             "quartic_coefficient_path": os.path.join(best_quartic_model.directory(pipeline_config['root']),
                                                      best_quartic_model.filename()),
-            "gain_left": ccd_parameters['gain_left'],
-            "gain_right": ccd_parameters['gain_right'],
+            "gain_bottom": ccd_parameters['gain_bottom'],
+            "gain_top": ccd_parameters['gain_top'],
             "distortion_path": os.path.join(best_distortion.directory(pipeline_config['root']),
                                             best_distortion.filename()),
             "stray_light_path": os.path.join(best_stray_light.directory(pipeline_config['root']),
                                             best_stray_light.filename()),
             "mask_path": os.path.join(mask_function.directory(pipeline_config['root']),
-                                      mask_function.filename().replace('.fits', '.bin'))
+                                      mask_function.filename().replace('.fits', '.bin')),
+            "return_with_stray_light": True,
         }
     )
     return Flow(
@@ -169,6 +170,16 @@ def level1_construct_file_info(level0_files: t.List[File], pipeline_config: dict
         File(
             level="1",
             file_type=level0_files[0].file_type,
+            observatory=level0_files[0].observatory,
+            file_version=pipeline_config["file_version"],
+            software_version=__version__,
+            date_obs=level0_files[0].date_obs,
+            polarization=level0_files[0].polarization,
+            state="planned",
+        ),
+        File(
+            level="1",
+            file_type='X' + level0_files[0].file_type[1:],
             observatory=level0_files[0].observatory,
             file_version=pipeline_config["file_version"],
             software_version=__version__,
