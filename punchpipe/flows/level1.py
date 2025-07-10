@@ -151,7 +151,8 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
             "stray_light_path": os.path.join(best_stray_light.directory(pipeline_config['root']),
                                             best_stray_light.filename()),
             "mask_path": os.path.join(mask_function.directory(pipeline_config['root']),
-                                      mask_function.filename().replace('.fits', '.bin'))
+                                      mask_function.filename().replace('.fits', '.bin')),
+            "return_with_stray_light": True,
         }
     )
     return Flow(
@@ -169,6 +170,16 @@ def level1_construct_file_info(level0_files: t.List[File], pipeline_config: dict
         File(
             level="1",
             file_type=level0_files[0].file_type,
+            observatory=level0_files[0].observatory,
+            file_version=pipeline_config["file_version"],
+            software_version=__version__,
+            date_obs=level0_files[0].date_obs,
+            polarization=level0_files[0].polarization,
+            state="planned",
+        ),
+        File(
+            level="1",
+            file_type='X' + level0_files[0].file_type[1:],
             observatory=level0_files[0].observatory,
             file_version=pipeline_config["file_version"],
             software_version=__version__,
