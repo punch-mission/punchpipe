@@ -15,6 +15,8 @@ ccd_gain:
   3: [4.94, 4.89]
   4: [4.98, 4.92]
 
+science_blocks: [2048, 24575]
+
 quality_check:
   mean_low: 0
   mean_high: 65000

@@ -238,15 +238,16 @@ def run(configuration_path, launch_prefect=False):
                 print("punchpipe abruptly shut down")
 
 
-def clean_replay(input_file: str, write: bool = True, timerange: int = 5) -> None | pd.DataFrame:
+def clean_replay(input_file: str, configuration_path, write: bool = True, timerange: int = 5) -> None | pd.DataFrame:
     """Clean replay requests"""
+
+    config = load_pipeline_configuration(configuration_path)
 
     input_path = Path(input_file)
 
     output_file = input_path.parent / f"merged_{input_path.name}"
     output_file_soc = input_path.parent / f"merged_soc_{input_path.name}"
 
-    # df = pd.read_csv(args.file)
     df = pd.read_csv(input_file)
 
     df = df.sort_values('start_block').reset_index(drop=True)
@@ -255,7 +256,7 @@ def clean_replay(input_file: str, write: bool = True, timerange: int = 5) -> Non
         df = df[pd.to_datetime(df['start_time']) >= (datetime.now() - timedelta(days=timerange))]
         df = df[pd.to_datetime(df['start_time']) <= datetime.now()]
 
-    blocks_science = [8192, 24575]
+    blocks_science = config['science_blocks']
 
     df = df[df['start_block'] >= blocks_science[0]]
     df = df[df['start_block'] <= blocks_science[1]]
