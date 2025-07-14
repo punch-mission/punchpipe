@@ -236,9 +236,9 @@ def create_app():
                                               color="light", inverse=False)))
                 continue
 
-            n_created, n_failed = sub_df['n_created'].iloc[0], sub_df['n_failed'].iloc[0]
-            n_creating, n_progressed = sub_df['n_creating'].iloc[0], sub_df['n_progressed'].iloc[0]
-            n_quickpunched, n_planned = sub_df['n_quickpunched'].iloc[0], sub_df['n_planned'].iloc[0]
+            n_created, n_failed = sub_df['n_created'].sum(), sub_df['n_failed'].sum()
+            n_creating, n_progressed = sub_df['n_creating'].sum(), sub_df['n_progressed'].sum()
+            n_quickpunched, n_planned = sub_df['n_quickpunched'].sum(), sub_df['n_planned'].sum()
 
             n_good = n_created + n_quickpunched + n_progressed
 
