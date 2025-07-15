@@ -104,7 +104,7 @@ def test_level2_construct_file_info():
                        software_version='none',
                        date_obs=datetime.now(UTC))]
     constructed_file_info = level2_construct_file_info.fn(level1_file, pipeline_config)[0]
-    assert constructed_file_info.level == 2
+    assert constructed_file_info.level == '2'
     assert constructed_file_info.file_type == level1_file[0].file_type
     assert constructed_file_info.observatory == level1_file[0].observatory
     assert constructed_file_info.file_version == "0.0.1"
