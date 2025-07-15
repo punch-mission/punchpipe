@@ -23,7 +23,7 @@ TEST_DIR = os.path.dirname(__file__)
 def session_fn(session):
     level0_file = File(level='0',
                        file_type='XX',
-                       observatory='0',
+                       observatory='3',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -31,7 +31,7 @@ def session_fn(session):
 
     level1_file_not_ready = File(level='1',
                                  file_type='PM',
-                                 observatory='4',
+                                 observatory='3',
                                  state='created',
                                  file_version='none',
                                  software_version='none',
@@ -39,7 +39,7 @@ def session_fn(session):
 
     level1_file = File(level='1',
                        file_type='PM',
-                       observatory='4',
+                       observatory='3',
                        state='quickpunched',
                        file_version='none',
                        software_version='none',
@@ -47,7 +47,7 @@ def session_fn(session):
 
     level1_file_clear = File(level='1',
                              file_type='CR',
-                             observatory='4',
+                             observatory='3',
                              state='quickpunched',
                              file_version='none',
                              software_version='none',
