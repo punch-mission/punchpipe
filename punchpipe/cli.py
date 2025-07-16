@@ -238,8 +238,11 @@ def run(configuration_path, launch_prefect=False):
                 print("punchpipe abruptly shut down")
 
 
-def clean_replay(input_file: str, configuration_path, write: bool = True, timerange: int = 5) -> None | pd.DataFrame:
+def clean_replay(input_file: str, configuration_path, write: bool = True, window_in_days: int | None = None, reference_date : None | datetime = None) -> None | pd.DataFrame:
     """Clean replay requests"""
+
+    if reference_date is None:
+        reference_date = datetime.now()
 
     config = load_pipeline_configuration(configuration_path)
 
@@ -252,11 +255,14 @@ def clean_replay(input_file: str, configuration_path, write: bool = True, timera
 
     df = df.sort_values('start_block').reset_index(drop=True)
 
-    if timerange is not None:
-        df = df[pd.to_datetime(df['start_time']) >= (datetime.now() - timedelta(days=timerange))]
-        df = df[pd.to_datetime(df['start_time']) <= datetime.now()]
+    if window_in_days is None:
+        window_in_days = config['replay']['window_in_days']
 
-    blocks_science = config['science_blocks']
+    if window_in_days is not None:
+        df = df[pd.to_datetime(df['start_time']) >= (reference_date - timedelta(days=window_in_days))]
+        df = df[pd.to_datetime(df['start_time']) <= reference_date]
+
+    blocks_science = config['replay']['science_blocks']
 
     df = df[df['start_block'] >= blocks_science[0]]
     df = df[df['start_block'] <= blocks_science[1]]
