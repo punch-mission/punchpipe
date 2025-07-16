@@ -2,12 +2,15 @@
 
 [This is available in GitHub](https://github.com/punch-mission/punchpipe/releases)
 
+## Unreleased
+* Updates replay request cleaning script in https://github.com/punch-mission/punchpipe/pull/190
+
+
 ## Version 0.0.10: July 3, 2025
 
 * Fixes metadata usage for quicklook animations in https://github.com/punch-mission/punchpipe/pull/185
 * Relabels CCD halves in https://github.com/punch-mission/punchpipe/pull/174
 * Don't remake existing files in https://github.com/punch-mission/punchpipe/pull/188
-* Updates replay request cleaning script in https://github.com/punch-mission/punchpipe/pull/190
 * Save an L1-with-stray-light intermediate file in https://github.com/punch-mission/punchpipe/pull/193
 * Support separated LQ flows and exclude NFI from LQ CTM in https://github.com/punch-mission/punchpipe/pull/192
 * Clear .jp2, .sha, and parent directories in cleaner flow in https://github.com/punch-mission/punchpipe/pull/191
