@@ -42,12 +42,27 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
     return [[f.file_id] for f in all_ready_files]
 
 
+def get_outlier_limits_path(level1_file, pipeline_config: dict=None, session=None, reference_time=None):
+    corresponding_outlier_limits_type = {"PM": "OM",
+                                         "PZ": "OZ",
+                                         "PP": "OP",
+                                         "CR": "OR"}
+    outlier_limits_type = corresponding_outlier_limits_type[level1_file.file_type]
+    best_limits = (session.query(File)
+                     .filter(File.file_type == outlier_limits_type)
+                     .filter(File.observatory == level1_file.observatory)
+                     .where(File.date_obs <= level1_file.date_obs)
+                     .order_by(File.date_obs.desc()).first())
+    return best_limits
+
+
 @task(cache_policy=NO_CACHE)
 def levelq_CNN_construct_flow_info(level1_files: list[File], levelq_file: File, pipeline_config: dict, session=None, reference_time=None):
     flow_type = "levelq_CNN"
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
+    outlier_limits = get_outlier_limits_path(level1_files[0])
     call_data = json.dumps(
         {
             "data_list": [
@@ -55,6 +70,7 @@ def levelq_CNN_construct_flow_info(level1_files: list[File], levelq_file: File, 
                 for level1_file in level1_files
             ],
             "date_obs": level1_files[0].date_obs.strftime("%Y-%m-%d %H:%M:%S"),
+            "outlier_limits": outlier_limits,
         }
     )
     return Flow(
