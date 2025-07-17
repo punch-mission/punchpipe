@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from importlib import import_module
 
 import pandas as pd
-from prefect import Flow, serve
+from prefect import Flow, get_client, serve
 from prefect.client.schemas.objects import ConcurrencyLimitConfig, ConcurrencyLimitStrategy
 from prefect.variables import Variable
 
@@ -118,6 +118,9 @@ def construct_flows_to_serve(configuration_path, include_data=True, include_cont
     return flows_to_serve
 
 def run_data(configuration_path):
+    with get_client(sync_client=True) as client:
+        client.create_concurrency_limit(tag="reproject", concurrency_limit=50)
+        client.create_concurrency_limit(tag="image_loader", concurrency_limit=50)
     configuration_path = str(Path(configuration_path).resolve())
     serve(*construct_flows_to_serve(configuration_path, include_control=False, include_data=True))
 
