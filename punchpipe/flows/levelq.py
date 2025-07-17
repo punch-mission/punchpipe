@@ -17,6 +17,7 @@ from punchpipe.control.cache_layer.nfi_l1 import wrap_if_appropriate
 from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
+from punchpipe.control.util import group_files_by_time
 
 
 @task(cache_policy=NO_CACHE)
@@ -149,26 +150,7 @@ def levelq_CTM_query_ready_files(session, pipeline_config: dict, reference_time=
     if len(all_ready_files) == 0:
         return []
 
-    # We need to group up files by date_obs, but we need to handle small variations in date_obs. The files are coming
-    # from the database already sorted, so let's just walk through the list of files and cut a group boundary every time
-    # date_obs increases by more than a threshold.
-    grouped_files = []
-    # We'll keep track of where the current group started, and then keep stepping to find the end of this group.
-    group_start = 0
-    tstamp_start = all_ready_files[0].date_obs.replace(tzinfo=UTC).timestamp()
-    file_under_consideration = 0
-    while True:
-        file_under_consideration += 1
-        if file_under_consideration == len(all_ready_files):
-            break
-        this_tstamp = all_ready_files[file_under_consideration].date_obs.replace(tzinfo=UTC).timestamp()
-        if abs(this_tstamp - tstamp_start) > 10:
-            # date_obs has jumped by more than our tolerance, so let's cut the group and then start tracking the next
-            # one
-            grouped_files.append(all_ready_files[group_start:file_under_consideration])
-            group_start = file_under_consideration
-            tstamp_start = this_tstamp
-    grouped_files.append(all_ready_files[group_start:])
+    grouped_files = group_files_by_time(all_ready_files, max_duration_seconds=10)
 
     logger.info(f"{len(grouped_files)} unique times")
     grouped_ready_files = []
