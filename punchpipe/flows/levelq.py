@@ -33,14 +33,20 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
     all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(File.level == "1")
                        .filter(File.observatory == "4")
-                       .filter(File.file_type == "CR").order_by(File.date_obs.desc()).all())
+                       .filter(File.file_type == "CR").order_by(File.date_obs.desc()).limit(1000).all())
     logger.info(f"{len(all_ready_files)} ready files")
 
     if len(all_ready_files) == 0:
         return []
 
-    logger.info(f"{len(all_ready_files)} groups heading out")
-    return [[f.file_id] for f in all_ready_files]
+    grouped_files = group_files_by_time(all_ready_files, max_duration_seconds=60*60*24*8, max_per_group=200)
+    # Let's take just the first group
+    grouped_files = grouped_files[0]
+
+    # Let's order it oldest-to-newest. They're currently the opposite from the database's sort
+    grouped_files = grouped_files[::-1]
+    logger.info(f"1 group heading out")
+    return [[f.file_id for f in grouped_files]]
 
 
 def get_outlier_limits_path(level1_file, pipeline_config: dict=None, session=None, reference_time=None):
@@ -66,12 +72,16 @@ def levelq_CNN_construct_flow_info(level1_files: list[File], levelq_file: File, 
     outlier_limits = get_outlier_limits_path(level1_files[0])
     call_data = json.dumps(
         {
+            # We need to send the data root separately, rather than prepended to each input file, because otherwise we
+            # risk generating too much data for the database column that holds it.
+            "data_root": pipeline_config["root"],
             "data_list": [
-                os.path.join(level1_file.directory(pipeline_config["root"]), level1_file.filename())
+                os.path.join(level1_file.directory(''), level1_file.filename())
                 for level1_file in level1_files
             ],
-            "date_obs": level1_files[0].date_obs.strftime("%Y-%m-%d %H:%M:%S"),
-            "outlier_limits": outlier_limits,
+            # This date_obs is only used to find other files to fit the PCA to
+            "date_obs": average_datetime([f.date_obs for f in level1_files]).strftime("%Y-%m-%d %H:%M:%S"),
+            "outlier_limits": None,
         }
     )
     return Flow(
@@ -92,9 +102,10 @@ def levelq_CNN_construct_file_info(level1_files: t.List[File], pipeline_config: 
                 observatory="N",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
-                date_obs=[f.date_obs for f in level1_files if f.observatory == "4"][0],
+                date_obs=level1_file.date_obs,
                 state="planned",
             )
+        for level1_file in level1_files
     ]
 
 
@@ -122,7 +133,11 @@ def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) ->
         .filter(dt > 10 * 60)
         .order_by(dt.asc()).limit(1000)).all()
 
-    files_to_fit = [os.path.join(f.directory(pipeline_config["root"]), f.filename()) for f, _ in files_to_fit]
+    call_data['data_list'] = [os.path.join(call_data['data_root'], f) for f in call_data['data_list']]
+
+    files_to_fit = [os.path.join(f.directory(call_data['data_root']), f.filename()) for f, _ in files_to_fit]
+
+    files_to_fit = [f for f in files_to_fit if f not in call_data['data_list']]
     files_to_fit = [wrap_if_appropriate(f) for f in files_to_fit]
 
     call_data['files_to_fit'] = files_to_fit
