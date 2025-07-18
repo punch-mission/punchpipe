@@ -15,11 +15,20 @@ def generic_scheduler_flow_logic(
     logger = get_run_logger()
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
 
+    # Extract the calling flow's type from the name of the calling function. The calling function's name is fixed by
+    # the logic in cli.py that finds the code for a flow named in the configuration file.
+    calling_function = inspect.currentframe().f_back.f_code.co_qualname
+    if "_scheduler_flow" in calling_function:
+        flow_type = calling_function.replace('_scheduler_flow', '')
+        logger.info(f"This is flow type {flow_type}")
+        if not pipeline_config["flows"][flow_type].get("enabled", True):
+            logger.info(f"Flow {flow_type} is not enabled---halting scheduler")
+            return
+
     max_start = pipeline_config['scheduler']['max_start']
 
     if session is None:
         session = get_database_session()
-
 
     # Not every level*_query_ready_files function needs this max_n parameter---some instead have a use_n that's similar
     # at first glance, but fills a different role and needs to be tuned differently. To avoid confusion there, we don't
