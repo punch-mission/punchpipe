@@ -1,7 +1,9 @@
+from datetime import datetime, timedelta
 import os
 from pathlib import Path
 
-from prefect import flow, get_run_logger
+from prefect import flow, get_run_logger, task
+from prefect.cache_policies import NO_CACHE
 from sqlalchemy.orm import aliased
 
 from punchpipe.control.db import File, FileRelationship, Flow
@@ -16,6 +18,12 @@ def cleaner(pipeline_config_path: str, session=None):
     if session is None:
         session = get_database_session()
 
+    reset_flows(logger, session, pipeline_config)
+    reset_stuck_launched_flows(logger, session)
+
+
+@task(cache_policy=NO_CACHE)
+def reset_flows(logger, session, pipeline_config):
     # Note: I thought about adding a maximum here, but this flow takes only 5 seconds to revive 10,000 L1 flows, so I
     # think we're good.
     child = aliased(File)
@@ -78,3 +86,18 @@ def cleaner(pipeline_config_path: str, session=None):
     session.commit()
     if len(unique_flows):
         logger.info(f"Processed {len(unique_flows)} revivable flows")
+
+
+@task(cache_policy=NO_CACHE)
+def reset_stuck_launched_flows(logger, session):
+    stucks = (session.query(Flow)
+              .where(Flow.state == 'launched')
+              .where(Flow.launch_time < datetime.now() - timedelta(minutes=15))
+              ).all()
+
+    if len(stucks):
+        for stuck in stucks:
+            stuck.state = 'failed'
+        session.commit()
+
+        logger.info(f"Reset {len(stucks)} flows stuck in a 'launched' state")
