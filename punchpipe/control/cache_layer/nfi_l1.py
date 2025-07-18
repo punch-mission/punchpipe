@@ -1,10 +1,9 @@
 import os
-import struct
-from collections.abc import Callable
 
 import numpy as np
 from ndcube import NDCube
 from punchbowl.data import load_ndcube_from_fits
+from punchbowl.util import DataLoader
 from punchbowl.levelq.pca import find_bodies_in_image
 
 from punchpipe.control.cache_layer import manager
@@ -41,7 +40,7 @@ class NFIL1Loader(LoaderABC):
         return f"FitsFileLoader({self.path})"
 
 
-def wrap_if_appropriate(file_path: str) -> str | Callable:
+def wrap_if_appropriate(file_path: str) -> str | DataLoader:
     if manager.caching_is_enabled():
-        return NFIL1Loader(file_path).load
+        return NFIL1Loader(file_path)
     return file_path
