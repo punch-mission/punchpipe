@@ -128,8 +128,7 @@ def batched(iterable, n):
 
 def group_files_by_time(files: list[File],
                         max_duration_seconds: float = inf,
-                        max_per_group: int = inf,
-                        max_group_length_seconds: float = inf) -> list[list[File]]:
+                        max_per_group: int = inf) -> list[list[File]]:
     # We need to group up files by date_obs, but we need to handle small variations in date_obs. The files are coming
     # from the database already sorted, so let's just walk through the list of files and cut a group boundary every time
     # date_obs increases by more than a threshold.
@@ -144,7 +143,7 @@ def group_files_by_time(files: list[File],
             break
         this_tstamp = files[file_under_consideration].date_obs.replace(tzinfo=UTC).timestamp()
         if (abs(this_tstamp - tstamp_start) > max_duration_seconds
-                or file_under_consideration - group_start > max_per_group):
+                or file_under_consideration - group_start >= max_per_group):
             # date_obs has jumped by more than our tolerance, so let's cut the group and then start tracking the next
             # one
             grouped_files.append(files[group_start:file_under_consideration])
