@@ -50,16 +50,16 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
 
 
 def get_outlier_limits_path(level1_file, pipeline_config: dict=None, session=None, reference_time=None):
-    corresponding_outlier_limits_type = {"PM": "OM",
-                                         "PZ": "OZ",
-                                         "PP": "OP",
-                                         "CR": "OR"}
+    corresponding_outlier_limits_type = {"PM": "LM",
+                                         "PZ": "LZ",
+                                         "PP": "LP",
+                                         "CR": "LR"}
     outlier_limits_type = corresponding_outlier_limits_type[level1_file.file_type]
     best_limits = (session.query(File)
                      .filter(File.file_type == outlier_limits_type)
                      .filter(File.observatory == level1_file.observatory)
                      .where(File.date_obs <= level1_file.date_obs)
-                     .order_by(File.date_obs.desc()).first())
+                     .order_by(File.date_obs.desc(), File.file_version.desc()).first())
     return best_limits
 
 
@@ -69,7 +69,10 @@ def levelq_CNN_construct_flow_info(level1_files: list[File], levelq_file: File, 
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
-    outlier_limits = get_outlier_limits_path(level1_files[0])
+    outlier_limits = get_outlier_limits_path(level1_files[0], session=session)
+    if outlier_limits is not None:
+        outlier_limits = os.path.join(outlier_limits.directory(pipeline_config['root']),
+                                      outlier_limits.filename().replace('.fits', '.npz'))
     call_data = json.dumps(
         {
             # We need to send the data root separately, rather than prepended to each input file, because otherwise we
@@ -81,7 +84,7 @@ def levelq_CNN_construct_flow_info(level1_files: list[File], levelq_file: File, 
             ],
             # This date_obs is only used to find other files to fit the PCA to
             "date_obs": average_datetime([f.date_obs for f in level1_files]).strftime("%Y-%m-%d %H:%M:%S"),
-            "outlier_limits": None,
+            "outlier_limits": outlier_limits,
         }
     )
     return Flow(
