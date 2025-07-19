@@ -43,7 +43,7 @@ for model_path in model_paths:
     )
     if code == "MS":
         output_filename = output_filename.replace(".fits", ".bin")
-    if code[0] == "M":
+    if code[0] == "L":
         output_filename = output_filename.replace(".fits", ".npz")
     os.makedirs(os.path.dirname(output_filename), exist_ok=True)
     shutil.copyfile(model_path, output_filename)
