@@ -50,7 +50,7 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
 
     # Let's order it oldest-to-newest. They're currently the opposite from the database's sort
     grouped_files = grouped_files[::-1]
-    logger.info(f"1 group heading out")
+    logger.info("1 group heading out")
     return [[f.file_id for f in grouped_files]]
 
 

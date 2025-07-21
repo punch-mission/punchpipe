@@ -1,7 +1,7 @@
 import os
-from datetime import datetime, UTC
-from itertools import islice
 from math import inf
+from datetime import UTC, datetime
+from itertools import islice
 
 import yaml
 from ndcube import NDCube
