@@ -39,8 +39,9 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
     if len(all_ready_files) == 0:
         return []
 
+    # We want a batch of lots of files, but we probably don't want them spread too far in time, so let's group these
+    # files up with a maximum time span, and take just the first group.
     grouped_files = group_files_by_time(all_ready_files, max_duration_seconds=60*60*24*15, max_per_group=1000)
-    # Let's take just the first group
     grouped_files = grouped_files[0]
 
     # Let's order it oldest-to-newest. They're currently the opposite from the database's sort
@@ -76,13 +77,14 @@ def levelq_CNN_construct_flow_info(level1_files: list[File], levelq_file: File, 
     call_data = json.dumps(
         {
             # We need to send the data root separately, rather than prepended to each input file, because otherwise we
-            # risk generating too much data for the database column that holds it.
+            # risk generating too much data for the database column that holds it when we have a batch of 1000 files.
             "data_root": pipeline_config["root"],
             "data_list": [
                 os.path.join(level1_file.directory(''), level1_file.filename())
                 for level1_file in level1_files
             ],
-            # This date_obs is only used to find other files to fit the PCA to
+            # This date_obs is only used to find other files to fit the PCA to, if there aren't enough
+            # to-be-subtracted images in the batch
             "date_obs": average_datetime([f.date_obs for f in level1_files]).strftime("%Y-%m-%d %H:%M:%S"),
             "outlier_limits": outlier_limits,
         }
@@ -126,6 +128,10 @@ def levelq_CNN_scheduler_flow(pipeline_config_path=None, session=None, reference
 
 
 def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) -> dict:
+    # Prepend the data root to each input file
+    call_data['data_list'] = [os.path.join(call_data['data_root'], f) for f in call_data['data_list']]
+
+    # How many files we want for the PCA fitting
     target_number = 1100
     files_to_fit = session.execute(
         select(File,
@@ -137,11 +143,11 @@ def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) ->
         .filter(dt > 10 * 60)
         .order_by(dt.asc()).limit(target_number)).all()
 
-    call_data['data_list'] = [os.path.join(call_data['data_root'], f) for f in call_data['data_list']]
-
     files_to_fit = [os.path.join(f.directory(call_data['data_root']), f.filename()) for f, _ in files_to_fit]
 
+    # Remove files that we're subtracting
     files_to_fit = [f for f in files_to_fit if f not in call_data['data_list']]
+    # Figure out how many of these extra files we need to meet our target number for fitting
     n_to_use = target_number - len(call_data['data_list'])
     n_to_use = max(0, n_to_use)
     files_to_fit = files_to_fit[:n_to_use]
