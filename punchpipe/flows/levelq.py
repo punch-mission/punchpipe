@@ -142,6 +142,9 @@ def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) ->
     files_to_fit = [os.path.join(f.directory(call_data['data_root']), f.filename()) for f, _ in files_to_fit]
 
     files_to_fit = [f for f in files_to_fit if f not in call_data['data_list']]
+    n_to_use = target_number - len(call_data['data_list'])
+    n_to_use = max(0, n_to_use)
+    files_to_fit = files_to_fit[:n_to_use]
     files_to_fit = [wrap_if_appropriate(f) for f in files_to_fit]
 
     call_data['files_to_fit'] = files_to_fit
