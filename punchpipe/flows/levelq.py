@@ -23,6 +23,10 @@ from punchpipe.control.util import group_files_by_time
 @task(cache_policy=NO_CACHE)
 def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
+    pending_flows = session.query(Flow).filter(Flow.flow_type == "levelq_CNN").filter(Flow.state == "planned").all()
+    if pending_flows:
+        logger.info("A pending flow already exists. Skipping scheduling to let the batch grow.")
+
     all_fittable_files = (session.query(File).filter(File.state.in_(("created", "quickpunched", "progressed")))
                           .filter(File.level == "1")
                           .filter(File.observatory == "4")
