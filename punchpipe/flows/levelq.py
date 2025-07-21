@@ -39,7 +39,7 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
     if len(all_ready_files) == 0:
         return []
 
-    grouped_files = group_files_by_time(all_ready_files, max_duration_seconds=60*60*24*8, max_per_group=200)
+    grouped_files = group_files_by_time(all_ready_files, max_duration_seconds=60*60*24*15, max_per_group=1000)
     # Let's take just the first group
     grouped_files = grouped_files[0]
 
@@ -126,6 +126,7 @@ def levelq_CNN_scheduler_flow(pipeline_config_path=None, session=None, reference
 
 
 def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) -> dict:
+    target_number = 1100
     files_to_fit = session.execute(
         select(File,
                dt := func.abs(func.timestampdiff(text("second"), File.date_obs, call_data['date_obs'])))
@@ -134,7 +135,7 @@ def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) ->
         .filter(File.file_type == "CR")
         .filter(File.observatory == "4")
         .filter(dt > 10 * 60)
-        .order_by(dt.asc()).limit(1000)).all()
+        .order_by(dt.asc()).limit(target_number)).all()
 
     call_data['data_list'] = [os.path.join(call_data['data_root'], f) for f in call_data['data_list']]
 
