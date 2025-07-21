@@ -127,7 +127,8 @@ def levelq_CNN_scheduler_flow(pipeline_config_path=None, session=None, reference
         pipeline_config_path,
         reference_time=reference_time,
         session=session,
-        new_input_file_state="quickpunched"
+        new_input_file_state="quickpunched",
+        children_are_one_to_one=True,
     )
 
 

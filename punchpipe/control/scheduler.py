@@ -1,4 +1,5 @@
 import inspect
+import itertools
 from datetime import datetime
 
 from prefect import get_run_logger
@@ -11,6 +12,7 @@ def generic_scheduler_flow_logic(
     query_ready_files_func, construct_child_file_info, construct_child_flow_info, pipeline_config_path,
         update_input_file_state=True, new_input_file_state="progressed",
         session=None, reference_time: datetime | None = None,
+        children_are_one_to_one: bool = False,
 ):
     logger = get_run_logger()
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
@@ -69,7 +71,10 @@ def generic_scheduler_flow_logic(
             session.commit()
 
             # create a file relationship between the prior and next levels
-            for parent_file in parent_files:
-                for child_file in children_files:
-                    session.add(FileRelationship(parent=parent_file.file_id, child=child_file.file_id))
+            if children_are_one_to_one:
+                iterable = zip(parent_files, children_files)
+            else:
+                iterable = itertools.product(parent_files, children_files)
+            for parent_file, child_file in iterable:
+                session.add(FileRelationship(parent=parent_file.file_id, child=child_file.file_id))
             session.commit()
