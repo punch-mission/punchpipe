@@ -20,13 +20,15 @@ def construct_stray_light_query_ready_files(session,
                                             file_type: str):
     before = reference_time - timedelta(weeks=1)
 
+    file_type_mapping = {"SR": "CR", "SM": "PM", "SZ": "PZ", "SP": "PP"}
+
     logger = get_run_logger()
     all_ready_files = (session.query(File)
                        .filter(File.state.in_(["created", "progressed", "quickpunched"]))
                        .filter(File.date_obs >= before)
                        .filter(File.date_obs <= reference_time)
                        .filter(File.level == "1")
-                       .filter(File.file_type == file_type)
+                       .filter(File.file_type == file_type_mapping[file_type])
                        .filter(File.observatory == spacecraft).all())
     logger.info(f"{len(all_ready_files)} Level 1 {file_type}{spacecraft} files will be used for stray light estimation.")
     if len(all_ready_files) > 30:  #  need at least 30 images
