@@ -18,12 +18,12 @@ def cleaner(pipeline_config_path: str, session=None):
     if session is None:
         session = get_database_session()
 
-    reset_flows(logger, session, pipeline_config)
-    reset_stuck_launched_flows(logger, session)
+    reset_revivable_flows(logger, session, pipeline_config)
+    fail_flows_stuck_as_launched(logger, session, pipeline_config)
 
 
 @task(cache_policy=NO_CACHE)
-def reset_flows(logger, session, pipeline_config):
+def reset_revivable_flows(logger, session, pipeline_config):
     # Note: I thought about adding a maximum here, but this flow takes only 5 seconds to revive 10,000 L1 flows, so I
     # think we're good.
     child = aliased(File)
@@ -89,10 +89,14 @@ def reset_flows(logger, session, pipeline_config):
 
 
 @task(cache_policy=NO_CACHE)
-def reset_stuck_launched_flows(logger, session):
+def fail_flows_stuck_as_launched(logger, session, pipeline_config):
+    amount_of_patience = pipeline_config['control']['cleaner'].get('fail_launched_flows_after_minutes', -1)
+    if amount_of_patience < 0:
+        return
+
     stucks = (session.query(Flow)
               .where(Flow.state == 'launched')
-              .where(Flow.launch_time < datetime.now() - timedelta(minutes=15))
+              .where(Flow.launch_time < datetime.now() - timedelta(minutes=amount_of_patience))
               ).all()
 
     if len(stucks):
@@ -100,4 +104,4 @@ def reset_stuck_launched_flows(logger, session):
             stuck.state = 'failed'
         session.commit()
 
-        logger.info(f"Reset {len(stucks)} flows stuck in a 'launched' state")
+        logger.info(f"Failed {len(stucks)} flows that have been in a 'launched' state for {amount_of_patience} minutes")
