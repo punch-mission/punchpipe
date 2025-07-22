@@ -21,7 +21,7 @@ class NFIL1Loader(LoaderABC):
                 self.try_caching((data, meta, wcs, np.packbits(uncertainty_is_inf)))
             else:
                 data, meta, wcs, uncertainty_is_inf = self.from_bytes(buffer.data)
-                uncertainty_is_inf = np.unpackbits(uncertainty_is_inf, count=data.size)
+                uncertainty_is_inf = np.unpackbits(uncertainty_is_inf, count=data.size).astype(bool).reshape(data.shape)
         return data, meta, wcs, uncertainty_is_inf
 
     def gen_key(self) -> str:
