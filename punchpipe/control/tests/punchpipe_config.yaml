@@ -73,6 +73,8 @@ control:
     max_flows_running: 50
   health_monitor:
     description: "Monitor the health of the pipeline."
+  cleaner:
+    description: "Cleans things in the database"
 
 flows:
   level0:
