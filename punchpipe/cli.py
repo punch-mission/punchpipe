@@ -144,21 +144,25 @@ def run(configuration_path, launch_prefect=False):
         data_process = None
         control_process = None
         try:
-            numa_prefix_0 = ['numactl', '--membind', '0', '--cpunodebind', '0']
-            numa_prefix_1 = ['numactl', '--membind', '1', '--cpunodebind', '1']
+            work_cores = [str(x) for x in range(0, 64, 4)]
+            work_cores = ','.join(work_cores)
+            control_cores = [str(x) for x in list(range(1, 64, 4)) + list(range(2, 64, 4)) + list(range(3, 64, 4))]
+            control_cores = ','.join(control_cores)
+            numa_prefix_control = ['numactl', '--membind', '0', f'--physcpubind={control_cores}']
+            numa_prefix_workers = ['numactl', '--preferred', '1', f'--physcpubind={work_cores},64-125,192-255']
             if launch_prefect:
                 print("Launcing prefect")
                 prefect_process = subprocess.Popen(
-                    [*numa_prefix_0, "prefect", "server", "start", "--no-services"], stdout=f, stderr=f)
+                    [*numa_prefix_control, "prefect", "server", "start", "--no-services"], stdout=f, stderr=f)
                 time.sleep(5)
                 # Separating the server and the background services may help avoid overwhelming the database connections
                 # https://github.com/PrefectHQ/prefect/issues/16299#issuecomment-2698732783
                 prefect_services_process = subprocess.Popen(
-                    [*numa_prefix_0, "prefect", "server", "services", "start"], stdout=f, stderr=f)
+                    [*numa_prefix_control, "prefect", "server", "services", "start"], stdout=f, stderr=f)
 
-            cluster_process = subprocess.Popen([*numa_prefix_1, 'punchpipe_cluster', configuration_path],
+            cluster_process = subprocess.Popen([*numa_prefix_workers, 'punchpipe_cluster', configuration_path],
                                                stdout=f, stderr=f)
-            monitor_process = subprocess.Popen([*numa_prefix_0, "gunicorn",
+            monitor_process = subprocess.Popen([*numa_prefix_control, "gunicorn",
                                                 "-b", "0.0.0.0:8050",
                                                 "--chdir", THIS_DIR,
                                                 "cli:server"],
@@ -169,10 +173,10 @@ def run(configuration_path, launch_prefect=False):
             # These processes send a _lot_ of output, so we let it go to the screen instead of making the log file
             # enormous
             def data_process_launcher() -> subprocess.Popen:
-                return subprocess.Popen([*numa_prefix_1, "punchpipe", "serve-data", configuration_path])
+                return subprocess.Popen([*numa_prefix_workers, "punchpipe", "serve-data", configuration_path])
 
             def control_process_launcher() -> subprocess.Popen:
-                return subprocess.Popen([*numa_prefix_0, "punchpipe", "serve-control", configuration_path])
+                return subprocess.Popen([*numa_prefix_control, "punchpipe", "serve-control", configuration_path])
 
             data_process = data_process_launcher()
             control_process = control_process_launcher()
