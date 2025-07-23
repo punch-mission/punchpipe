@@ -6,10 +6,13 @@ from datetime import UTC, datetime, timedelta
 from functools import partial
 
 from prefect import flow, get_run_logger, task
+from prefect.context import get_run_context
 from prefect.cache_policies import NO_CACHE
+from prefect_sqlalchemy import SqlAlchemyConnector
 from punchbowl.levelq.f_corona_model import construct_qp_f_corona_model
 from punchbowl.levelq.flow import levelq_CNN_core_flow, levelq_CTM_core_flow
 from punchbowl.util import average_datetime
+from sqlalchemy.orm import Session
 from sqlalchemy import and_, func, or_, select, text
 
 from punchpipe import __version__
@@ -18,6 +21,8 @@ from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
+credentials = SqlAlchemyConnector.load("mariadb-creds", _sync=True)
+engine = credentials.get_engine()
 
 @task(cache_policy=NO_CACHE)
 def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
@@ -234,13 +239,13 @@ def levelq_upload_query_ready_files(session, pipeline_config: dict, reference_ti
     logger.info(f"{len(all_ready_files)} ready files")
     currently_creating_files = session.query(File).filter(File.state == "creating").filter(File.level == "Q").all()
     logger.info(f"{len(currently_creating_files)} level Q files currently being processed")
-    out = all_ready_files if len(currently_creating_files) == 0 else []
+    out = [f.file_id for f in all_ready_files] # if len(currently_creating_files) == 0 else []
     logger.info(f"Delivering {len(out)} level Q files in this batch.")
-    return out
+    return [out]
 
 @task
 def levelq_upload_construct_flow_info(levelq_files: list[File], intentionally_empty: File, pipeline_config: dict, session=None, reference_time=None):
-    flow_type = "levelQ_upload"
+    flow_type = "levelq_upload"
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
@@ -297,8 +302,37 @@ def write_manifest(file_names):
 
 @flow
 def levelq_upload_process_flow(flow_id, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, levelq_upload_core_flow, pipeline_config_path, session=session)
+    logger = get_run_logger()
+    if session is None:
+        session = Session(engine)
+    # fetch the appropriate flow db entry
+    flow_db_entry = session.query(Flow).where(Flow.flow_id == flow_id).one()
+    logger.info(f"Running on flow db entry with id={flow_db_entry.flow_id}.")
 
+    # update the processing flow name with the flow run name from Prefect
+    flow_run_context = get_run_context()
+    flow_db_entry.flow_run_name = flow_run_context.flow_run.name
+    flow_db_entry.flow_run_id = flow_run_context.flow_run.id
+    flow_db_entry.state = "running"
+    flow_db_entry.start_time = datetime.now(UTC)
+    session.commit()
+
+    # load the call data and launch the core flow
+    flow_call_data = json.loads(flow_db_entry.call_data)
+    logger.info(f"Running with {flow_call_data}")
+    try:
+        levelq_upload_core_flow(**flow_call_data)
+    except Exception as e:
+        flow_db_entry.state = "failed"
+        flow_db_entry.end_time = datetime.now(UTC)
+        logger.info("Something's gone wrong - level0_core_flow failed")
+        session.commit()
+        raise e
+    else:
+        flow_db_entry.state = "completed"
+        flow_db_entry.end_time = datetime.now(UTC)
+        # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
+        session.commit()
 
 @task
 def levelq_CFM_query_ready_files(session, pipeline_config: dict, reference_time: datetime, use_n: int = 50):
