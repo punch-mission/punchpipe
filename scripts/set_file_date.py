@@ -1,9 +1,9 @@
-from datetime import datetime
-from glob import glob
 import os
-from pathlib import Path
-import shutil
 import sys
+import shutil
+from glob import glob
+from pathlib import Path
+from datetime import datetime
 
 from astropy.io import fits
 
