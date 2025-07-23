@@ -69,7 +69,7 @@ def session_fn(session):
                        state='created',
                        file_version='none',
                        software_version='none',
-                       date_obs=datetime.now(UTC)-timedelta(days=1))
+                       date_obs=datetime.now(UTC)-timedelta(hours=12))
 
     stray_light_after = File(level="1",
                        file_type="SM",
@@ -77,7 +77,7 @@ def session_fn(session):
                        state='created',
                        file_version='none',
                        software_version='none',
-                       date_obs=datetime.now(UTC)+timedelta(days=1))
+                       date_obs=datetime.now(UTC)+timedelta(hours=12))
 
     distortion = File(level="1",
                        file_type="DS",
