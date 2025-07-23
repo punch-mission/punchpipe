@@ -17,11 +17,16 @@ from punchpipe.control.cache_layer.nfi_l1 import wrap_if_appropriate
 from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
+from punchpipe.control.util import group_files_by_time
 
 
 @task(cache_policy=NO_CACHE)
 def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
+    pending_flows = session.query(Flow).filter(Flow.flow_type == "levelq_CNN").filter(Flow.state == "planned").all()
+    if pending_flows:
+        logger.info("A pending flow already exists. Skipping scheduling to let the batch grow.")
+
     all_fittable_files = (session.query(File).filter(File.state.in_(("created", "quickpunched", "progressed")))
                           .filter(File.level == "1")
                           .filter(File.observatory == "4")
@@ -32,14 +37,35 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
     all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(File.level == "1")
                        .filter(File.observatory == "4")
-                       .filter(File.file_type == "CR").order_by(File.date_obs.desc()).all())
+                       .filter(File.file_type == "CR").order_by(File.date_obs.desc()).limit(1000).all())
     logger.info(f"{len(all_ready_files)} ready files")
 
     if len(all_ready_files) == 0:
         return []
 
-    logger.info(f"{len(all_ready_files)} groups heading out")
-    return [[f.file_id] for f in all_ready_files]
+    # We want a batch of lots of files, but we probably don't want them spread too far in time, so let's group these
+    # files up with a maximum time span, and take just the first group.
+    grouped_files = group_files_by_time(all_ready_files, max_duration_seconds=60*60*24*15, max_per_group=1000)
+    grouped_files = grouped_files[0]
+
+    # Let's order it oldest-to-newest. They're currently the opposite from the database's sort
+    grouped_files = grouped_files[::-1]
+    logger.info("1 group heading out")
+    return [[f.file_id for f in grouped_files]]
+
+
+def get_outlier_limits_path(level1_file, pipeline_config: dict=None, session=None, reference_time=None):
+    corresponding_outlier_limits_type = {"PM": "LM",
+                                         "PZ": "LZ",
+                                         "PP": "LP",
+                                         "CR": "LR"}
+    outlier_limits_type = corresponding_outlier_limits_type[level1_file.file_type]
+    best_limits = (session.query(File)
+                     .filter(File.file_type == outlier_limits_type)
+                     .filter(File.observatory == level1_file.observatory)
+                     .where(File.date_obs <= level1_file.date_obs)
+                     .order_by(File.date_obs.desc(), File.file_version.desc()).first())
+    return best_limits
 
 
 @task(cache_policy=NO_CACHE)
@@ -48,13 +74,23 @@ def levelq_CNN_construct_flow_info(level1_files: list[File], levelq_file: File, 
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
+    outlier_limits = get_outlier_limits_path(level1_files[0], session=session)
+    if outlier_limits is not None:
+        outlier_limits = os.path.join(outlier_limits.directory(pipeline_config['root']),
+                                      outlier_limits.filename().replace('.fits', '.npz'))
     call_data = json.dumps(
         {
+            # We need to send the data root separately, rather than prepended to each input file, because otherwise we
+            # risk generating too much data for the database column that holds it when we have a batch of 1000 files.
+            "data_root": pipeline_config["root"],
             "data_list": [
-                os.path.join(level1_file.directory(pipeline_config["root"]), level1_file.filename())
+                os.path.join(level1_file.directory(''), level1_file.filename())
                 for level1_file in level1_files
             ],
-            "date_obs": level1_files[0].date_obs.strftime("%Y-%m-%d %H:%M:%S"),
+            # This date_obs is only used to find other files to fit the PCA to, if there aren't enough
+            # to-be-subtracted images in the batch
+            "date_obs": average_datetime([f.date_obs for f in level1_files]).strftime("%Y-%m-%d %H:%M:%S"),
+            "outlier_limits": outlier_limits,
         }
     )
     return Flow(
@@ -75,9 +111,10 @@ def levelq_CNN_construct_file_info(level1_files: t.List[File], pipeline_config: 
                 observatory="N",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
-                date_obs=[f.date_obs for f in level1_files if f.observatory == "4"][0],
+                date_obs=level1_file.date_obs,
                 state="planned",
             )
+        for level1_file in level1_files
     ]
 
 
@@ -90,11 +127,17 @@ def levelq_CNN_scheduler_flow(pipeline_config_path=None, session=None, reference
         pipeline_config_path,
         reference_time=reference_time,
         session=session,
-        new_input_file_state="quickpunched"
+        new_input_file_state="quickpunched",
+        children_are_one_to_one=True,
     )
 
 
 def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) -> dict:
+    # Prepend the data root to each input file
+    call_data['data_list'] = [os.path.join(call_data['data_root'], f) for f in call_data['data_list']]
+
+    # How many files we want for the PCA fitting
+    target_number = 1100
     files_to_fit = session.execute(
         select(File,
                dt := func.abs(func.timestampdiff(text("second"), File.date_obs, call_data['date_obs'])))
@@ -103,9 +146,16 @@ def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) ->
         .filter(File.file_type == "CR")
         .filter(File.observatory == "4")
         .filter(dt > 10 * 60)
-        .order_by(dt.asc()).limit(1000)).all()
+        .order_by(dt.asc()).limit(target_number)).all()
 
-    files_to_fit = [os.path.join(f.directory(pipeline_config["root"]), f.filename()) for f, _ in files_to_fit]
+    files_to_fit = [os.path.join(f.directory(call_data['data_root']), f.filename()) for f, _ in files_to_fit]
+
+    # Remove files that we're subtracting
+    files_to_fit = [f for f in files_to_fit if f not in call_data['data_list']]
+    # Figure out how many of these extra files we need to meet our target number for fitting
+    n_to_use = target_number - len(call_data['data_list'])
+    n_to_use = max(0, n_to_use)
+    files_to_fit = files_to_fit[:n_to_use]
     files_to_fit = [wrap_if_appropriate(f) for f in files_to_fit]
 
     call_data['files_to_fit'] = files_to_fit
@@ -133,26 +183,7 @@ def levelq_CTM_query_ready_files(session, pipeline_config: dict, reference_time=
     if len(all_ready_files) == 0:
         return []
 
-    # We need to group up files by date_obs, but we need to handle small variations in date_obs. The files are coming
-    # from the database already sorted, so let's just walk through the list of files and cut a group boundary every time
-    # date_obs increases by more than a threshold.
-    grouped_files = []
-    # We'll keep track of where the current group started, and then keep stepping to find the end of this group.
-    group_start = 0
-    tstamp_start = all_ready_files[0].date_obs.replace(tzinfo=UTC).timestamp()
-    file_under_consideration = 0
-    while True:
-        file_under_consideration += 1
-        if file_under_consideration == len(all_ready_files):
-            break
-        this_tstamp = all_ready_files[file_under_consideration].date_obs.replace(tzinfo=UTC).timestamp()
-        if abs(this_tstamp - tstamp_start) > 10:
-            # date_obs has jumped by more than our tolerance, so let's cut the group and then start tracking the next
-            # one
-            grouped_files.append(all_ready_files[group_start:file_under_consideration])
-            group_start = file_under_consideration
-            tstamp_start = this_tstamp
-    grouped_files.append(all_ready_files[group_start:])
+    grouped_files = group_files_by_time(all_ready_files, max_duration_seconds=10)
 
     logger.info(f"{len(grouped_files)} unique times")
     grouped_ready_files = []

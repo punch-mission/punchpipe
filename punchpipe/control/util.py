@@ -1,5 +1,6 @@
 import os
-from datetime import datetime
+from math import inf
+from datetime import UTC, datetime
 from itertools import islice
 
 import yaml
@@ -123,3 +124,30 @@ def batched(iterable, n):
     iterator = iter(iterable)
     while batch := tuple(islice(iterator, n)):
         yield batch
+
+
+def group_files_by_time(files: list[File],
+                        max_duration_seconds: float = inf,
+                        max_per_group: int = inf) -> list[list[File]]:
+    # We need to group up files by date_obs, but we need to handle small variations in date_obs. The files are coming
+    # from the database already sorted, so let's just walk through the list of files and cut a group boundary every time
+    # date_obs increases by more than a threshold.
+    grouped_files = []
+    # We'll keep track of where the current group started, and then keep stepping to find the end of this group.
+    group_start = 0
+    tstamp_start = files[0].date_obs.replace(tzinfo=UTC).timestamp()
+    file_under_consideration = 0
+    while True:
+        file_under_consideration += 1
+        if file_under_consideration == len(files):
+            break
+        this_tstamp = files[file_under_consideration].date_obs.replace(tzinfo=UTC).timestamp()
+        if (abs(this_tstamp - tstamp_start) > max_duration_seconds
+                or file_under_consideration - group_start >= max_per_group):
+            # date_obs has jumped by more than our tolerance, so let's cut the group and then start tracking the next
+            # one
+            grouped_files.append(files[group_start:file_under_consideration])
+            group_start = file_under_consideration
+            tstamp_start = this_tstamp
+    grouped_files.append(files[group_start:])
+    return grouped_files
