@@ -39,7 +39,7 @@ def generic_scheduler_flow_logic(
         Some time of observation time associated with this scheduling run. The meaning is defined by flow-specific
         functions passed into this function.
     args_dictionary: dict
-         Values in this dictionary are passed directly to the 
+         Values in this dictionary are passed directly to the
          `query_ready_files_func`, `query_ready_files_func`, and `construct_child_flow_info` functions
     children_are_one_to_one
         By default, for each group of input files, it is assumed that all inputs together produce all the output
