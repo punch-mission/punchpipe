@@ -40,6 +40,12 @@ for path in files:
     version = base_path.split("_")[-1].split(".")[0][1:]
     date = datetime.strptime(base_path.split("_")[3], "%Y%m%d%H%M%S")
 
+    pol = 'C'
+    if code[0] in ['G', 'S', 'R', 'P']:
+        pol = code[1]
+        if pol == 'R':
+            pol = 'C'
+
     file = File(
         level=level,
         file_type=code,
@@ -47,7 +53,7 @@ for path in files:
         file_version=version,
         software_version='imported to db',
         date_obs=date,
-        polarization=code[1] if code[0] == 'P' else 'C',
+        polarization=pol,
         state='created',
     )
 
