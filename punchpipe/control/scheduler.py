@@ -23,7 +23,7 @@ def generic_scheduler_flow_logic(
     query_ready_files_func
         A function that returns a list of lists, where each of the inner lists is a group of files that will be the
         inputs to one flow
-    query_ready_files_func
+    construct_child_file_info
         A function that generates the child File entries for one group/flow
     construct_child_flow_info
         A function that generates the Flow entry for one group
