@@ -9,6 +9,7 @@
 * Cleans flows stuck in a 'launched' state in https://github.com/punch-mission/punchpipe/pull/209
 * Set FILEVRSN for files before writing in https://github.com/punch-mission/punchpipe/pull/204
 * Adds docs button to view source in https://github.com/punch-mission/punchpipe/pull/208
+* Implements rolling stray light models in https://github.com/punch-mission/punchpipe/pull/212
 * Support batched LQ CNN and improved outlier limits in https://github.com/punch-mission/punchpipe/pull/210
 
 ## Version 0.0.10: July 3, 2025

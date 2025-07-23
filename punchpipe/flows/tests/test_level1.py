@@ -63,13 +63,21 @@ def session_fn(session):
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(days=1))
 
-    stray_light = File(level="1",
+    stray_light_before = File(level="1",
                        file_type="SM",
                        observatory='4',
                        state='created',
                        file_version='none',
                        software_version='none',
-                       date_obs=datetime.now(UTC)-timedelta(days=1))
+                       date_obs=datetime.now(UTC)-timedelta(hours=12))
+
+    stray_light_after = File(level="1",
+                       file_type="SM",
+                       observatory='4',
+                       state='created',
+                       file_version='none',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)+timedelta(hours=12))
 
     distortion = File(level="1",
                        file_type="DS",
@@ -93,7 +101,8 @@ def session_fn(session):
     session.add(quartic_fit_coeffs)
     session.add(vignetting_function)
     session.add(distortion)
-    session.add(stray_light)
+    session.add(stray_light_before)
+    session.add(stray_light_after)
     session.add(mask_file)
 
 db = create_mysql_fixture(Base, session_fn, session=True)

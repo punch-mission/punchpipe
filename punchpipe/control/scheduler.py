@@ -12,6 +12,7 @@ def generic_scheduler_flow_logic(
     query_ready_files_func, construct_child_file_info, construct_child_flow_info, pipeline_config_path,
         update_input_file_state=True, new_input_file_state="progressed",
         session=None, reference_time: datetime | None = None,
+        args_dictionary: dict = {},
         children_are_one_to_one: bool = False,
     ):
     """
@@ -37,13 +38,15 @@ def generic_scheduler_flow_logic(
     reference_time
         Some time of observation time associated with this scheduling run. The meaning is defined by flow-specific
         functions passed into this function.
+    args_dictionary: dict
+         Values in this dictionary are passed directly to the
+         `query_ready_files_func`, `query_ready_files_func`, and `construct_child_flow_info` functions
     children_are_one_to_one
         By default, for each group of input files, it is assumed that all inputs together produce all the output
         files, and FileRelationships are generated accordingly. In a case where a batch of input files are to be
         processed in one flow, this assumption doesn't hold. When this flag is set to True, it is assumed each input
         file connects to only one output file (at the corresponding position in the list of child File objects).
     """
-
 
     logger = get_run_logger()
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
@@ -73,7 +76,7 @@ def generic_scheduler_flow_logic(
         extra_args = {}
     # find all files that are ready to run
     ready_file_ids = query_ready_files_func(
-        session, pipeline_config, reference_time=reference_time, **extra_args)[:max_start]
+        session, pipeline_config, reference_time=reference_time, **extra_args, **args_dictionary)[:max_start]
     logger.info(f"Got {len(ready_file_ids)} groups of ready files")
     if ready_file_ids:
         for group in ready_file_ids:
@@ -87,10 +90,10 @@ def generic_scheduler_flow_logic(
                 parent_files += session.query(File).where(File.file_id == file_id).all()
 
             # prepare the new level flow and file
-            children_files = construct_child_file_info(parent_files, pipeline_config, reference_time=reference_time)
+            children_files = construct_child_file_info(parent_files, pipeline_config, reference_time=reference_time, **args_dictionary)
             database_flow_info = construct_child_flow_info(parent_files, children_files,
                                                            pipeline_config, session=session,
-                                                           reference_time=reference_time)
+                                                           reference_time=reference_time, **args_dictionary)
             for child_file in children_files:
                 session.add(child_file)
             session.add(database_flow_info)

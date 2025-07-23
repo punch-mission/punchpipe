@@ -108,6 +108,17 @@ flows:
         pfw_recency_requirement: 3.0  # seconds
         xact_recency_requirement: 3.0  # seconds
 
+  construct_stray_light:
+    description: "Creates Level 1 stray light model files."
+    tags: [ "L1" ]
+    priority:
+      initial: 10000
+      seconds: [1]
+      escalation: [10000]
+    schedule: "* * * * *"
+    launch_weight: 0.6
+    options:
+
   level1:
     description: "Creates Level 1 files."
     tags: ["L1"]
