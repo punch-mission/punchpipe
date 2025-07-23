@@ -6,14 +6,14 @@ from datetime import UTC, datetime, timedelta
 from functools import partial
 
 from prefect import flow, get_run_logger, task
-from prefect.context import get_run_context
 from prefect.cache_policies import NO_CACHE
+from prefect.context import get_run_context
 from prefect_sqlalchemy import SqlAlchemyConnector
 from punchbowl.levelq.f_corona_model import construct_qp_f_corona_model
 from punchbowl.levelq.flow import levelq_CNN_core_flow, levelq_CTM_core_flow
 from punchbowl.util import average_datetime
-from sqlalchemy.orm import Session
 from sqlalchemy import and_, func, or_, select, text
+from sqlalchemy.orm import Session
 
 from punchpipe import __version__
 from punchpipe.control.cache_layer.nfi_l1 import wrap_if_appropriate
