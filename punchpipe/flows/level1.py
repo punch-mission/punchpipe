@@ -1,7 +1,7 @@
 import os
 import json
 import typing as t
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
@@ -93,6 +93,7 @@ def get_stray_light_before(level0_file, pipeline_config: dict, session=None, ref
                   .filter(File.file_type == model_type)
                   .filter(File.observatory == level0_file.observatory)
                   .where(File.date_obs <= level0_file.date_obs)
+                  .where((level0_file.date_obs - File.date_obs) < timedelta(days=1))
                   .order_by(File.date_obs.desc()).first())
     return best_model
 
@@ -107,7 +108,8 @@ def get_stray_light_after(level0_file, pipeline_config: dict, session=None, refe
                   .filter(File.file_type == model_type)
                   .filter(File.observatory == level0_file.observatory)
                   .where(File.date_obs >= level0_file.date_obs)
-                  .order_by(File.date_obs.desc()).first())
+                  .where((File.date_obs - level0_file.date_obs) < timedelta(days=1))
+                  .order_by(File.date_obs.asc()).first())
     return best_model
 
 
