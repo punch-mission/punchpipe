@@ -18,6 +18,7 @@ model_paths += sorted(glob(os.path.join(model_directory, "PUNCH_L1_G*.fits")))
 model_paths += sorted(glob(os.path.join(model_directory, "PUNCH_L1_S*.fits")))
 model_paths += sorted(glob(os.path.join(model_directory, "PUNCH_L1_D*.fits")))
 model_paths += sorted(glob(os.path.join(model_directory, "PUNCH_L1_MS*.bin")))
+model_paths += sorted(glob(os.path.join(model_directory, "PUNCH_L1_L*.npz")))
 
 for model_path in model_paths:
     base_path = os.path.basename(model_path)
@@ -42,6 +43,8 @@ for model_path in model_paths:
     )
     if code == "MS":
         output_filename = output_filename.replace(".fits", ".bin")
+    if code[0] == "L":
+        output_filename = output_filename.replace(".fits", ".npz")
     os.makedirs(os.path.dirname(output_filename), exist_ok=True)
     shutil.copyfile(model_path, output_filename)
     print(f"Created {output_filename}")

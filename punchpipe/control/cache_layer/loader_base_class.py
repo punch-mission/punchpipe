@@ -1,13 +1,15 @@
 import abc
 import pickle
-from typing import Generic, TypeVar
+from typing import TypeVar
+
+from punchbowl.util import DataLoader
 
 from punchpipe.control.cache_layer import manager
 
 T = TypeVar("T")
 
 
-class LoaderABC(abc.ABC, Generic[T]):
+class LoaderABC(DataLoader[T]):
     @abc.abstractmethod
     def gen_key(self) -> str:
         """Generate a cache key"""
