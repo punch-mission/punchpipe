@@ -8,6 +8,7 @@
 * Dashboard fix for file cards with multiple file types in https://github.com/punch-mission/punchpipe/pull/202
 * Set FILEVRSN for files before writing in https://github.com/punch-mission/punchpipe/pull/204
 * Adds docs button to view source in https://github.com/punch-mission/punchpipe/pull/208
+* Implements rolling stray light models in https://github.com/punch-mission/punchpipe/pull/212
 
 ## Version 0.0.10: July 3, 2025
 
