@@ -30,8 +30,10 @@ def construct_stray_light_query_ready_files(session,
                        .filter(File.date_obs >= before)
                        .filter(File.date_obs <= reference_time)
                        .filter(File.level == "1")
-                       .filter(File.observatory == spacecraft).all())
                        .filter(File.file_type == target_file_type)
+                       .filter(File.observatory == spacecraft)
+                       .order_by(File.date_obs.desc())
+                       .limit(1000).all())
     logger.info(f"{len(all_ready_files)} Level 1 {target_file_type}{spacecraft} files will be used for stray light estimation.")
     if len(all_ready_files) > 30:  #  need at least 30 images
         return [[f.file_id for f in all_ready_files]]
