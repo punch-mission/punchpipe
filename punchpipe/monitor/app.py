@@ -171,10 +171,10 @@ def create_app():
                                               color="light", inverse=False)))
                 continue
 
-            n_good, n_bad, n_running = sub_df['n_good'].iloc[0], sub_df['n_bad'].iloc[0], sub_df['n_running'].iloc[0]
-            n_launched, n_planned = sub_df['n_launched'].iloc[0], sub_df['n_planned'].iloc[0]
+            n_good, n_bad, n_running = sub_df['n_good'].sum(), sub_df['n_bad'].sum(), sub_df['n_running'].sum()
+            n_launched, n_planned = sub_df['n_launched'].sum(), sub_df['n_planned'].sum()
 
-            n_planned = sub_df['n_planned'].iloc[0]
+            n_planned = sub_df['n_planned'].sum()
             message = (f"{n_good:.0f} ✅     {n_bad:.0f} ⛔     {n_launched:.0f} 🚀     {n_running:.0f} ⏳     "
                        f"{n_planned:.0f} 💭")
             if n_good == 0 and n_bad == 0 and n_planned == 0 and n_launched == 0 and n_running == 0:
