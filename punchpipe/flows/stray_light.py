@@ -54,11 +54,11 @@ def construct_stray_light_flow_info(level1_files: list[File],
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
+            "data_root": pipeline_config["root"],
             "filepaths": [
-                os.path.join(level1_file.directory(pipeline_config["root"]), level1_file.filename())
+                os.path.join(level1_file.directory(''), level1_file.filename())
                 for level1_file in level1_files
             ],
-            "reference_time": str(reference_time)
         }
     )
     return Flow(
@@ -107,6 +107,14 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
                 args_dictionary=args_dictionary
             )
 
+
+def construct_stray_light_call_data_processor(call_data: dict, pipeline_config, session) -> dict:
+    # Prepend the data root to each input file
+    call_data['filepaths'] = [os.path.join(call_data['data_root'], f) for f in call_data['filepaths']]
+    del call_data['data_root']
+    return call_data
+
 @flow
 def construct_stray_light_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, estimate_stray_light, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, estimate_stray_light, pipeline_config_path, session=session,
+                               call_data_processor=construct_stray_light_call_data_processor)
