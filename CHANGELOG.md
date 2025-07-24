@@ -7,6 +7,7 @@
 * Broaden stray light search window to 31 in https://github.com/punch-mission/punchpipe/pull/217
 * Fixes to run the stray light model generation flow in https://github.com/punch-mission/punchpipe/pull/216
 * Fix to selection of "after" stray light model in https://github.com/punch-mission/punchpipe/pull/218
+* Set stray light models' date_obs to the reference time; only select "created" models for L1 inputs; use DataLoader API for all cache types; dashboard fix in https://github.com/punch-mission/punchpipe/pull/219
 
 ## Version 0.0.11: July 23, 2025
 
