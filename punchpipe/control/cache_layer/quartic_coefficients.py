@@ -1,6 +1,6 @@
 import os
-from collections.abc import Callable
 
+from punchbowl.util import DataLoader
 from ndcube import NDCube
 from punchbowl.data import load_ndcube_from_fits
 
@@ -25,7 +25,7 @@ class QuarticLoader(LoaderABC[NDCube]):
         return f"QuarticLoader({self.path})"
 
 
-def wrap_if_appropriate(quartic_path: str) -> str | Callable:
+def wrap_if_appropriate(quartic_path: str) -> str | DataLoader:
     if manager.caching_is_enabled():
-        return QuarticLoader(quartic_path).load
+        return QuarticLoader(quartic_path)
     return quartic_path

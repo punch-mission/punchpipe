@@ -1,6 +1,6 @@
 import os
-from collections.abc import Callable
 
+from punchbowl.util import DataLoader
 from ndcube import NDCube
 from punchbowl.data import load_ndcube_from_fits
 
@@ -25,7 +25,7 @@ class VignettingLoader(LoaderABC[NDCube]):
         return f"VignettingLoader({self.path})"
 
 
-def wrap_if_appropriate(vignetting_path: str) -> str | Callable:
+def wrap_if_appropriate(vignetting_path: str) -> str | DataLoader:
     if manager.caching_is_enabled():
-        return VignettingLoader(vignetting_path).load
+        return VignettingLoader(vignetting_path)
     return vignetting_path
