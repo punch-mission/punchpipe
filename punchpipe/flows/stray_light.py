@@ -59,6 +59,7 @@ def construct_stray_light_flow_info(level1_files: list[File],
                 os.path.join(level1_file.directory(''), level1_file.filename())
                 for level1_file in level1_files
             ],
+            "reference_time": reference_time.strftime("%Y-%m-%d %H:%M:%S"),
         }
     )
     return Flow(
@@ -77,15 +78,13 @@ def construct_stray_light_file_info(level1_files: t.List[File],
                                     reference_time: datetime,
                                     file_type: str,
                                     spacecraft: str) -> t.List[File]:
-    date_obses = [f.date_obs for f in level1_files]
-    first_dateobs = sorted(date_obses)[0]
     return [File(
                 level="1",
                 file_type=file_type,
                 observatory=spacecraft,
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
-                date_obs=first_dateobs,
+                date_obs=reference_time,
                 state="planned",
             ),]
 
