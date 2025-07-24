@@ -100,8 +100,8 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
 
             generic_scheduler_flow_logic(
                 construct_stray_light_query_ready_files,
-                construct_stray_light_flow_info,
                 construct_stray_light_file_info,
+                construct_stray_light_flow_info,
                 pipeline_config_path,
                 update_input_file_state=False,
                 reference_time=reference_time,
