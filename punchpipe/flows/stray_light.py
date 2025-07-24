@@ -4,6 +4,7 @@ import typing as t
 from datetime import UTC, datetime, timedelta
 
 from prefect import flow, get_run_logger, task
+from prefect.cache_policies import NO_CACHE
 from punchbowl.level1.stray_light import estimate_stray_light
 
 from punchpipe import __version__
@@ -12,7 +13,7 @@ from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
 
 
-@task
+@task(cache_policy=NO_CACHE)
 def construct_stray_light_query_ready_files(session,
                                             pipeline_config: dict,
                                             reference_time: datetime,
@@ -36,7 +37,7 @@ def construct_stray_light_query_ready_files(session,
     else:
         return []
 
-@task
+@task(cache_policy=NO_CACHE)
 def construct_stray_light_flow_info(level1_files: list[File],
                                     level1_stray_light_file: File,
                                     pipeline_config: dict,
@@ -67,7 +68,7 @@ def construct_stray_light_flow_info(level1_files: list[File],
     )
 
 
-@task
+@task(cache_policy=NO_CACHE)
 def construct_stray_light_file_info(level1_files: t.List[File],
                                     pipeline_config: dict,
                                     reference_time: datetime,
