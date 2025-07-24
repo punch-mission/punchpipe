@@ -2,6 +2,9 @@
 
 [This is available in GitHub](https://github.com/punch-mission/punchpipe/releases)
 
+## Unreleased
+* Fixes to run the stray light model generation flow in https://github.com/punch-mission/punchpipe/pull/216
+
 ## Version 0.0.11: July 23, 2025
 
 * Updates replay request cleaning script in https://github.com/punch-mission/punchpipe/pull/190
