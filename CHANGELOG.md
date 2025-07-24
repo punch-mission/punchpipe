@@ -3,6 +3,8 @@
 [This is available in GitHub](https://github.com/punch-mission/punchpipe/releases)
 
 ## Unreleased
+
+* Broaden stray light search window to 31 in https://github.com/punch-mission/punchpipe/pull/217
 * Fixes to run the stray light model generation flow in https://github.com/punch-mission/punchpipe/pull/216
 
 ## Version 0.0.11: July 23, 2025
