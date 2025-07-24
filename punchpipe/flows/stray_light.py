@@ -77,13 +77,15 @@ def construct_stray_light_file_info(level1_files: t.List[File],
                                     reference_time: datetime,
                                     file_type: str,
                                     spacecraft: str) -> t.List[File]:
+    date_obses = [f.date_obs for f in level1_files]
+    first_dateobs = sorted(date_obses)[0]
     return [File(
                 level="1",
                 file_type=file_type,
                 observatory=spacecraft,
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
-                date_obs= reference_time,
+                date_obs=first_dateobs,
                 state="planned",
             ),]
 
