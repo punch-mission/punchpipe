@@ -109,7 +109,7 @@ def get_stray_light_after(level0_file, pipeline_config: dict, session=None, refe
                   .filter(File.observatory == level0_file.observatory)
                   .where(File.date_obs >= level0_file.date_obs)
                   .where(File.date_obs < level0_file.date_obs + timedelta(days=31))
-                  .order_by(File.date_obs.desc()).first())
+                  .order_by(File.date_obs.asc()).first())
     return best_model
 
 
