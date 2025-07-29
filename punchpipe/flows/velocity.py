@@ -10,6 +10,7 @@ from punchpipe import __version__
 from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
+from punchpipe.flows.util import file_name_to_full_path
 
 
 @task
@@ -39,10 +40,7 @@ def level3_vam_construct_flow_info(level3_ctm_files: List[File],
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
-            "files": [
-                os.path.join(ctm_file.directory(pipeline_config['root'], ctm_file.filename()))
-                for ctm_file in level3_ctm_files
-            ],
+            "files": [ctm_file.filename() for ctm_file in level3_ctm_files],
             "reference_time": str(reference_time)
         }
     )
@@ -84,12 +82,18 @@ def level3_vam_scheduler_flow(pipeline_config_path=None, session=None, reference
     )
 
 
+def level3_vam_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+    call_data['files'] = file_name_to_full_path(call_data['files'], pipeline_config['root'])
+    return call_data
+
+
 @flow
 def level3_vam_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id,
                                track_velocity,
                                pipeline_config_path,
-                               session=session
+                               session=session,
+                               call_data_processor=level3_vam_call_data_processor,
                                )
 
 @task
@@ -119,10 +123,7 @@ def level3_van_construct_flow_info(level3_cnn_files: List[File],
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
-            "files": [
-                os.path.join(cnn_file.directory(pipeline_config['root'], cnn_file.filename()))
-                for cnn_file in level3_cnn_files
-            ],
+            "files": [cnn_file.filename() for cnn_file in level3_cnn_files],
             "reference_time": str(reference_time)
         }
     )
@@ -164,10 +165,16 @@ def level3_van_scheduler_flow(pipeline_config_path=None, session=None, reference
     )
 
 
+def level3_van_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+    call_data['files'] = file_name_to_full_path(call_data['files'], pipeline_config['root'])
+    return call_data
+
+
 @flow
 def level3_van_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id,
                                track_velocity,
                                pipeline_config_path,
-                               session=session
+                               session=session,
+                               call_data_processor=level3_van_call_data_processor,
                                )

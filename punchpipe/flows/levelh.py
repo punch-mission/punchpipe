@@ -12,6 +12,7 @@ from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
 from punchpipe.flows.level1 import get_ccd_parameters, get_psf_model_path
+from punchpipe.flows.util import file_name_to_full_path
 
 SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
 
@@ -43,12 +44,8 @@ def levelh_construct_flow_info(level0_files: list[File], level1_files: File,
 
     call_data = json.dumps(
         {
-            "input_data": [
-                os.path.join(level0_file.directory(pipeline_config["root"]), level0_file.filename())
-                for level0_file in level0_files
-            ],
-            "psf_model_path": os.path.join(best_psf_model.directory(pipeline_config['root']),
-                                           best_psf_model.filename()),
+            "input_data": [level0_file.filename() for level0_file in level0_files],
+            "psf_model_path": best_psf_model.filename(),
             "gain_bottom": ccd_parameters['gain_bottom'],
             "gain_top": ccd_parameters['gain_top']
         }
@@ -92,6 +89,13 @@ def levelh_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
     )
 
 
+def levelh_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+    for key in ['input_data', 'psf_model_path']:
+        call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
+    return call_data
+
+
 @flow
 def levelh_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, levelh_core_flow, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, levelh_core_flow, pipeline_config_path, session=session,
+                               call_data_processor=levelh_call_data_processor)

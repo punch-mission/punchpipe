@@ -12,6 +12,7 @@ from punchpipe.control import cache_layer
 from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
+from punchpipe.flows.util import file_name_to_full_path
 
 SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
 
@@ -154,26 +155,16 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
 
     call_data = json.dumps(
         {
-            "input_data": [
-                os.path.join(level0_file.directory(pipeline_config["root"]), level0_file.filename())
-                for level0_file in level0_files
-            ],
-            "vignetting_function_path": os.path.join(best_vignetting_function.directory(pipeline_config['root']),
-                                                     best_vignetting_function.filename()),
-            "psf_model_path": os.path.join(best_psf_model.directory(pipeline_config['root']),
-                                           best_psf_model.filename()),
-            "quartic_coefficient_path": os.path.join(best_quartic_model.directory(pipeline_config['root']),
-                                                     best_quartic_model.filename()),
+            "input_data": [level0_file.filename() for level0_file in level0_files],
+            "vignetting_function_path": best_vignetting_function.filename(),
+            "psf_model_path": best_psf_model.filename(),
+            "quartic_coefficient_path": best_quartic_model.filename(),
             "gain_bottom": ccd_parameters['gain_bottom'],
             "gain_top": ccd_parameters['gain_top'],
-            "distortion_path": os.path.join(best_distortion.directory(pipeline_config['root']),
-                                            best_distortion.filename()),
-            "stray_light_before_path": os.path.join(best_stray_light_before.directory(pipeline_config['root']),
-                                            best_stray_light_before.filename()),
-            "stray_light_after_path": os.path.join(best_stray_light_after.directory(pipeline_config['root']),
-                                            best_stray_light_after.filename()),
-            "mask_path": os.path.join(mask_function.directory(pipeline_config['root']),
-                                      mask_function.filename().replace('.fits', '.bin')),
+            "distortion_path": best_distortion.filename(),
+            "stray_light_before_path": best_stray_light_before.filename(),
+            "stray_light_after_path": best_stray_light_after.filename(),
+            "mask_path": mask_function.filename().replace('.fits', '.bin'),
             "return_with_stray_light": True,
         }
     )
@@ -224,7 +215,11 @@ def level1_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
     )
 
 
-def level1_call_data_processor(call_data: dict, pipeline_config=None, session=None) -> dict:
+def level1_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+    for key in ['input_data', 'psf_model_path', 'quartic_coefficient_path', 'vignetting_function_path',
+                 'distortion_path', 'stray_light_before_path', 'stray_light_after_path', 'mask_path']:
+        call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
+
     call_data['psf_model_path'] = cache_layer.psf.wrap_if_appropriate(call_data['psf_model_path'])
     call_data['quartic_coefficient_path'] = cache_layer.quartic_coefficients.wrap_if_appropriate(
         call_data['quartic_coefficient_path'])

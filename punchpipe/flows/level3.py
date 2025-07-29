@@ -13,6 +13,7 @@ from punchpipe.control.db import File, Flow, get_closest_after_file, get_closest
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
 from punchpipe.control.util import get_database_session
+from punchpipe.flows.util import file_name_to_full_path
 
 
 def get_valid_starfields(session, f: File, timedelta_window: timedelta, file_type: str = "PS"):
@@ -89,15 +90,12 @@ def level3_PTM_construct_flow_info(level2_files: list[File], level3_file: File,
                                                       timedelta_window=timedelta(days=90)))
     call_data = json.dumps(
         {
-            "data_list": [
-                os.path.join(level2_file.directory(pipeline_config["root"]), level2_file.filename())
-                for level2_file in level2_files
-            ],
+            "data_list": [level2_file.filename() for level2_file in level2_files],
             # TODO put magic numbers in config
-            "before_f_corona_model_path": os.path.join(f_corona_before.directory(pipeline_config["root"]), f_corona_before.filename()),
-            "after_f_corona_model_path": os.path.join(f_corona_after.directory(pipeline_config["root"]), f_corona_after.filename()),
+            "before_f_corona_model_path": f_corona_before.filename(),
+            "after_f_corona_model_path": f_corona_after.filename(),
             # TODO put magic numbers in config
-            "starfield_background_path": os.path.join(starfield.directory(pipeline_config["root"]), starfield.filename()),
+            "starfield_background_path": starfield.filename(),
         }
     )
     return Flow(
@@ -135,9 +133,16 @@ def level3_PTM_scheduler_flow(pipeline_config_path=None, session=None, reference
     )
 
 
+def level3_PTM_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+    for key in ['data_list', 'before_f_corona_model_path', 'after_f_corona_model_path', 'starfield_background_path']:
+        call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
+    return call_data
+
+
 @flow
 def level3_PTM_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, level3_core_flow, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, level3_core_flow, pipeline_config_path, session=session,
+                               call_data_processor=level3_PTM_call_data_processor)
 
 
 @task
@@ -188,13 +193,10 @@ def level3_PIM_construct_flow_info(level2_files: list[File], level3_file: File, 
     f_corona_after = get_closest_after_file(level2_files[0], after_models)
     call_data = json.dumps(
         {
-            "data_list": [
-                os.path.join(level2_file.directory(pipeline_config["root"]), level2_file.filename())
-                for level2_file in level2_files
-            ],
+            "data_list": [level2_file.filename() for level2_file in level2_files],
             # TODO put magic numbers in config
-            "before_f_corona_model_path": os.path.join(f_corona_before.directory(pipeline_config["root"]), f_corona_before.filename()),
-            "after_f_corona_model_path": os.path.join(f_corona_after.directory(pipeline_config["root"]), f_corona_after.filename()),
+            "before_f_corona_model_path": f_corona_before.filename(),
+            "after_f_corona_model_path": f_corona_after.filename(),
         }
     )
     return Flow(
@@ -234,9 +236,16 @@ def level3_PIM_scheduler_flow(pipeline_config_path: str | None = None,
     )
 
 
+def level3_PIM_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+    for key in ['data_list', 'before_f_corona_model_path', 'after_f_corona_model_path']:
+        call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
+    return call_data
+
+
 @flow
 def level3_PIM_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, level3_PIM_flow, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, level3_PIM_flow, pipeline_config_path, session=session,
+                               call_data_processor=level3_PIM_call_data_processor)
 
 
 @task
@@ -291,12 +300,9 @@ def level3_CIM_construct_flow_info(level2_files: list[File], level3_file: File, 
     f_corona_after = get_closest_after_file(level2_files[0], after_models)
     call_data = json.dumps(
         {
-            "data_list": [
-                os.path.join(level2_file.directory(pipeline_config["root"]), level2_file.filename())
-                for level2_file in level2_files
-            ],
-            "before_f_corona_model_path": os.path.join(f_corona_before.directory(pipeline_config["root"]), f_corona_before.filename()),
-            "after_f_corona_model_path": os.path.join(f_corona_after.directory(pipeline_config["root"]), f_corona_after.filename()),
+            "data_list": [level2_file.filename() for level2_file in level2_files],
+            "before_f_corona_model_path": f_corona_before.filename(),
+            "after_f_corona_model_path": f_corona_after.filename(),
         }
     )
     return Flow(
@@ -336,10 +342,17 @@ def level3_CIM_scheduler_flow(pipeline_config_path: str | None = None,
     )
 
 
+def level3_CIM_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+    for key in ['data_list', 'before_f_corona_model_path', 'after_f_corona_model_path']:
+        call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
+    return call_data
+
+
 @flow
 def level3_CIM_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     # NOTE: this is not a typo... we're using the PIM core flow for this because it's flexible
-    generic_process_flow_logic(flow_id, level3_PIM_flow, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, level3_PIM_flow, pipeline_config_path, session=session,
+                               call_data_processor=level3_CIM_call_data_processor)
 
 
 @task
@@ -405,15 +418,12 @@ def level3_CTM_construct_flow_info(level2_files: list[File], level3_file: File,
                                                       file_type="CS"))
     call_data = json.dumps(
         {
-            "data_list": [
-                os.path.join(level2_file.directory(pipeline_config["root"]), level2_file.filename())
-                for level2_file in level2_files
-            ],
+            "data_list": [level2_file.filename() for level2_file in level2_files],
             # TODO put magic numbers in config
-            "before_f_corona_model_path": os.path.join(f_corona_before.directory(pipeline_config["root"]), f_corona_before.filename()),
-            "after_f_corona_model_path": os.path.join(f_corona_after.directory(pipeline_config["root"]), f_corona_after.filename()),
+            "before_f_corona_model_path": f_corona_before.filename(),
+            "after_f_corona_model_path": f_corona_after.filename(),
             # TODO put magic numbers in config
-            "starfield_background_path": os.path.join(starfield.directory(pipeline_config["root"]), starfield.filename()),
+            "starfield_background_path": starfield.filename(),
         }
     )
     return Flow(
@@ -451,6 +461,13 @@ def level3_CTM_scheduler_flow(pipeline_config_path=None, session=None, reference
     )
 
 
+def level3_CTM_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+    for key in ['data_list', 'before_f_corona_model_path', 'after_f_corona_model_path', 'starfield_background_path']:
+        call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
+    return call_data
+
+
 @flow
 def level3_CTM_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, level3_core_flow, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, level3_core_flow, pipeline_config_path, session=session,
+                               call_data_processor=level3_CTM_call_data_processor)

@@ -11,6 +11,7 @@ from punchbowl.data.punch_io import load_ndcube_from_fits, write_ndcube_to_quick
 
 from punchpipe.control.db import File, Flow
 from punchpipe.control.util import get_database_session, load_pipeline_configuration, load_quicklook_scaling
+from punchpipe.flows.util import file_name_to_full_path
 
 
 @task
@@ -57,12 +58,9 @@ def visualize_flow_info(input_files: list[File],
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
-            "file_list": [
-                os.path.join(input_file.directory(pipeline_config["root"]), input_file.filename())
-                for input_file in input_files
-            ],
+            "file_list": [input_file.filename() for input_file in input_files],
             "product_code": product_code,
-            "output_movie_dir": os.path.join(pipeline_config["root"], "movies", out_path),
+            "output_movie_dir": os.path.join("movies", out_path),
             "framerate": framerate,
             "resolution": resolution,
             'ffmpeg_cmd': pipeline_config["flows"]["movie"]["options"].get("ffmpeg_cmd", "ffmpeg")
@@ -149,6 +147,7 @@ def movie_core_flow(file_list: list, product_code: str, output_movie_dir: str,
 def movie_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     if session is None:
         session = get_database_session()
+    pipeline_config = load_pipeline_configuration(pipeline_config_path)
     logger = get_run_logger()
 
     # fetch the appropriate flow db entry
@@ -165,6 +164,10 @@ def movie_process_flow(flow_id: int, pipeline_config_path=None, session=None):
 
     # load the call data and launch the core flow
     flow_call_data = json.loads(flow_db_entry.call_data)
+
+    flow_call_data['file_list'] = file_name_to_full_path(flow_call_data['file_list'], pipeline_config['root'])
+    flow_call_data['output_movie_dir'] = os.path.join(pipeline_config['root'], flow_call_data['output_movie_dir'])
+
     try:
         movie_core_flow(**flow_call_data)
     except Exception as e:

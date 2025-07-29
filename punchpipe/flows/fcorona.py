@@ -11,6 +11,7 @@ from punchpipe import __version__
 from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
+from punchpipe.flows.util import file_name_to_full_path
 
 
 @task
@@ -46,10 +47,7 @@ def construct_f_corona_background_flow_info(level3_files: list[File],
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
-            "filenames": [
-                os.path.join(level3_file.directory(pipeline_config["root"]), level3_file.filename())
-                for level3_file in level3_files
-            ],
+            "filenames": [level3_file.filename() for level3_file in level3_files],
             "reference_time": str(reference_time)
         }
     )
@@ -90,6 +88,11 @@ def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, sess
         session=session,
     )
 
+def construct_f_corona_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+    call_data['filenames'] = file_name_to_full_path(call_data['filenames'], pipeline_config['root'])
+    return call_data
+
 @flow
 def construct_f_corona_background_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, construct_f_corona_model, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, construct_f_corona_model, pipeline_config_path, session=session,
+                               call_data_processor=construct_f_corona_call_data_processor)
