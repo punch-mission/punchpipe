@@ -18,8 +18,9 @@ from punchpipe.control.cache_layer.nfi_l1 import wrap_if_appropriate
 from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
-from punchpipe.control.util import group_files_by_time, load_pipeline_configuration, get_database_session
+from punchpipe.control.util import get_database_session, group_files_by_time, load_pipeline_configuration
 from punchpipe.flows.util import file_name_to_full_path
+
 
 @task(cache_policy=NO_CACHE)
 def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
