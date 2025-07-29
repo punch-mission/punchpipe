@@ -8,23 +8,18 @@ from functools import partial
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from prefect.context import get_run_context
-from prefect_sqlalchemy import SqlAlchemyConnector
 from punchbowl.levelq.f_corona_model import construct_qp_f_corona_model
 from punchbowl.levelq.flow import levelq_CNN_core_flow, levelq_CTM_core_flow
 from punchbowl.util import average_datetime
 from sqlalchemy import and_, func, or_, select, text
-from sqlalchemy.orm import Session
 
 from punchpipe import __version__
 from punchpipe.control.cache_layer.nfi_l1 import wrap_if_appropriate
 from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
-from punchpipe.control.util import group_files_by_time, load_pipeline_configuration
+from punchpipe.control.util import group_files_by_time, load_pipeline_configuration, get_database_session
 from punchpipe.flows.util import file_name_to_full_path
-
-credentials = SqlAlchemyConnector.load("mariadb-creds", _sync=True)
-engine = credentials.get_engine()
 
 @task(cache_policy=NO_CACHE)
 def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
@@ -331,7 +326,7 @@ def write_manifest(file_names):
 def levelq_upload_process_flow(flow_id, pipeline_config_path=None, session=None):
     logger = get_run_logger()
     if session is None:
-        session = Session(engine)
+        session = get_database_session()
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
     # fetch the appropriate flow db entry
     flow_db_entry = session.query(Flow).where(Flow.flow_id == flow_id).one()
