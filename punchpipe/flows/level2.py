@@ -30,7 +30,8 @@ def level2_query_ready_clear_files(session, pipeline_config: dict, reference_tim
 
 def _level2_query_ready_files(session, polarized: bool, pipeline_config: dict, max_n=9e99):
     logger = get_run_logger()
-    all_ready_files = (session.query(File).filter(File.state == "quickpunched")
+    target_state = "created" if polarized else "quickpunched"
+    all_ready_files = (session.query(File).filter(File.state == target_state)
                        .filter(File.level == "1")
                         # TODO: This line temporarily excludes NFI
                        .filter(File.observatory.in_(['1', '2', '3']))
@@ -42,7 +43,7 @@ def _level2_query_ready_files(session, polarized: bool, pipeline_config: dict, m
     if len(all_ready_files) == 0:
         return []
 
-    grouped_files = group_files_by_time(all_ready_files, max_duration_seconds=10)
+    grouped_files = group_files_by_time(all_ready_files, max_duration_seconds=3*60 if polarized else 10)
 
     logger.info(f"{len(grouped_files)} unique times")
     grouped_ready_files = []
