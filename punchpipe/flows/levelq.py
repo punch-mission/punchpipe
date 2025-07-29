@@ -133,7 +133,7 @@ def levelq_CNN_scheduler_flow(pipeline_config_path=None, session=None, reference
 
 def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) -> dict:
     # Prepend the data root to each input file
-    for key in ['input_data', 'outlier_limits']:
+    for key in ['data_list', 'outlier_limits']:
         if call_data[key] is not None:
             call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
 
@@ -149,7 +149,7 @@ def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) ->
         .filter(dt > 10 * 60)
         .order_by(dt.asc()).limit(target_number)).all()
 
-    files_to_fit = [os.path.join(f.directory(call_data['data_root']), f.filename()) for f, _ in files_to_fit]
+    files_to_fit = [os.path.join(f.directory(pipeline_config['root']), f.filename()) for f, _ in files_to_fit]
 
     # Remove files that we're subtracting
     files_to_fit = [f for f in files_to_fit if f not in call_data['data_list']]
