@@ -1,5 +1,5 @@
-import itertools
 import os
+import itertools
 from datetime import UTC, datetime, timedelta
 
 from freezegun import freeze_time
