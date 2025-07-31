@@ -29,7 +29,7 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
     if pending_flows:
         logger.info("A pending flow already exists. Skipping scheduling to let the batch grow.")
 
-    all_fittable_files = (session.query(File).filter(File.state.in_(("created", "quickpunched", "progressed")))
+    all_fittable_files = (session.query(File).filter(File.state.in_(("created", "progressed")))
                           .filter(File.level == "1")
                           .filter(File.observatory == "4")
                           .filter(File.file_type == "CR").limit(1000).all())
@@ -39,7 +39,7 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
     all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(File.level == "1")
                        .filter(File.observatory == "4")
-                       .filter(File.file_type == "CR").order_by(File.date_obs.desc()).limit(1000).all())
+                       .filter(File.file_type == "QR").order_by(File.date_obs.desc()).limit(1000).all())
     logger.info(f"{len(all_ready_files)} ready files")
 
     if len(all_ready_files) == 0:
@@ -57,10 +57,10 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
 
 
 def get_outlier_limits_path(level1_file, pipeline_config: dict=None, session=None, reference_time=None):
-    corresponding_outlier_limits_type = {"PM": "LM",
-                                         "PZ": "LZ",
-                                         "PP": "LP",
-                                         "CR": "LR"}
+    corresponding_outlier_limits_type = {"QM": "LM",
+                                         "QZ": "LZ",
+                                         "QP": "LP",
+                                         "QR": "LR"}
     outlier_limits_type = corresponding_outlier_limits_type[level1_file.file_type]
     best_limits = (session.query(File)
                      .filter(File.file_type == outlier_limits_type)
@@ -122,7 +122,6 @@ def levelq_CNN_scheduler_flow(pipeline_config_path=None, session=None, reference
         pipeline_config_path,
         reference_time=reference_time,
         session=session,
-        new_input_file_state="quickpunched",
         children_are_one_to_one=True,
     )
 
@@ -138,9 +137,9 @@ def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) ->
     files_to_fit = session.execute(
         select(File,
                dt := func.abs(func.timestampdiff(text("second"), File.date_obs, call_data['date_obs'])))
-        .filter(File.state.in_(("created", "quickpunched", "progressed")))
+        .filter(File.state.in_(("created", "progressed")))
         .filter(File.level == "1")
-        .filter(File.file_type == "CR")
+        .filter(File.file_type == "QR")
         .filter(File.observatory == "4")
         .filter(dt > 10 * 60)
         .order_by(dt.asc()).limit(target_number)).all()
@@ -171,7 +170,7 @@ def levelq_CTM_query_ready_files(session, pipeline_config: dict, reference_time=
     logger = get_run_logger()
     all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(or_(
-                            and_(File.level == "1", File.file_type == "CR", File.observatory.in_(['1', '2', '3'])),
+                            and_(File.level == "1", File.file_type == "QR", File.observatory.in_(['1', '2', '3'])),
                             # TODO: We're excluding NFI for now
                             # and_(File.level == "Q", File.file_type == "CN"),
                        )).order_by(File.date_obs.desc()).all())
@@ -242,7 +241,6 @@ def levelq_CTM_scheduler_flow(pipeline_config_path=None, session=None, reference
         pipeline_config_path,
         reference_time=reference_time,
         session=session,
-        new_input_file_state="quickpunched"
     )
 
 

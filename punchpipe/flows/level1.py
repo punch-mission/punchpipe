@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
-from punchbowl.level1.flow import level1_core_flow
+from punchbowl.level1.flow import level1_early_core_flow, level1_late_core_flow
 
 from punchpipe import __version__
 from punchpipe.control import cache_layer
@@ -14,9 +14,10 @@ from punchpipe.control.scheduler import generic_scheduler_flow_logic
 from punchpipe.flows.util import file_name_to_full_path
 
 SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
+SCIENCE_LEVEL1_LATE_INPUT_TYPE_CODES = ["XM", "XZ", "XP", "XR"]
 
 @task(cache_policy=NO_CACHE)
-def level1_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
+def level1_early_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
     ready = (session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL0_TYPE_CODES))
                                 .filter(File.state == "created")
@@ -138,9 +139,9 @@ def get_ccd_parameters(level0_file, pipeline_config: dict, session=None):
     return {"gain_bottom": gain_bottom, "gain_top": gain_top}
 
 
-def level1_construct_flow_info(level0_files: list[File], level1_files: File,
+def level1_early_construct_flow_info(level0_files: list[File], level1_files: File,
                                pipeline_config: dict, session=None, reference_time=None):
-    flow_type = "level1"
+    flow_type = "level1_early"
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
@@ -167,6 +168,7 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
             "stray_light_after_path": best_stray_light_after.filename(),
             "mask_path": mask_function.filename().replace('.fits', '.bin'),
             "return_with_stray_light": True,
+            "return_preliminary_stray_light_subtracted": level0_files[0].polarization == 'C',
         }
     )
     return Flow(
@@ -179,19 +181,21 @@ def level1_construct_flow_info(level0_files: list[File], level1_files: File,
     )
 
 
-def level1_construct_file_info(level0_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
-    return [
-        File(
+def level1_early_construct_file_info(level0_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
+    files = []
+    if level0_files[0].polarization == 'C':
+        files.append(File(
             level="1",
-            file_type=level0_files[0].file_type,
+            file_type='Q' + level0_files[0].file_type[1:],
             observatory=level0_files[0].observatory,
             file_version=pipeline_config["file_version"],
             software_version=__version__,
             date_obs=level0_files[0].date_obs,
             polarization=level0_files[0].polarization,
             state="planned",
-        ),
-        File(
+        ))
+
+    files.append(File(
             level="1",
             file_type='X' + level0_files[0].file_type[1:],
             observatory=level0_files[0].observatory,
@@ -200,23 +204,23 @@ def level1_construct_file_info(level0_files: t.List[File], pipeline_config: dict
             date_obs=level0_files[0].date_obs,
             polarization=level0_files[0].polarization,
             state="planned",
-        )
-    ]
+        ))
+    return files
 
 
 @flow
-def level1_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
+def level1_early_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
     generic_scheduler_flow_logic(
-        level1_query_ready_files,
-        level1_construct_file_info,
-        level1_construct_flow_info,
+        level1_early_query_ready_files,
+        level1_early_construct_file_info,
+        level1_early_construct_flow_info,
         pipeline_config_path,
         reference_time=reference_time,
         session=session,
     )
 
 
-def level1_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+def level1_early_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
     for key in ['input_data', 'psf_model_path', 'quartic_coefficient_path', 'vignetting_function_path',
                  'distortion_path', 'stray_light_before_path', 'stray_light_after_path', 'mask_path']:
         call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
@@ -233,6 +237,106 @@ def level1_call_data_processor(call_data: dict, pipeline_config, session=None) -
 
 
 @flow
-def level1_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, level1_core_flow, pipeline_config_path, session=session,
-                               call_data_processor=level1_call_data_processor)
+def level1_early_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+    generic_process_flow_logic(flow_id, level1_early_core_flow, pipeline_config_path, session=session,
+                               call_data_processor=level1_early_call_data_processor)
+
+
+@task(cache_policy=NO_CACHE)
+def level1_late_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
+    logger = get_run_logger()
+    ready = (session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL1_LATE_INPUT_TYPE_CODES))
+                                .filter(File.state == "created")
+                                .filter(File.level == "1")
+                                .order_by(File.date_obs.asc()).all())
+
+    actually_ready = []
+    for f in ready:
+        if get_psf_model_path(f, pipeline_config, session=session) is None:
+            logger.info(f"Missing PSF for {f.filename()}")
+            continue
+        if get_stray_light_before(f, pipeline_config, session=session) is None:
+            logger.info(f"Missing stray light before model for {f.filename()}")
+            continue
+        if get_stray_light_after(f, pipeline_config, session=session) is None:
+            logger.info(f"Missing stray light after model for {f.filename()}")
+            continue
+        actually_ready.append([f.file_id])
+        if len(actually_ready) >= max_n:
+            break
+    return actually_ready
+
+
+def level1_late_construct_flow_info(input_files: list[File], output_files: File,
+                                    pipeline_config: dict, session=None, reference_time=None):
+    flow_type = "level1_late"
+    state = "planned"
+    creation_time = datetime.now()
+    priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
+
+    best_psf_model = get_psf_model_path(input_files[0], pipeline_config, session=session)
+    best_stray_light_before = get_stray_light_before(input_files[0], pipeline_config, session=session)
+    best_stray_light_after = get_stray_light_after(input_files[0], pipeline_config, session=session)
+
+    call_data = json.dumps(
+        {
+            "input_data": [input_file.filename() for input_file in input_files],
+            "psf_model_path": best_psf_model.filename(),
+            "stray_light_before_path": best_stray_light_before.filename(),
+            "stray_light_after_path": best_stray_light_after.filename(),
+        }
+    )
+    return Flow(
+        flow_type=flow_type,
+        flow_level="1",
+        state=state,
+        creation_time=creation_time,
+        priority=priority,
+        call_data=call_data,
+    )
+
+
+def level1_late_construct_file_info(input_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
+    prefix = 'C' if input_files[0].polarization == 'C' else 'P'
+    return [
+        File(
+            level="1",
+            file_type=prefix + input_files[0].file_type[1:],
+            observatory=input_files[0].observatory,
+            file_version=pipeline_config["file_version"],
+            software_version=__version__,
+            date_obs=input_files[0].date_obs,
+            polarization=input_files[0].polarization,
+            state="planned",
+        )
+    ]
+
+
+@flow
+def level1_late_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
+    generic_scheduler_flow_logic(
+        level1_late_query_ready_files,
+        level1_late_construct_file_info,
+        level1_late_construct_flow_info,
+        pipeline_config_path,
+        reference_time=reference_time,
+        session=session,
+    )
+
+
+def level1_late_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+    for key in ['input_data', 'psf_model_path',
+                 'stray_light_before_path', 'stray_light_after_path']:
+        call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
+
+    call_data['psf_model_path'] = cache_layer.psf.wrap_if_appropriate(call_data['psf_model_path'])
+    # Anything more than 16 doesn't offer any real benefit, and the default of n_cpu on punch190 is actually slower than
+    # 16! Here we choose less to have less spiky CPU usage to play better with other flows.
+    call_data['max_workers'] = 2
+    return call_data
+
+
+@flow
+def level1_late_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+    generic_process_flow_logic(flow_id, level1_late_core_flow, pipeline_config_path, session=session,
+                               call_data_processor=level1_late_call_data_processor)
