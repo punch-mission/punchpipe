@@ -18,11 +18,9 @@ files = set()
 for root_dir in root_dirs:
     files.update(glob(f"{root_dir}/**/*.fits", recursive=True))
     files.update(glob(f"{root_dir}/**/MS*/**/*.bin", recursive=True))
+    files.update(glob(f"{root_dir}/**/L*/**/*.npz", recursive=True))
 
 print(f"Found {len(files)} files on disk")
-
-print("TODO: This script probably doesn't set the 'polarization' column correctly for every polarized file code")
-
 
 existing_files = session.query(File).all()
 
@@ -41,10 +39,12 @@ for path in files:
     date = datetime.strptime(base_path.split("_")[3], "%Y%m%d%H%M%S")
 
     pol = 'C'
-    if code[0] in ['G', 'S', 'R', 'P']:
+    if code[0] in ['G', 'S', 'R', 'P', 'L']:
         pol = code[1]
         if pol == 'R':
             pol = 'C'
+    if code[0] == 'X':
+        pol = 'X'
 
     file = File(
         level=level,
@@ -59,7 +59,7 @@ for path in files:
 
     if file.filename() not in existing_files:
         # Get the correct number of microsseconds from the FITS header
-        if file.file_type != 'MS':
+        if file.file_type[0] not in ['M', 'L']:
             with fits.open(path, disable_image_compression=True) as hdul:
                 if len(hdul) > 1 and 'DATE-OBS' in hdul[1].header:
                     p = hdul[1].header['DATE-OBS'].split('.')
@@ -67,6 +67,12 @@ for path in files:
                         ms = p[1]
                         ms = ms + '0' * (6 - len(ms))
                         file.date_obs = file.date_obs.replace(microsecond=int(ms))
+                if len(hdul) > 1 and 'DATE' in hdul[1].header:
+                    p = hdul[1].header['DATE'].split('.')
+                    if len(p) == 2:
+                        ms = p[1]
+                        ms = ms + '0' * (6 - len(ms))
+                        file.date_created = file.date_obs.replace(microsecond=int(ms))
         session.add(file)
         n_added += 1
     else:
