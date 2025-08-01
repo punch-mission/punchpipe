@@ -30,7 +30,8 @@ def level2_query_ready_clear_files(session, pipeline_config: dict, reference_tim
 
 def _level2_query_ready_files(session, polarized: bool, pipeline_config: dict, max_n=9e99):
     logger = get_run_logger()
-    all_ready_files = (session.query(File).filter(File.state == "quickpunched")
+    target_state = "created" if polarized else "quickpunched"
+    all_ready_files = (session.query(File).filter(File.state == target_state)
                        .filter(File.level == "1")
                         # TODO: This line temporarily excludes NFI
                        .filter(File.observatory.in_(['1', '2', '3']))
@@ -42,9 +43,12 @@ def _level2_query_ready_files(session, polarized: bool, pipeline_config: dict, m
     if len(all_ready_files) == 0:
         return []
 
-    grouped_files = group_files_by_time(all_ready_files, max_duration_seconds=10)
+    if polarized:
+        grouped_files = group_l2_inputs(all_ready_files)
+    else:
+        grouped_files = group_files_by_time(all_ready_files, max_duration_seconds=10)
 
-    logger.info(f"{len(grouped_files)} unique times")
+    logger.info(f"{len(grouped_files)} sets of grouped files")
     grouped_ready_files = []
     cutoff_time = (pipeline_config["flows"]["level2" if polarized else "level2_clear"]
                    .get("ignore_missing_after_days", None))
@@ -60,6 +64,103 @@ def _level2_query_ready_files(session, polarized: bool, pipeline_config: dict, m
             break
     logger.info(f"{len(grouped_ready_files)} groups heading out")
     return grouped_ready_files
+
+
+def group_l2_inputs(files: list[File]) -> list[File]:
+    """
+    Group up L1 inputs into MZP clusters that match in time (i.e. occur sequentially in one image cluster).
+
+    Handles the swapped MZP/PZM orders, handles any combination of missing files, and for each observatory returns only
+    complete MZP triplets
+    """
+    if len(files) == 0:
+        return []
+    # Sort the files by observatory
+    wfi1, wfi2, wfi3, nfi = [], [], [], []
+    for file in files:
+        match file.observatory:
+            case '1':
+                wfi1.append(file)
+            case '2':
+                wfi2.append(file)
+            case '3':
+                wfi3.append(file)
+            case '4':
+                nfi.append(file)
+
+    # Build groups per observatory
+    wfi1 = group_l2_inputs_single_observatory(wfi1, ['P', 'Z', 'M'])
+    wfi2 = group_l2_inputs_single_observatory(wfi2, ['P', 'Z', 'M'])
+    wfi3 = group_l2_inputs_single_observatory(wfi3, ['P', 'Z', 'M'])
+    nfi = group_l2_inputs_single_observatory(nfi, ['M', 'Z', 'P'])
+
+    # To group the groups, we'll take the first file of each group, group up the first files, and then fill in those
+    # groups with the corresponding second and third files.
+    first_files = []
+    id_to_group = {}
+    for list_of_groups in [wfi1, wfi2, wfi3, nfi]:
+        # Only keep full groups (i.e. complete (MZP) triplets)
+        list_of_groups[:] = [group for group in list_of_groups if len(group) == 3]
+        first_files.extend([g[0] for g in list_of_groups])
+        id_to_group.update({g[0].file_id: g for g in list_of_groups})
+
+    if len(first_files) == 0:
+        return []
+
+    first_files.sort(key=lambda f: f.date_obs)
+
+    groups = group_files_by_time(first_files, max_duration_seconds=10)
+
+    complete_groups = []
+    for group in groups:
+        complete_group = []
+        for file in group:
+            complete_group.extend(id_to_group[file.file_id])
+        complete_groups.append(tuple(complete_group))
+    return complete_groups
+
+
+def group_l2_inputs_single_observatory(
+        files: list[File], expected_sequence: list[str], max_separation: float=80) -> list[File]:
+    """
+    For a single observatory, groups up L1 inputs into MZP clusters that match in time (i.e. occur sequentially in one
+    image cluster).
+
+    Accepts as input the order of P, Z and M, and handles any combination of missing files
+    """
+    if len(files) == 0:
+        return []
+    grouped_files = []
+    # We'll keep track of where the current group started, and then keep stepping to find the end of this group.
+    group_start = 0
+    previous_time_stamp = files[0].date_obs.replace(tzinfo=UTC).timestamp()
+    file_under_consideration = 0
+    previous_code_index = expected_sequence.index(files[file_under_consideration].polarization)
+    while True:
+        file_under_consideration += 1
+        if file_under_consideration == len(files):
+            break
+        this_tstamp = files[file_under_consideration].date_obs.replace(tzinfo=UTC).timestamp()
+        # Check where we are in the expected sequence of polarization states
+        this_code_index = expected_sequence.index(files[file_under_consideration].polarization)
+        cut_group = False
+        if this_code_index <= previous_code_index:
+            # We've gone backwards (or at least not forwards) in polarization state, so this must be a new group
+            cut_group = True
+        else:
+            # Based on how far we've advanced in the polarization state sequence, work out the maximum amount of time we
+            # can expect to have passed. If more time has passed than that, several images were skipped and we're in the
+            # next group.
+            allowable_gap = max_separation * (this_code_index - previous_code_index)
+            if this_tstamp - previous_time_stamp > allowable_gap:
+                cut_group = True
+        if cut_group:
+            grouped_files.append(tuple(files[group_start:file_under_consideration]))
+            group_start = file_under_consideration
+        previous_time_stamp = this_tstamp
+        previous_code_index = this_code_index
+    grouped_files.append(tuple(files[group_start:]))
+    return grouped_files
 
 
 @task(cache_policy=NO_CACHE)

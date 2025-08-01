@@ -8,6 +8,7 @@
 * Fixes to run the stray light model generation flow in https://github.com/punch-mission/punchpipe/pull/216
 * Fix to selection of "after" stray light model in https://github.com/punch-mission/punchpipe/pull/218
 * Absolute file paths are no longer stored in the database in https://github.com/punch-mission/punchpipe/pull/222
+* Fixes for PTM scheduling and input file selection in https://github.com/punch-mission/punchpipe/pull/224
 
 ## Version 0.0.11: July 23, 2025
 
