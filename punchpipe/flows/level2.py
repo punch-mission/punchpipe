@@ -1,4 +1,3 @@
-import os
 import json
 import typing as t
 from datetime import UTC, datetime, timedelta
@@ -13,6 +12,7 @@ from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
 from punchpipe.control.util import group_files_by_time
+from punchpipe.flows.util import file_name_to_full_path
 
 SCIENCE_POLARIZED_LEVEL1_TYPES = ["PM", "PZ", "PP"]
 SCIENCE_CLEAR_LEVEL1_TYPES = ["CR"]
@@ -171,10 +171,7 @@ def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipe
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
-            "data_list": [
-                os.path.join(level1_file.directory(pipeline_config["root"]), level1_file.filename())
-                for level1_file in level1_files
-            ],
+            "data_list": [level1_file.filename() for level1_file in level1_files],
             "voter_filenames": [[] for _ in level1_files],
         }
     )
@@ -224,11 +221,18 @@ def level2_clear_scheduler_flow(pipeline_config_path=None, session=None, referen
         session=session,
     )
 
+
+def level2_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+    call_data['data_list'] = file_name_to_full_path(call_data['data_list'], pipeline_config['root'])
+    return call_data
+
 @flow
 def level2_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, level2_core_flow, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, level2_core_flow, pipeline_config_path, session=session,
+                               call_data_processor=level2_call_data_processor)
 
 
 @flow
 def level2_clear_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, level2_core_flow, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, level2_core_flow, pipeline_config_path, session=session,
+                               call_data_processor=level2_call_data_processor)
