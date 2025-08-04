@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime
 
 from prefect import get_run_logger
@@ -44,6 +45,10 @@ def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_confi
             for file_db_entry in file_db_entry_list:
                 if file_db_entry.state != "planned":
                     raise RuntimeError(f"File id {file_db_entry.file_id} has already been created.")
+                if os.path.exists(os.path.join(
+                        file_db_entry.directory(pipeline_config['root']), file_db_entry.filename())):
+                    raise RuntimeError(f"Expected output file {file_db_entry.filename()} (id {file_db_entry.file_id}) "
+                                        "already exists on disk")
                 file_db_entry.state = "creating"
         else:
             raise RuntimeError("There should be at least one file associated with this flow. Found 0.")
