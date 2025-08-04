@@ -9,7 +9,7 @@ from punchpipe.control.util import get_database_session, load_pipeline_configura
 
 
 def generic_scheduler_flow_logic(
-    query_ready_files_func, construct_child_file_info, construct_child_flow_info, pipeline_config_path,
+    query_ready_files_func, construct_child_file_info, construct_child_flow_info, pipeline_config,
         update_input_file_state=True, new_input_file_state="progressed",
         session=None, reference_time: datetime | None = None,
         args_dictionary: dict = {},
@@ -27,8 +27,8 @@ def generic_scheduler_flow_logic(
         A function that generates the child File entries for one group/flow
     construct_child_flow_info
         A function that generates the Flow entry for one group
-    pipeline_config_path
-        The config path
+    pipeline_config
+        The config or config path
     update_input_file_state
         Whether to change the state of the input files
     new_input_file_state
@@ -49,7 +49,8 @@ def generic_scheduler_flow_logic(
     """
 
     logger = get_run_logger()
-    pipeline_config = load_pipeline_configuration(pipeline_config_path)
+    if not isinstance(pipeline_config, dict):
+        pipeline_config = load_pipeline_configuration(pipeline_config)
 
     # Extract the calling flow's type from the name of the calling function. The calling function's name is fixed by
     # the logic in cli.py that finds the code for a flow named in the configuration file.
