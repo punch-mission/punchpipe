@@ -30,6 +30,8 @@ def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_confi
             logger.warning(f"Flow id {flow_db_entry.flow_id} has state '{flow_db_entry.state}'; not running")
             return
         logger.info(f"Running on flow db entry with id={flow_db_entry.flow_id}.")
+        logger.info(f"This flow was scheeuled at {flow_db_entry.creation_time} "
+                    f"and launched at {flow_db_entry.launch_time}.")
 
         # update the processing flow name with the flow run name from Prefect
         flow_run_context = get_run_context()
