@@ -158,7 +158,7 @@ def get_ccd_parameters(level0_file, pipeline_config: dict, session=None):
     return {"gain_bottom": gain_bottom, "gain_top": gain_top}
 
 
-def level1_early_construct_flow_info(level0_files: list[File], level1_files: File,
+def level1_early_construct_flow_info(level0_files: list[File], level1_files: list[File],
                                pipeline_config: dict, session=None, reference_time=None):
     flow_type = "level1_early"
     state = "planned"
@@ -173,6 +173,13 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: Fil
     best_stray_light_before, best_stray_light_after = get_two_closest_stray_light(level0_files[0], session=session)
     mask_function = get_mask_file(level0_files[0], pipeline_config, session=session)
 
+    is_clear = level0_files[0].polarization == 'C'
+    make_q_file = (best_stray_light_before is not None
+                   and best_stray_light_after is not None
+                   and is_clear)
+    if not make_q_file and is_clear:
+        level1_files.pop(0)
+
     call_data = json.dumps(
         {
             "input_data": [level0_file.filename() for level0_file in level0_files],
@@ -186,8 +193,8 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: Fil
             "stray_light_after_path": best_stray_light_after.filename() if best_stray_light_after else None,
             "mask_path": mask_function.filename().replace('.fits', '.bin'),
             "return_with_stray_light": True,
-            "return_preliminary_stray_light_subtracted": level0_files[0].polarization == 'C',
-            "do_align": best_stray_light_before is not None and best_stray_light_after is not None,
+            "return_preliminary_stray_light_subtracted": make_q_file,
+            "do_align": make_q_file,
         }
     )
     return Flow(
