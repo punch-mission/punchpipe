@@ -38,12 +38,10 @@ def reset_revivable_flows(logger, session, pipeline_config):
     # This one loops differently than the others, because we need to track the child that's being deleted to know how
     # to reset the parent.
     unique_parents = set()
-    for _, parent, child, _ in results:
+    for _, parent, child, flow in results:
         # Handle the case that both L2 and LQ have been set to 'revivable'. If the LQ shows up first in this loop and
         # we set the L1's state to 'created', we don't want to later set it to 'quickpunched' when the L2 shows up.
-        if child.level == "2" and parent.state == "progressed":
-            parent.state = "quickpunched"
-        else:
+        if flow.flow_type != 'construct_stray_light':
             parent.state = "created"
         unique_parents.add(parent.file_id)
     logger.info(f"Reset {len(unique_parents)} parent files")
