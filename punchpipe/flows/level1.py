@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from punchbowl.level1.flow import level1_early_core_flow, level1_late_core_flow
+from sqlalchemy import func, text
 
 from punchpipe import __version__
 from punchpipe.control import cache_layer
@@ -22,7 +23,7 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
     ready = (session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL0_TYPE_CODES))
                                 .filter(File.state == "created")
                                 .filter(File.level == "0")
-                                .order_by(File.date_obs.asc()).all())
+                                .order_by(File.date_obs.desc()).all())
 
     actually_ready = []
     for f in ready:
@@ -31,12 +32,6 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
             continue
         if get_quartic_model_path(f, pipeline_config, session=session) is None:
             logger.info(f"Missing quartic model for {f.filename()}")
-            continue
-        if get_stray_light_before(f, pipeline_config, session=session) is None:
-            logger.info(f"Missing stray light before model for {f.filename()}")
-            continue
-        if get_stray_light_after(f, pipeline_config, session=session) is None:
-            logger.info(f"Missing stray light after model for {f.filename()}")
             continue
         if get_vignetting_function_path(f, pipeline_config, session=session) is None:
             logger.info(f"Missing vignetting function for {f.filename()}")
@@ -75,7 +70,11 @@ def get_psf_model_path(level0_file, pipeline_config: dict, session=None, referen
     corresponding_psf_model_type = {"PM": "RM",
                                     "PZ": "RZ",
                                     "PP": "RP",
-                                    "CR": "RC"}
+                                    "CR": "RC",
+                                    "XM": "RM",
+                                    "XZ": "RZ",
+                                    "XP": "RP",
+                                    "XR": "RC"}
     psf_model_type = corresponding_psf_model_type[level0_file.file_type]
     best_model = (session.query(File)
                   .filter(File.file_type == psf_model_type)
@@ -84,12 +83,19 @@ def get_psf_model_path(level0_file, pipeline_config: dict, session=None, referen
                   .order_by(File.date_obs.desc()).first())
     return best_model
 
+
+STRAY_LIGHT_CORRESPONDING_TYPES = {"PM": "SM",
+                                   "PZ": "SZ",
+                                   "PP": "SP",
+                                   "CR": "SR",
+                                   "XM": "SM",
+                                   "XZ": "SZ",
+                                   "XP": "SP",
+                                   "XR": "SR"}
+
+
 def get_stray_light_before(level0_file, pipeline_config: dict, session=None, reference_time=None):
-    corresponding_type = {"PM": "SM",
-                          "PZ": "SZ",
-                          "PP": "SP",
-                          "CR": "SR"}
-    model_type = corresponding_type[level0_file.file_type]
+    model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
     best_model = (session.query(File)
                   .filter(File.file_type == model_type)
                   .filter(File.observatory == level0_file.observatory)
@@ -101,11 +107,7 @@ def get_stray_light_before(level0_file, pipeline_config: dict, session=None, ref
 
 
 def get_stray_light_after(level0_file, pipeline_config: dict, session=None, reference_time=None):
-    corresponding_type = {"PM": "SM",
-                          "PZ": "SZ",
-                          "PP": "SP",
-                          "CR": "SR"}
-    model_type = corresponding_type[level0_file.file_type]
+    model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
     best_model = (session.query(File)
                   .filter(File.file_type == model_type)
                   .filter(File.observatory == level0_file.observatory)
@@ -114,6 +116,23 @@ def get_stray_light_after(level0_file, pipeline_config: dict, session=None, refe
                   .where(File.state == "created")
                   .order_by(File.date_obs.asc()).first())
     return best_model
+
+
+def get_two_closest_stray_light(level0_file, session=None):
+    model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
+    best_models = (session.query(File, dt := func.abs(func.timestampdiff(
+                        text("second"), File.date_obs, level0_file.date_obs)))
+                  .filter(File.file_type == model_type)
+                  .filter(File.observatory == level0_file.observatory)
+                  .filter(File.state == "created")
+                  .order_by(dt.asc()).limit(2).all())
+    if len(best_models) < 2:
+        return None, None
+    # Drop the dt values
+    best_models = [x[0] for x in best_models]
+    if best_models[1].date_obs < best_models[0].date_obs:
+        best_models = best_models[::-1]
+    return best_models
 
 
 def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
@@ -151,8 +170,7 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: Fil
     best_quartic_model = get_quartic_model_path(level0_files[0], pipeline_config, session=session)
     best_distortion = get_distortion_path(level0_files[0], pipeline_config, session=session)
     ccd_parameters = get_ccd_parameters(level0_files[0], pipeline_config, session=session)
-    best_stray_light_before = get_stray_light_before(level0_files[0], pipeline_config, session=session)
-    best_stray_light_after = get_stray_light_after(level0_files[0], pipeline_config, session=session)
+    best_stray_light_before, best_stray_light_after = get_two_closest_stray_light(level0_files[0], session=session)
     mask_function = get_mask_file(level0_files[0], pipeline_config, session=session)
 
     call_data = json.dumps(
@@ -164,11 +182,12 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: Fil
             "gain_bottom": ccd_parameters['gain_bottom'],
             "gain_top": ccd_parameters['gain_top'],
             "distortion_path": best_distortion.filename(),
-            "stray_light_before_path": best_stray_light_before.filename(),
-            "stray_light_after_path": best_stray_light_after.filename(),
+            "stray_light_before_path": best_stray_light_before.filename() if best_stray_light_before else None,
+            "stray_light_after_path": best_stray_light_after.filename() if best_stray_light_after else None,
             "mask_path": mask_function.filename().replace('.fits', '.bin'),
             "return_with_stray_light": True,
             "return_preliminary_stray_light_subtracted": level0_files[0].polarization == 'C',
+            "do_align": best_stray_light_before is not None and best_stray_light_after is not None,
         }
     )
     return Flow(
@@ -248,7 +267,7 @@ def level1_late_query_ready_files(session, pipeline_config: dict, reference_time
     ready = (session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL1_LATE_INPUT_TYPE_CODES))
                                 .filter(File.state == "created")
                                 .filter(File.level == "1")
-                                .order_by(File.date_obs.asc()).all())
+                                .order_by(File.date_obs.desc()).all())
 
     actually_ready = []
     for f in ready:
@@ -277,6 +296,7 @@ def level1_late_construct_flow_info(input_files: list[File], output_files: File,
     best_psf_model = get_psf_model_path(input_files[0], pipeline_config, session=session)
     best_stray_light_before = get_stray_light_before(input_files[0], pipeline_config, session=session)
     best_stray_light_after = get_stray_light_after(input_files[0], pipeline_config, session=session)
+    mask_function = get_mask_file(input_files[0], pipeline_config, session=session)
 
     call_data = json.dumps(
         {
@@ -284,6 +304,7 @@ def level1_late_construct_flow_info(input_files: list[File], output_files: File,
             "psf_model_path": best_psf_model.filename(),
             "stray_light_before_path": best_stray_light_before.filename(),
             "stray_light_after_path": best_stray_light_after.filename(),
+            "mask_path": mask_function.filename().replace('.fits', '.bin'),
         }
     )
     return Flow(
@@ -325,8 +346,7 @@ def level1_late_scheduler_flow(pipeline_config_path=None, session=None, referenc
 
 
 def level1_late_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
-    for key in ['input_data', 'psf_model_path',
-                 'stray_light_before_path', 'stray_light_after_path']:
+    for key in ['input_data', 'psf_model_path', 'mask_path', 'stray_light_before_path', 'stray_light_after_path']:
         call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
 
     call_data['psf_model_path'] = cache_layer.psf.wrap_if_appropriate(call_data['psf_model_path'])
