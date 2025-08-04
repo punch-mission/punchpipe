@@ -55,11 +55,19 @@ def session_fn(session):
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(days=1))
 
-    vignetting_function = File(level="1",
+    vignetting_function1 = File(level="1",
                        file_type="GM",
                        observatory='4',
                        state='created',
-                       file_version='none',
+                       file_version='1',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)-timedelta(days=1))
+
+    vignetting_function0 = File(level="1",
+                       file_type="GM",
+                       observatory='4',
+                       state='created',
+                       file_version='0b',
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(days=1))
 
@@ -99,7 +107,8 @@ def session_fn(session):
     session.add(level1_file)
     session.add(psf_model)
     session.add(quartic_fit_coeffs)
-    session.add(vignetting_function)
+    session.add(vignetting_function0)
+    session.add(vignetting_function1)
     session.add(distortion)
     session.add(stray_light_before)
     session.add(stray_light_after)

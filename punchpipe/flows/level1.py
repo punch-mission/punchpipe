@@ -62,11 +62,19 @@ def get_vignetting_function_path(level0_file, pipeline_config: dict, session=Non
                                               "PP": "GP",
                                               "CR": "GR"}
     vignetting_function_type = corresponding_vignetting_function_type[level0_file.file_type]
-    best_function = (session.query(File)
+    best_functions = (session.query(File)
                      .filter(File.file_type == vignetting_function_type)
                      .filter(File.observatory == level0_file.observatory)
                      .where(File.date_obs <= level0_file.date_obs)
-                     .order_by(File.date_obs.desc()).first())
+                     .order_by(File.date_obs.desc())).all()
+    file_versions = [None]*len(best_functions)
+    for i, function in enumerate(best_functions):
+        file_versions[i] = function.file_version
+        # TODO - ... select function here. Or make a function to call in each calibration grabber.
+
+    # TODO - get rid of this after selection
+    best_function = best_functions[0]
+
     return best_function
 
 
