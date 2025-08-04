@@ -91,7 +91,7 @@ def match_data_with_file_db_entry(data: NDCube, file_db_entry_list):
     ]
     if len(matching_entries) == 0:
         for file in file_db_entry_list:
-            raise RuntimeError(f"There did not exist a file_db_entry for this result: "
+            raise RuntimeError(f"There did not exist a file_db_entry for this output cube: "
                                f"result={get_base_file_name(data)}. Candidate: {file.filename()}")
     elif len(matching_entries) > 1:
         raise RuntimeError("There were many database entries matching this result. There should only be one.")
