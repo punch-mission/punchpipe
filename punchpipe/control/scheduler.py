@@ -4,7 +4,7 @@ from datetime import datetime
 
 from prefect import get_run_logger
 
-from punchpipe.control.db import File, FileRelationship
+from punchpipe.control.db import File, FileRelationship, Flow
 from punchpipe.control.util import get_database_session, load_pipeline_configuration, update_file_state
 
 
@@ -14,7 +14,7 @@ def generic_scheduler_flow_logic(
         session=None, reference_time: datetime | None = None,
         args_dictionary: dict = {},
         children_are_one_to_one: bool = False,
-    ):
+    ) -> int:
     """
     Implement the core logic of each scheduler flow.
 
@@ -52,6 +52,11 @@ def generic_scheduler_flow_logic(
     if not isinstance(pipeline_config, dict):
         pipeline_config = load_pipeline_configuration(pipeline_config)
 
+    max_start = pipeline_config['scheduler']['max_start']
+
+    if session is None:
+        session = get_database_session()
+
     # Extract the calling flow's type from the name of the calling function. The calling function's name is fixed by
     # the logic in cli.py that finds the code for a flow named in the configuration file.
     calling_function = inspect.currentframe().f_back.f_code.co_qualname
@@ -60,12 +65,14 @@ def generic_scheduler_flow_logic(
         logger.info(f"This is flow type {flow_type}")
         if not pipeline_config["flows"][flow_type].get("enabled", True):
             logger.info(f"Flow {flow_type} is not enabled---halting scheduler")
-            return
-
-    max_start = pipeline_config['scheduler']['max_start']
-
-    if session is None:
-        session = get_database_session()
+            return 0
+        n_already_scheduled = (session.query(Flow)
+                                      .where(Flow.flow_type == flow_type)
+                                      .where(Flow.state == 'planned')
+                                      .count())
+        if n_already_scheduled >= max_start:
+            logger.info(f"This flow already has {n_already_scheduled} flows scheduled; stopping.")
+        max_start -= n_already_scheduled
 
     # Not every level*_query_ready_files function needs this max_n parameter---some instead have a use_n that's similar
     # at first glance, but fills a different role and needs to be tuned differently. To avoid confusion there, we don't
