@@ -113,3 +113,4 @@ def generic_scheduler_flow_logic(
             for parent_file, child_file in iterable:
                 session.add(FileRelationship(parent=parent_file.file_id, child=child_file.file_id))
             session.commit()
+    return len(ready_file_ids)
