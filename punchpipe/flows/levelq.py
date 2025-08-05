@@ -1,5 +1,5 @@
-import os
 import json
+import os
 import random
 import typing as t
 from datetime import UTC, datetime, timedelta
@@ -186,10 +186,19 @@ def levelq_CTM_query_ready_files(session, pipeline_config: dict, reference_time=
     cutoff_time = pipeline_config["flows"]["levelq_CTM"].get("ignore_missing_after_days", None)
     if cutoff_time is not None:
         cutoff_time = datetime.now(tz=UTC) - timedelta(days=cutoff_time)
+    cutoff_time_age = pipeline_config["flows"]["levelq_CTM"].get("ignore_missing_min_file_age_minutes", None)
+    if cutoff_time_age is not None:
+        cutoff_time_age = datetime.now() - timedelta(minutes=cutoff_time_age)
     for group in grouped_files:
         # TODO: We're excluding NFI for now
-        # if len(group) == 4 or group[-1].date_obs.replace(tzinfo=UTC) < cutoff_time:
-        if len(group) == 3 or (cutoff_time and group[-1].date_obs.replace(tzinfo=UTC) < cutoff_time):
+        # group_is_complete = len(group) == 4
+        group_is_complete = len(group) == 3
+        group_is_old_enough = (cutoff_time
+                               # group[-1] is the newest file by date_obs
+                               and group[-1].date_obs.replace(tzinfo=UTC) < cutoff_time)
+        newest_creation_time = min(f.date_created for f in group)
+        group_is_being_actively_processed = cutoff_time_age and newest_creation_time >= cutoff_time_age
+        if (group_is_complete or group_is_old_enough) and not group_is_being_actively_processed:
             grouped_ready_files.append([f.file_id for f in group])
         if len(grouped_ready_files) >= max_n:
             break

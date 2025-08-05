@@ -53,11 +53,20 @@ def _level2_query_ready_files(session, polarized: bool, pipeline_config: dict, m
                    .get("ignore_missing_after_days", None))
     if cutoff_time is not None:
         cutoff_time = datetime.now(tz=UTC) - timedelta(days=cutoff_time)
+    cutoff_time_age = (pipeline_config["flows"]["level2" if polarized else "level2_clear"]
+                   .get("ignore_missing_min_file_age_minutes", None))
+    if cutoff_time_age is not None:
+        cutoff_time_age = datetime.now() - timedelta(minutes=cutoff_time_age)
     for group in grouped_files:
         # TODO: This line temporarily excludes NFI
-        # if (len(group) == (12 if polarized else 4)
-        if (len(group) == (9 if polarized else 3)
-                or (cutoff_time and group[-1].date_obs.replace(tzinfo=UTC) < cutoff_time)):
+        # group_is_complete = len(group) == (12 if polarized else 4)
+        group_is_complete = len(group) == (9 if polarized else 3)
+        group_is_old_enough = (cutoff_time
+                               # group[-1] is the newest file by date_obs
+                               and group[-1].date_obs.replace(tzinfo=UTC) < cutoff_time)
+        newest_creation_time = min(f.date_created for f in group)
+        group_is_being_actively_processed = cutoff_time_age and newest_creation_time >= cutoff_time_age
+        if (group_is_complete or group_is_old_enough) and not group_is_being_actively_processed:
             grouped_ready_files.append([f.file_id for f in group])
         if len(grouped_ready_files) >= max_n:
             break
@@ -65,7 +74,7 @@ def _level2_query_ready_files(session, polarized: bool, pipeline_config: dict, m
     return grouped_ready_files
 
 
-def group_l2_inputs(files: list[File]) -> list[File]:
+def group_l2_inputs(files: list[File]) -> list[tuple[File]]:
     """
     Group up L1 inputs into MZP clusters that match in time (i.e. occur sequentially in one image cluster).
 
@@ -120,7 +129,7 @@ def group_l2_inputs(files: list[File]) -> list[File]:
 
 
 def group_l2_inputs_single_observatory(
-        files: list[File], expected_sequence: list[str], max_separation: float=80) -> list[File]:
+        files: list[File], expected_sequence: list[str], max_separation: float=80) -> list[tuple[File]]:
     """
     For a single observatory, groups up L1 inputs into MZP clusters that match in time (i.e. occur sequentially in one
     image cluster).
