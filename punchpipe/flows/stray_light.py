@@ -135,7 +135,7 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
     logger = get_run_logger()
 
     existing_models = (session.query(File)
-                       .filter(File.state.in_(["created", "planned"]))
+                       .filter(File.state.in_(["created", "planned", "creating"]))
                        .filter(File.level == "1")
                        .filter(File.file_type.in_(['SR', 'SZ', 'SP', 'SM']))
                        .all())
