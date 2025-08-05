@@ -6,7 +6,7 @@ from prefect.logging import disable_run_logger
 from pytest_mock_resources import create_mysql_fixture
 
 from punchpipe import __version__
-from punchpipe.control.db import Base, File, Flow
+from punchpipe.control.db import Base, File
 from punchpipe.control.util import load_pipeline_configuration
 from punchpipe.flows.levelq import (
     levelq_CTM_construct_file_info,
@@ -27,7 +27,7 @@ def session_fn(session):
                        date_obs=datetime(2023, 1, 1, 0, 0, 0))
 
     level1_file_not_ready = File(level="1",
-                                 file_type="CR",
+                                 file_type="QR",
                                  observatory="1",
                                  state="planned",
                                  file_version="none",
@@ -35,7 +35,7 @@ def session_fn(session):
                                  date_obs=datetime(2023, 1, 1, 0, 0, 0))
 
     level1_file = File(level="1",
-                       file_type="CR",
+                       file_type="QR",
                        observatory="1",
                        state="created",
                        file_version="none",

@@ -293,7 +293,7 @@ def level1_late_query_ready_files(session, pipeline_config: dict, reference_time
     return actually_ready
 
 
-def level1_late_construct_flow_info(input_files: list[File], output_files: File,
+def level1_late_construct_flow_info(input_files: list[File], output_files: list[File],
                                     pipeline_config: dict, session=None, reference_time=None):
     flow_type = "level1_late"
     state = "planned"
