@@ -23,12 +23,16 @@ def construct_stray_light_query_ready_files(session,
 
     be_lenient = ((datetime.now() - reference_time).total_seconds()
                   > pipeline_config['flows']['construct_stray_light']['be_lenient_after_days'] * 24*60*60)
+
+    n_files_per_half = pipeline_config['flows']['construct_stray_light']['n_files_per_half']
+    n_files_per_half_lenient = pipeline_config['flows']['construct_stray_light']['lenient_n_files_per_half']
+
     if be_lenient:
-        n_files_per_half = pipeline_config['flows']['construct_stray_light']['lenient_n_files_per_half']
         time_window = pipeline_config['flows']['construct_stray_light']['lenient_max_hours_per_half']
+        min_files = n_files_per_half_lenient
     else:
-        n_files_per_half = pipeline_config['flows']['construct_stray_light']['n_files_per_half']
         time_window = pipeline_config['flows']['construct_stray_light']['max_hours_per_half']
+        min_files = n_files_per_half
 
     t_start = reference_time - timedelta(hours=time_window)
     t_end = reference_time + timedelta(hours=time_window)
@@ -44,7 +48,7 @@ def construct_stray_light_query_ready_files(session,
                        .filter(File.observatory == spacecraft)
                        .order_by(File.date_obs.desc())
                        .limit(n_files_per_half).all())
-    if len(first_half_inputs) < n_files_per_half:
+    if len(first_half_inputs) < min_files:
         return []
 
     second_half_inputs = (session.query(File)
@@ -56,10 +60,12 @@ def construct_stray_light_query_ready_files(session,
                        .filter(File.observatory == spacecraft)
                        .order_by(File.date_obs.asc())
                        .limit(n_files_per_half).all())
-    if len(second_half_inputs) < n_files_per_half:
+    if len(second_half_inputs) < min_files:
         return []
 
-    all_ready_files = first_half_inputs + second_half_inputs
+    files_per_side = min(len(first_half_inputs), len(second_half_inputs))
+
+    all_ready_files = first_half_inputs[:files_per_side] + second_half_inputs[:files_per_side]
 
     most_recent_date_created = min(f.date_created for f in all_ready_files)
     if datetime.now() - most_recent_date_created < timedelta(minutes=30):
