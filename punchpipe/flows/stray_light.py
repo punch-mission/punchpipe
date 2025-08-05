@@ -62,7 +62,7 @@ def construct_stray_light_query_ready_files(session,
     all_ready_files = first_half_inputs + second_half_inputs
 
     most_recent_date_created = min(f.date_created for f in all_ready_files)
-    if datetime.now() - most_recent_date_created > timedelta(minutes=30):
+    if datetime.now() - most_recent_date_created < timedelta(minutes=30):
         # This is a guard primarily for reprocessing---if any of these
         # files were recently written, the time range is probably being actively processed, so let's defer.
         logger.info(f"For {reference_time} {file_type}{spacecraft}, a file was written recently. Deferring creation.")
