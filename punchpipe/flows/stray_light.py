@@ -134,6 +134,16 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
     logger = get_run_logger()
 
+    max_flows = 4 * pipeline_config['flows']['construct_stray_light'].get('concurrency_limit', 9e9)
+    existing_flows = (session.query(Flow)
+                       .where(Flow.flow_type == 'construct_stray_light')
+                       .where(Flow.state.in_(["planned", "launched", "running"])).count())
+    flows_to_schedule = max_flows - existing_flows
+    if flows_to_schedule <= 0:
+        logger.info("Our maximum flow count has been reached; halting")
+    else:
+        logger.info(f"Will schedule up to {flows_to_schedule} flows")
+
     existing_models = (session.query(File)
                        .filter(File.state.in_(["created", "planned", "creating"]))
                        .filter(File.level == "1")
@@ -183,6 +193,8 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
             session=session,
             args_dictionary=args_dictionary
         )
+        if n_scheduled == flows_to_schedule:
+            break
 
     logger.info(f"Scheduled {n_scheduled} models")
 
