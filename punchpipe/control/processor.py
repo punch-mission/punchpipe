@@ -77,7 +77,12 @@ def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_confi
             entry = session.query(File).where(File.file_id == file_id).one()
             entry.state = "unreported"
 
-        flow_db_entry.state = "completed"
+        session.commit()
+
+        # Don't overwrite if our flow state has been changed from under us (e.g. it's been changed to 'revivable')
+        session.refresh(flow_db_entry)
+        if flow_db_entry.state == 'running':
+            flow_db_entry.state = "completed"
         flow_db_entry.end_time = datetime.now()
         # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
         session.commit()
