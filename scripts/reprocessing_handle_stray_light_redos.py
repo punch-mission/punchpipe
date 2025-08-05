@@ -31,12 +31,14 @@ for type in ['M', 'Z', 'P', 'R']:
         x_files = (session.query(File)
                           .where(File.file_type == 'X' + type)
                           .where(File.observatory == observatory)
+                          .where(File.polarization == 'C')
                           .where(File.level == '1')
                           .all())
         x_files = {f.date_obs: f for f in x_files}
         q_files = (session.query(File)
                           .where(File.file_type == 'Q' + type)
                           .where(File.observatory == observatory)
+                          .where(File.polarization == 'C')
                           .where(File.level == '1')
                           .all())
         q_files = {f.date_obs: f for f in q_files}
