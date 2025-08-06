@@ -13,6 +13,7 @@
 * Split L1 flow, implemented regular stray light models, and improvements to flow scheduling and running in https://github.com/punch-mission/punchpipe/pull/225
 * Dont make mosiacs out of very recently-written files in https://github.com/punch-mission/punchpipe/pull/226
 * For now, skips NFI PSF correction in https://github.com/punch-mission/punchpipe/pull/227
+* Limits recency of file upload for NOAA QuickPUNCH in https://github.com/punch-mission/punchpipe/pull/230
 
 ## Version 0.0.11: July 23, 2025
 

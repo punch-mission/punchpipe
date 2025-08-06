@@ -5,6 +5,7 @@ import typing as t
 from datetime import UTC, datetime, timedelta
 from functools import partial
 
+import numpy as np
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from prefect.context import get_run_context
@@ -267,12 +268,18 @@ def levelq_CTM_process_flow(flow_id: int, pipeline_config_path=None, session=Non
 @task
 def levelq_upload_query_ready_files(session, pipeline_config: dict, reference_time=None):
     logger = get_run_logger()
-    all_ready_files = (session.query(File).filter(File.state == "created")
-                       .filter(File.level == "Q").all())
+    lookback_days = pipeline_config['flows']["levelq_upload"].get("lookback_days", np.inf)
+    if np.isfinite(lookback_days):
+        all_ready_files = (session.query(File).filter(File.state == "created")
+                           .filter(File.level == "Q")
+                           .filter(File.date_obs >= datetime.now(UTC) - timedelta(days=lookback_days)).all())
+    else:
+        all_ready_files = (session.query(File).filter(File.state == "created")
+                           .filter(File.level == "Q").all())
     logger.info(f"{len(all_ready_files)} ready files")
     currently_creating_files = session.query(File).filter(File.state == "creating").filter(File.level == "Q").all()
     logger.info(f"{len(currently_creating_files)} level Q files currently being processed")
-    out = [f.file_id for f in all_ready_files] # if len(currently_creating_files) == 0 else []
+    out = [f.file_id for f in all_ready_files]
     logger.info(f"Delivering {len(out)} level Q files in this batch.")
     return [out]
 
