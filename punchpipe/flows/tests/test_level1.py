@@ -29,7 +29,7 @@ def prefect_test_fixture():
 def session_fn(session):
     level0_file = File(level="0",
                        file_type='PM',
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -37,7 +37,7 @@ def session_fn(session):
 
     level1_file = File(level="1",
                        file_type="PM",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -45,7 +45,7 @@ def session_fn(session):
 
     level1_x_file = File(level="1",
                        file_type="XM",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -53,7 +53,7 @@ def session_fn(session):
 
     psf_model = File(level="1",
                        file_type="RM",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -61,7 +61,7 @@ def session_fn(session):
 
     quartic_fit_coeffs = File(level="1",
                        file_type="FQ",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -69,7 +69,7 @@ def session_fn(session):
 
     vignetting_function = File(level="1",
                        file_type="GM",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -77,7 +77,7 @@ def session_fn(session):
 
     stray_light_before = File(level="1",
                        file_type="SM",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -85,7 +85,7 @@ def session_fn(session):
 
     stray_light_after = File(level="1",
                        file_type="SM",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -93,7 +93,7 @@ def session_fn(session):
 
     distortion = File(level="1",
                        file_type="DS",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -101,7 +101,7 @@ def session_fn(session):
 
     mask_file = File(level="1",
                        file_type="MS",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -140,7 +140,7 @@ def test_level1_early_construct_file_info():
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
     level0_file = [File(level="0",
                        file_type='PM',
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -161,7 +161,7 @@ def test_level1_early_construct_file_info_clear():
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
     level0_file = [File(level="0",
                        file_type='CR',
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -185,7 +185,7 @@ def test_level1_late_construct_file_info():
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
     input_file = [File(level="0",
                        file_type='XM',
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -206,7 +206,7 @@ def test_level1_early_construct_flow_info(db, prefect_test_fixture):
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
     level0_file = [File(level="0",
                        file_type='PM',
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='none',
                        software_version='none',
@@ -226,7 +226,7 @@ def test_level1_late_construct_flow_info(db, prefect_test_fixture):
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
     level0_file = [File(level="0",
                        file_type='XM',
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='none',
                        software_version='none',
