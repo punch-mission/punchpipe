@@ -26,14 +26,14 @@ class LoaderABC(DataLoader[T]):
     def __repr__(self):
         """Return a string representation of this loader"""
 
-    def load(self) -> tuple[T, str]:
+    def load(self) -> T:
         with manager.try_read_from_key(self.gen_key()) as buffer:
             if buffer is None:
                 result = self.load_from_disk()
                 self.try_caching(result)
             else:
                 result = self.from_bytes(buffer.data)
-        return result, self.src_repr()
+        return result
 
     def try_caching(self, object: T) -> None:
         data = self.to_bytes(object)
