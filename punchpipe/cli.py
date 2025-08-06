@@ -1,12 +1,12 @@
-import argparse
-import inspect
 import os
-import subprocess
 import time
+import inspect
+import argparse
 import traceback
+import subprocess
+from pathlib import Path
 from datetime import datetime, timedelta
 from importlib import import_module
-from pathlib import Path
 
 import pandas as pd
 from prefect import Flow, get_client, serve
@@ -147,8 +147,8 @@ def run(configuration_path, launch_prefect=False):
         data_process = None
         control_process = None
         try:
-            numa_prefix_control = ['numactl', '--localalloc', f'--physcpubind=0-11']
-            numa_prefix_workers = ['numactl', '--localalloc', f'--physcpubind=12-63,64-125,192-255']
+            numa_prefix_control = ['numactl', '--localalloc', '--physcpubind=0-11']
+            numa_prefix_workers = ['numactl', '--localalloc', '--physcpubind=12-63,64-125,192-255']
             if launch_prefect:
                 print("Launcing prefect")
                 prefect_process = subprocess.Popen(
