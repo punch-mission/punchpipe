@@ -19,6 +19,7 @@ def read_new_file_metadata(file, path):
     if file.file_type[0] in ['M', 'L']:
         return None, None
 
+    new_dateobs, new_date_created = None, None
     with fits.open(path, disable_image_compression=True) as hdul:
         if len(hdul) > 1 and 'DATE-OBS' in hdul[1].header:
             p = hdul[1].header['DATE-OBS'].split('.')
