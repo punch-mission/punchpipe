@@ -1,4 +1,3 @@
-import os
 import json
 import typing as t
 from datetime import UTC, datetime, timedelta
@@ -11,6 +10,7 @@ from punchpipe import __version__
 from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
+from punchpipe.flows.util import file_name_to_full_path
 
 
 @task(cache_policy=NO_CACHE)
@@ -111,8 +111,7 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
 
 def construct_stray_light_call_data_processor(call_data: dict, pipeline_config, session) -> dict:
     # Prepend the data root to each input file
-    call_data['filepaths'] = [os.path.join(call_data['data_root'], f) for f in call_data['filepaths']]
-    del call_data['data_root']
+    call_data['filepaths'] = file_name_to_full_path(call_data['filepaths'], pipeline_config['root'])
     return call_data
 
 @flow

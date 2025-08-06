@@ -104,15 +104,15 @@ def get_files_in_time_window(level: str,
                              obs_code: str,
                              start_time: datetime,
                              end_time: datetime,
-                             session: Session | None) -> [File]:
+                             session: Session | None) -> list[File]:
     if session is None:
         get_database_session()
 
-    return (((((session.query(File).filter(or_(File.state == "created", File.state == "progressed"))
-            .filter(File.level == level))
-            .filter(File.file_type == file_type))
-            .filter(File.observatory == obs_code))
-            .filter(File.date_obs > start_time))
+    return (session.query(File).filter(or_(File.state == "created", File.state == "progressed"))
+            .filter(File.level == level)
+            .filter(File.file_type == file_type)
+            .filter(File.observatory == obs_code)
+            .filter(File.date_obs > start_time)
             .filter(File.date_obs <= end_time).all())
 
 

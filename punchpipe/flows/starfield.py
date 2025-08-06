@@ -1,4 +1,3 @@
-import os
 import json
 import typing as t
 from datetime import UTC, datetime
@@ -10,6 +9,7 @@ from punchpipe import __version__
 from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
+from punchpipe.flows.util import file_name_to_full_path
 
 
 @task
@@ -39,10 +39,7 @@ def construct_starfield_background_flow_info(level3_fcorona_subtracted_files: li
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
-            "filenames": list(set([
-                os.path.join(level3_file.directory(pipeline_config["root"]), level3_file.filename())
-                for level3_file in level3_fcorona_subtracted_files
-            ])),
+            "filenames": list(set([level3_file.filename() for level3_file in level3_fcorona_subtracted_files])),
             "reference_time": str(reference_time)
         }
     )
@@ -86,9 +83,15 @@ def construct_starfield_background_scheduler_flow(pipeline_config_path=None, ses
     )
 
 
+def construct_starfield_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+    call_data['filenames'] = file_name_to_full_path(call_data['filenames'], pipeline_config['root'])
+    return call_data
+
+
 @flow
 def construct_starfield_background_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id,
                                generate_starfield_background,
                                pipeline_config_path,
-                               session=session)
+                               session=session,
+                               call_data_processor=construct_starfield_call_data_processor)

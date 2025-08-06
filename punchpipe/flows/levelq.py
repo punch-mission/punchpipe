@@ -8,22 +8,19 @@ from functools import partial
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from prefect.context import get_run_context
-from prefect_sqlalchemy import SqlAlchemyConnector
 from punchbowl.levelq.f_corona_model import construct_qp_f_corona_model
 from punchbowl.levelq.flow import levelq_CNN_core_flow, levelq_CTM_core_flow
 from punchbowl.util import average_datetime
 from sqlalchemy import and_, func, or_, select, text
-from sqlalchemy.orm import Session
 
 from punchpipe import __version__
 from punchpipe.control.cache_layer.nfi_l1 import wrap_if_appropriate
 from punchpipe.control.db import File, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
-from punchpipe.control.util import group_files_by_time
+from punchpipe.control.util import get_database_session, group_files_by_time, load_pipeline_configuration
+from punchpipe.flows.util import file_name_to_full_path
 
-credentials = SqlAlchemyConnector.load("mariadb-creds", _sync=True)
-engine = credentials.get_engine()
 
 @task(cache_policy=NO_CACHE)
 def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
@@ -81,17 +78,10 @@ def levelq_CNN_construct_flow_info(level1_files: list[File], levelq_file: File, 
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     outlier_limits = get_outlier_limits_path(level1_files[0], session=session)
     if outlier_limits is not None:
-        outlier_limits = os.path.join(outlier_limits.directory(pipeline_config['root']),
-                                      outlier_limits.filename().replace('.fits', '.npz'))
+        outlier_limits = outlier_limits.filename().replace('.fits', '.npz')
     call_data = json.dumps(
         {
-            # We need to send the data root separately, rather than prepended to each input file, because otherwise we
-            # risk generating too much data for the database column that holds it when we have a batch of 1000 files.
-            "data_root": pipeline_config["root"],
-            "data_list": [
-                os.path.join(level1_file.directory(''), level1_file.filename())
-                for level1_file in level1_files
-            ],
+            "data_list": [level1_file.filename() for level1_file in level1_files],
             # This date_obs is only used to find other files to fit the PCA to, if there aren't enough
             # to-be-subtracted images in the batch
             "date_obs": average_datetime([f.date_obs for f in level1_files]).strftime("%Y-%m-%d %H:%M:%S"),
@@ -139,7 +129,9 @@ def levelq_CNN_scheduler_flow(pipeline_config_path=None, session=None, reference
 
 def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) -> dict:
     # Prepend the data root to each input file
-    call_data['data_list'] = [os.path.join(call_data['data_root'], f) for f in call_data['data_list']]
+    for key in ['data_list', 'outlier_limits']:
+        if call_data[key] is not None:
+            call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
 
     # How many files we want for the PCA fitting
     target_number = 1100
@@ -153,7 +145,7 @@ def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) ->
         .filter(dt > 10 * 60)
         .order_by(dt.asc()).limit(target_number)).all()
 
-    files_to_fit = [os.path.join(f.directory(call_data['data_root']), f.filename()) for f, _ in files_to_fit]
+    files_to_fit = [os.path.join(f.directory(pipeline_config['root']), f.filename()) for f, _ in files_to_fit]
 
     # Remove files that we're subtracting
     files_to_fit = [f for f in files_to_fit if f not in call_data['data_list']]
@@ -214,10 +206,7 @@ def levelq_CTM_construct_flow_info(level1_files: list[File], levelq_file: File, 
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
-            "data_list": [
-                os.path.join(level1_file.directory(pipeline_config["root"]), level1_file.filename())
-                for level1_file in level1_files
-            ],
+            "data_list": [level1_file.filename() for level1_file in level1_files],
         }
     )
     return Flow(
@@ -257,9 +246,15 @@ def levelq_CTM_scheduler_flow(pipeline_config_path=None, session=None, reference
     )
 
 
+def levelq_CTM_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+    call_data['data_list'] = file_name_to_full_path(call_data['data_list'], pipeline_config['root'])
+    return call_data
+
+
 @flow
 def levelq_CTM_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, levelq_CTM_core_flow, pipeline_config_path, session=session)
+    generic_process_flow_logic(flow_id, levelq_CTM_core_flow, pipeline_config_path, session=session,
+                               call_data_processor=levelq_CTM_call_data_processor)
 
 
 @task
@@ -282,10 +277,7 @@ def levelq_upload_construct_flow_info(levelq_files: list[File], intentionally_em
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
-            "data_list": [
-                os.path.join(levelq_file.directory(pipeline_config["root"]), levelq_file.filename())
-                for levelq_file in levelq_files
-            ],
+            "data_list": [levelq_file.filename() for levelq_file in levelq_files],
             "bucket_name": pipeline_config["bucket_name"],
         }
     )
@@ -335,7 +327,8 @@ def write_manifest(file_names):
 def levelq_upload_process_flow(flow_id, pipeline_config_path=None, session=None):
     logger = get_run_logger()
     if session is None:
-        session = Session(engine)
+        session = get_database_session()
+    pipeline_config = load_pipeline_configuration(pipeline_config_path)
     # fetch the appropriate flow db entry
     flow_db_entry = session.query(Flow).where(Flow.flow_id == flow_id).one()
     logger.info(f"Running on flow db entry with id={flow_db_entry.flow_id}.")
@@ -351,6 +344,9 @@ def levelq_upload_process_flow(flow_id, pipeline_config_path=None, session=None)
     # load the call data and launch the core flow
     flow_call_data = json.loads(flow_db_entry.call_data)
     logger.info(f"Running with {flow_call_data}")
+
+    flow_call_data['data_list'] = file_name_to_full_path(flow_call_data['data_list'], pipeline_config['root'])
+
     try:
         levelq_upload_core_flow(**flow_call_data)
     except Exception as e:
@@ -398,10 +394,7 @@ def construct_levelq_CFM_flow_info(levelq_CTM_files: list[File],
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
-            "filenames": [
-                os.path.join(ctm_file.directory(pipeline_config["root"]), ctm_file.filename())
-                for ctm_file in levelq_CTM_files
-            ],
+            "filenames": [ctm_file.filename() for ctm_file in levelq_CTM_files],
             "reference_time": str(reference_time)
         }
     )
@@ -442,10 +435,16 @@ def levelq_CFM_scheduler_flow(pipeline_config_path=None, session=None, reference
         session=session,
     )
 
+
+def levelq_CFM_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+    call_data['filenames'] = file_name_to_full_path(call_data['filenames'], pipeline_config['root'])
+    return call_data
+
 @flow
 def levelq_CFM_process_flow(flow_id, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, partial(construct_qp_f_corona_model, product_code="CFM"),
-                               pipeline_config_path, session=session)
+                               pipeline_config_path, session=session,
+                               call_data_processor=levelq_CFM_call_data_processor)
 
 @task
 def levelq_CFN_query_ready_files(session, pipeline_config: dict, reference_time: datetime, use_n: int = 50):
@@ -480,10 +479,7 @@ def construct_levelq_CFN_flow_info(levelq_CNN_files: list[File],
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
-            "filenames": [
-                os.path.join(cnn_file.directory(pipeline_config["root"]), cnn_file.filename())
-                for cnn_file in levelq_CNN_files
-            ],
+            "filenames": [cnn_file.filename() for cnn_file in levelq_CNN_files],
             "reference_time": str(reference_time)
         }
     )
@@ -524,7 +520,13 @@ def levelq_CFN_scheduler_flow(pipeline_config_path=None, session=None, reference
         session=session,
     )
 
+
+def levelq_CFN_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+    call_data['filenames'] = file_name_to_full_path(call_data['filenames'], pipeline_config['root'])
+    return call_data
+
 @flow
 def levelq_CFN_process_flow(flow_id, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, partial(construct_qp_f_corona_model, product_code="CFN"),
-                               pipeline_config_path, session=session)
+                               pipeline_config_path, session=session,
+                               call_data_processor=levelq_CFN_call_data_processor)
