@@ -2,6 +2,10 @@
 
 [This is available in GitHub](https://github.com/punch-mission/punchpipe/releases)
 
+## Unreleased
+
+* Make TLMLoader only expect one returned object in https://github.com/punch-mission/punchpipe/pull/233
+
 ## Version 0.0.12: August 6, 2025
 
 * Broaden stray light search window to 31 in https://github.com/punch-mission/punchpipe/pull/217
