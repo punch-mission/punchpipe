@@ -1,4 +1,3 @@
-import os
 import json
 import typing as t
 from datetime import datetime, timedelta
@@ -92,10 +91,7 @@ def construct_stray_light_flow_info(level1_files: list[File],
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
-            "filepaths": [
-                os.path.join(level1_file.directory(''), level1_file.filename())
-                for level1_file in level1_files
-            ],
+            "filepaths": [level1_file.filename() for level1_file in level1_files],
             "reference_time": reference_time.strftime("%Y-%m-%d %H:%M:%S"),
         }
     )
