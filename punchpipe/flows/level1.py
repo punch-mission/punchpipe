@@ -76,6 +76,7 @@ def get_psf_model_path(level0_file, pipeline_config: dict, session=None, referen
                                     "XP": "RP",
                                     "XR": "RC"}
     psf_model_type = corresponding_psf_model_type[level0_file.file_type]
+    # TODO - Turn this back on once fine tuned for NFI
     if level0_file.observatory == "4":
         return None
     best_model = (session.query(File)
