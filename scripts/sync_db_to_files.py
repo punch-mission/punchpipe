@@ -44,8 +44,8 @@ if __name__ == "__main__":
     files = set()
     for root_dir in root_dirs:
         files.update(glob(f"{root_dir}/**/*.fits", recursive=True))
-        files.update(glob(f"{root_dir}/**/MS*/**/*.bin", recursive=True))
-        files.update(glob(f"{root_dir}/**/L*/**/*.npz", recursive=True))
+        files.update(glob(f"{root_dir}/**/*.bin", recursive=True))
+        files.update(glob(f"{root_dir}/**/*.npz", recursive=True))
 
     print(f"Found {len(files)} files on disk")
 
