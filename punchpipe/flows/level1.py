@@ -27,6 +27,16 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
 
     actually_ready = []
     for f in ready:
+        stray_light_models = get_two_closest_stray_light(f, session=session, max_distance=timedelta(days=10))
+        if stray_light_models[0] is None:
+            # No models within 10 days
+            any_stray_light_models = get_two_closest_stray_light(f, session=session)
+            if any_stray_light_models[0] is not None:
+                # There are stray light models, so probably we're reprocessing and the model generation just hasn't
+                # gotten here yet. If there were no stray light models, we're in the bootstrapping phase and should
+                # continue anyway.
+                logger.info(f"Stray light models too far away for {f.filename()}")
+                continue
         if get_psf_model_path(f, pipeline_config, session=session) is None:
             logger.info(f"Missing PSF for {f.filename()}")
             continue
@@ -118,14 +128,16 @@ def get_stray_light_after(level0_file, pipeline_config: dict, session=None, refe
     return best_model
 
 
-def get_two_closest_stray_light(level0_file, session=None):
+def get_two_closest_stray_light(level0_file, session=None, max_distance: timedelta = None):
     model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
     best_models = (session.query(File, dt := func.abs(func.timestampdiff(
                         text("second"), File.date_obs, level0_file.date_obs)))
                   .filter(File.file_type == model_type)
                   .filter(File.observatory == level0_file.observatory)
-                  .filter(File.state == "created")
-                  .order_by(dt.asc()).limit(2).all())
+                  .filter(File.state == "created"))
+    if max_distance:
+        best_models = best_models.filter(dt < max_distance.total_seconds())
+    best_models = best_models.order_by(dt.asc()).limit(2).all()
     if len(best_models) < 2:
         return None, None
     # Drop the dt values
