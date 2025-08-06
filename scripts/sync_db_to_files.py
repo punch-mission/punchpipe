@@ -1,8 +1,8 @@
 """This is for if you're keeping a mirror of the L0 files on punch190 (to process to L1 with newer code). This script
 will add the files in the given directories to the database, skipping files that are already in the database."""
 import os
-import multiprocessing
 import sys
+import multiprocessing
 from glob import glob
 from datetime import datetime
 
@@ -12,6 +12,7 @@ from tqdm.contrib.concurrent import process_map
 
 from punchpipe.control.db import File
 from punchpipe.control.util import get_database_session
+
 
 def read_new_file_metadata(file, path):
     # Get the correct number of microsseconds from the FITS header
