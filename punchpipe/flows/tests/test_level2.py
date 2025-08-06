@@ -1,5 +1,5 @@
-import os
 import itertools
+import os
 from datetime import UTC, datetime, timedelta
 
 from freezegun import freeze_time
@@ -31,7 +31,8 @@ def session_fn(session):
                        file_version='none',
                        software_version='none',
                        polarization='X',
-                       date_obs=datetime(2023, 1, 1, 0, 0, 0))
+                       date_obs=datetime(2023, 1, 1, 0, 0, 0),
+                       date_created=datetime(2022, 12, 25, 0, 0, 0))
 
     level1_fileM = File(level='1',
                        file_type='PM',
@@ -40,7 +41,8 @@ def session_fn(session):
                        file_version='none',
                        software_version='none',
                        polarization='M',
-                       date_obs=datetime(2023, 1, 1, 0, 2, 0))
+                       date_obs=datetime(2023, 1, 1, 0, 2, 0),
+                       date_created=datetime(2022, 12, 25, 0, 0, 0))
 
     level1_fileZ = File(level='1',
                        file_type='PZ',
@@ -49,7 +51,8 @@ def session_fn(session):
                        file_version='none',
                        software_version='none',
                        polarization='Z',
-                       date_obs=datetime(2023, 1, 1, 0, 1, 0))
+                       date_obs=datetime(2023, 1, 1, 0, 1, 0),
+                       date_created=datetime(2022, 12, 25, 0, 0, 0))
 
     level1_fileP = File(level='1',
                        file_type='PP',
@@ -58,7 +61,8 @@ def session_fn(session):
                        file_version='none',
                        software_version='none',
                        polarization='P',
-                       date_obs=datetime(2023, 1, 1, 0, 0, 0))
+                       date_obs=datetime(2023, 1, 1, 0, 0, 0),
+                       date_created=datetime(2022, 12, 25, 0, 0, 0))
 
     level1_file_clear = File(level='1',
                              file_type='CR',
@@ -67,7 +71,8 @@ def session_fn(session):
                              file_version='none',
                              software_version='none',
                              polarization='C',
-                             date_obs=datetime(2023, 1, 1, 0, 0, 0))
+                             date_obs=datetime(2023, 1, 1, 0, 0, 0),
+                             date_created=datetime(2022, 12, 25, 0, 0, 0))
 
     level1_file_clear_not_ready = File(level='1',
                              file_type='CR',
@@ -76,7 +81,8 @@ def session_fn(session):
                              file_version='none',
                              software_version='none',
                              polarization='C',
-                             date_obs=datetime(2023, 1, 1, 0, 0, 0))
+                             date_obs=datetime(2023, 1, 1, 0, 0, 0),
+                             date_created=datetime(2022, 12, 25, 0, 0, 0))
 
     session.add(level0_file)
     session.add(level1_fileM)
