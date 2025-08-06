@@ -102,6 +102,7 @@ if __name__ == "__main__":
             new_files, process_map(read_new_file_metadata, new_files, new_file_paths, chunksize=10, max_workers=10)):
         if date_obs is not None:
             file.date_obs = date_obs
+        if date_created is not None:
             file.date_created = date_created
 
     print("Adding to DB...")
