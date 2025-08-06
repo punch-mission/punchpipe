@@ -86,7 +86,7 @@ def construct_flows_to_serve(configuration_path, include_data=True, include_cont
             concurrency_value = config["flows"][flow_name].get("concurrency_limit", None)
             concurrency_config = ConcurrencyLimitConfig(
                     limit=concurrency_value,
-                    collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW
+                    collision_strategy=ConcurrencyLimitStrategy.ENQUEUE
                 ) if concurrency_value else None
             flow_deployment = flow_function.to_deployment(
                 name=specific_name,

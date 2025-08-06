@@ -1,3 +1,4 @@
+import os
 import json
 from datetime import datetime
 
@@ -29,6 +30,8 @@ def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_confi
             logger.warning(f"Flow id {flow_db_entry.flow_id} has state '{flow_db_entry.state}'; not running")
             return
         logger.info(f"Running on flow db entry with id={flow_db_entry.flow_id}.")
+        logger.info(f"This flow was scheeuled at {flow_db_entry.creation_time} "
+                    f"and launched at {flow_db_entry.launch_time}.")
 
         # update the processing flow name with the flow run name from Prefect
         flow_run_context = get_run_context()
@@ -44,6 +47,10 @@ def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_confi
             for file_db_entry in file_db_entry_list:
                 if file_db_entry.state != "planned":
                     raise RuntimeError(f"File id {file_db_entry.file_id} has already been created.")
+                if os.path.exists(os.path.join(
+                        file_db_entry.directory(pipeline_config['root']), file_db_entry.filename())):
+                    raise RuntimeError(f"Expected output file {file_db_entry.filename()} (id {file_db_entry.file_id}) "
+                                        "already exists on disk")
                 file_db_entry.state = "creating"
         else:
             raise RuntimeError("There should be at least one file associated with this flow. Found 0.")
@@ -70,7 +77,12 @@ def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_confi
             entry = session.query(File).where(File.file_id == file_id).one()
             entry.state = "unreported"
 
-        flow_db_entry.state = "completed"
+        session.commit()
+
+        # Don't overwrite if our flow state has been changed from under us (e.g. it's been changed to 'revivable')
+        session.refresh(flow_db_entry)
+        if flow_db_entry.state == 'running':
+            flow_db_entry.state = "completed"
         flow_db_entry.end_time = datetime.now()
         # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
         session.commit()

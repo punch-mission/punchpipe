@@ -26,7 +26,7 @@ def gather_planned_flows(session, amount_to_launch, flow_weights, flow_enabled):
     flows = (session.query(Flow)
                    .where(Flow.state == "planned")
                    .where(Flow.flow_type.in_(enabled_flows))
-                   .order_by(Flow.priority.desc())
+                   .order_by(Flow.priority.desc(), Flow.creation_time.desc())
                    .limit(max_to_select).all())
     selected_flows = []
     selected_weight = 0

@@ -313,7 +313,7 @@ def test_reset_L2(db, tmpdir, populated_tmpdir_config):
 
     for file in remaining_files:
         if file.file_id in parent_file_ids:
-            assert file.state == 'quickpunched'
+            assert file.state == 'created'
 
     relationships = db.query(FileRelationship).filter(FileRelationship.child == reset_file.file_id).all()
     assert len(relationships) == 0

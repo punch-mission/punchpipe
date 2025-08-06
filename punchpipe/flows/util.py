@@ -4,9 +4,11 @@ from datetime import datetime
 from punchpipe.control.db import File
 
 
-def file_name_to_full_path(file_name: str | list[str], root_dir: str) -> str | list[str]:
+def file_name_to_full_path(file_name: str | None | list[str | None], root_dir: str) -> str | None | list[str | None]:
     if isinstance(file_name, list):
         return [file_name_to_full_path(f, root_dir) for f in file_name]
+    if file_name is None:
+        return None
     level = file_name.split("_")[1][1]
     code = file_name.split("_")[2][:2]
     obs = file_name.split("_")[2][-1]

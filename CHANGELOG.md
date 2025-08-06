@@ -10,6 +10,7 @@
 * Set stray light models' date_obs to the reference time; only select "created" models for L1 inputs; use DataLoader API for all cache types; dashboard fix in https://github.com/punch-mission/punchpipe/pull/219
 * Absolute file paths are no longer stored in the database in https://github.com/punch-mission/punchpipe/pull/222
 * Fixes for PTM scheduling and input file selection in https://github.com/punch-mission/punchpipe/pull/224
+* Split L1 flow, implemented regular stray light models, and improvements to flow scheduling and running in https://github.com/punch-mission/punchpipe/pull/225
 
 ## Version 0.0.11: July 23, 2025
 

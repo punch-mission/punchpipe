@@ -30,8 +30,7 @@ def level2_query_ready_clear_files(session, pipeline_config: dict, reference_tim
 
 def _level2_query_ready_files(session, polarized: bool, pipeline_config: dict, max_n=9e99):
     logger = get_run_logger()
-    target_state = "created" if polarized else "quickpunched"
-    all_ready_files = (session.query(File).filter(File.state == target_state)
+    all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(File.level == "1")
                         # TODO: This line temporarily excludes NFI
                        .filter(File.observatory.in_(['1', '2', '3']))
