@@ -76,7 +76,7 @@ def get_vignetting_function_path(level0_file, pipeline_config: dict, session=Non
     return best_function
 
 
-def get_psf_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
+def get_psf_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None) -> str:
     corresponding_psf_model_type = {"PM": "RM",
                                     "PZ": "RZ",
                                     "PP": "RP",
@@ -88,13 +88,13 @@ def get_psf_model_path(level0_file, pipeline_config: dict, session=None, referen
     psf_model_type = corresponding_psf_model_type[level0_file.file_type]
     # TODO - Turn this back on once fine tuned for NFI
     if level0_file.observatory == "4":
-        return None
+        return ""
     best_model = (session.query(File)
                   .filter(File.file_type == psf_model_type)
                   .filter(File.observatory == level0_file.observatory)
                   .where(File.date_obs <= level0_file.date_obs)
                   .order_by(File.date_obs.desc()).first())
-    return best_model
+    return best_model.filename()
 
 
 STRAY_LIGHT_CORRESPONDING_TYPES = {"PM": "SM",
@@ -189,17 +189,16 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: lis
     mask_function = get_mask_file(level0_files[0], pipeline_config, session=session)
 
     is_clear = level0_files[0].polarization == 'C'
-    make_q_file = (best_stray_light_before is not None
-                   and best_stray_light_after is not None
-                   and is_clear)
-    if not make_q_file and is_clear:
+    have_stray_light = (best_stray_light_before is not None
+                        and best_stray_light_after is not None)
+    if not have_stray_light and is_clear:
         level1_files.pop(0)
 
     call_data = json.dumps(
         {
             "input_data": [level0_file.filename() for level0_file in level0_files],
             "vignetting_function_path": best_vignetting_function.filename(),
-            "psf_model_path": best_psf_model.filename(),
+            "psf_model_path": best_psf_model,
             "quartic_coefficient_path": best_quartic_model.filename(),
             "gain_bottom": ccd_parameters['gain_bottom'],
             "gain_top": ccd_parameters['gain_top'],
@@ -207,9 +206,9 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: lis
             "stray_light_before_path": best_stray_light_before.filename() if best_stray_light_before else None,
             "stray_light_after_path": best_stray_light_after.filename() if best_stray_light_after else None,
             "mask_path": mask_function.filename().replace('.fits', '.bin'),
-            "return_with_stray_light": True,
-            "return_preliminary_stray_light_subtracted": make_q_file,
-            "do_align": make_q_file,
+            "return_with_stray_light": True, # This makes the X file
+            "return_preliminary_stray_light_subtracted": have_stray_light and is_clear, # This makes the Q file
+            "do_align": have_stray_light,
         }
     )
     return Flow(
@@ -262,11 +261,16 @@ def level1_early_scheduler_flow(pipeline_config_path=None, session=None, referen
 
 
 def level1_early_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
-    for key in ['input_data', 'psf_model_path', 'quartic_coefficient_path', 'vignetting_function_path',
+    for key in ['input_data', 'quartic_coefficient_path', 'vignetting_function_path',
                  'distortion_path', 'stray_light_before_path', 'stray_light_after_path', 'mask_path']:
         call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
-
-    call_data['psf_model_path'] = cache_layer.psf.wrap_if_appropriate(call_data['psf_model_path'])
+    # TODO: remove this hack
+    # We're skipping NFI PSF model so we just convert any empty string to None for the PSF model
+    if call_data['psf_model_path'] == "":
+        call_data['psf_model_path'] = None
+    else:
+        call_data['psf_model_path'] = file_name_to_full_path(call_data['psf_model_path'], pipeline_config['root'])
+        call_data['psf_model_path'] = cache_layer.psf.wrap_if_appropriate(call_data['psf_model_path'])
     call_data['quartic_coefficient_path'] = cache_layer.quartic_coefficients.wrap_if_appropriate(
         call_data['quartic_coefficient_path'])
     call_data['vignetting_function_path'] = cache_layer.vignetting_function.wrap_if_appropriate(
@@ -323,7 +327,7 @@ def level1_late_construct_flow_info(input_files: list[File], output_files: list[
     call_data = json.dumps(
         {
             "input_data": [input_file.filename() for input_file in input_files],
-            "psf_model_path": best_psf_model.filename(),
+            "psf_model_path": best_psf_model,
             "stray_light_before_path": best_stray_light_before.filename(),
             "stray_light_after_path": best_stray_light_after.filename(),
             "mask_path": mask_function.filename().replace('.fits', '.bin'),
@@ -368,10 +372,16 @@ def level1_late_scheduler_flow(pipeline_config_path=None, session=None, referenc
 
 
 def level1_late_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
-    for key in ['input_data', 'psf_model_path', 'mask_path', 'stray_light_before_path', 'stray_light_after_path']:
+    for key in ['input_data', 'mask_path', 'stray_light_before_path', 'stray_light_after_path']:
         call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
 
-    call_data['psf_model_path'] = cache_layer.psf.wrap_if_appropriate(call_data['psf_model_path'])
+    # TODO: this is a hack to skip NFI PSF. Remove!
+    if call_data['psf_model_path'] == "":
+        call_data['psf_model_path'] = None
+    else:
+        call_data['psf_model_path'] = file_name_to_full_path(call_data['psf_model_path'], pipeline_config['root'])
+        call_data['psf_model_path'] = cache_layer.psf.wrap_if_appropriate(call_data['psf_model_path'])
+
     # Anything more than 16 doesn't offer any real benefit, and the default of n_cpu on punch190 is actually slower than
     # 16! Here we choose less to have less spiky CPU usage to play better with other flows.
     call_data['max_workers'] = 2
