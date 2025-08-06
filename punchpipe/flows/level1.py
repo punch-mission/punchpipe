@@ -189,10 +189,9 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: lis
     mask_function = get_mask_file(level0_files[0], pipeline_config, session=session)
 
     is_clear = level0_files[0].polarization == 'C'
-    make_q_file = (best_stray_light_before is not None
-                   and best_stray_light_after is not None
-                   and is_clear)
-    if not make_q_file and is_clear:
+    have_stray_light = (best_stray_light_before is not None
+                        and best_stray_light_after is not None)
+    if not have_stray_light and is_clear:
         level1_files.pop(0)
 
     call_data = json.dumps(
@@ -207,9 +206,9 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: lis
             "stray_light_before_path": best_stray_light_before.filename() if best_stray_light_before else None,
             "stray_light_after_path": best_stray_light_after.filename() if best_stray_light_after else None,
             "mask_path": mask_function.filename().replace('.fits', '.bin'),
-            "return_with_stray_light": True,
-            "return_preliminary_stray_light_subtracted": make_q_file,
-            "do_align": make_q_file,
+            "return_with_stray_light": True, # This makes the X file
+            "return_preliminary_stray_light_subtracted": have_stray_light and is_clear, # This makes the Q file
+            "do_align": have_stray_light,
         }
     )
     return Flow(
