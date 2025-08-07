@@ -992,6 +992,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
 
             # we also need to add it to the database
             l0_db_entry = File(level="0",
+                               polarization='C' if file_type[0] == 'C' else file_type[1],
                                file_type=file_type,
                                observatory=str(soc_spacecraft_id),
                                file_version=pipeline_config['file_version'],
