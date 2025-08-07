@@ -12,7 +12,7 @@ from prefect.variables import Variable
 from sqlalchemy import and_, func, select, update
 from sqlalchemy.orm import Session
 
-from punchpipe.control.db import Flow
+from punchpipe.control.db import File, Flow
 from punchpipe.control.util import batched, get_database_session, load_pipeline_configuration
 
 
@@ -38,12 +38,18 @@ def gather_planned_flows(session, amount_to_launch, flow_weights, flow_enabled):
         selected_flows.append(flow)
         selected_weight += flow_weights[flow.flow_type]
         count_per_type[flow.flow_type] += 1
-    # If we don't shuffle, flows will be sorted by priority which may implicitly be a sort by flow type. This could
-    # mean we launch all the quick flows at once and then later all the slow flows at once, but we'll get better
-    # performance by mixing the fast and slow flows since the total CPU demand will be more uniform through this
-    # scheduling window.
-    shuffle(selected_flows)
-    return [f.flow_id for f in selected_flows], selected_weight, count_per_type
+
+    select_flow_ids = [flow.flow_id for flow in selected_flows]
+    output_files = session.query(File).where(File.processing_flow.in_(select_flow_ids)).all()
+    tags_by_flow = {}
+    for flow in selected_flows:
+        tags = set()
+        for output_file in output_files:
+            if output_file.processing_flow == flow.flow_id:
+                tags.add(output_file.file_type + output_file.observatory)
+        tags_by_flow[flow.flow_id] = sorted(tags)
+
+    return [f.flow_id for f in selected_flows], tags_by_flow, selected_weight, count_per_type
 
 
 @task(cache_policy=NO_CACHE)
@@ -97,7 +103,7 @@ def determine_launchable_flow_count(weight_planned, weight_running, max_running,
 
 
 @task(cache_policy=NO_CACHE)
-async def launch_ready_flows(session: Session, flow_ids: List[int], pipeline_config: dict) -> None:
+async def launch_ready_flows(session: Session, flow_ids: List[int], tags_by_flow: List[List[str]], pipeline_config: dict) -> None:
     """Given a list of ready-to-launch flow_ids, this task creates flow runs in Prefect for them.
     These flow runs are automatically marked as scheduled in Prefect and will be picked up by a work queue and
     agent as soon as possible.
@@ -118,6 +124,12 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], pipeline_con
     logger = get_run_logger()
     # gather the flow information for launching
     flow_info = session.query(Flow).where(Flow.flow_id.in_(flow_ids)).all()
+
+    # If we don't shuffle, flows will be sorted by priority which may implicitly be a sort by flow type. This could
+    # mean we launch all the quick flows at once and then later all the slow flows at once, but we'll get better
+    # performance overall by mixing the fast and slow flows since the total CPU demand will be more uniform through this
+    # scheduling window.
+    shuffle(flow_info)
 
     async with get_client() as client:
         # determine the deployment ids for each kind of flow
@@ -155,7 +167,8 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], pipeline_con
             for this_flow in batch:
                 this_deployment_id = deployment_ids[this_flow.flow_type + "_process_flow"]
                 awaitables.append(client.create_flow_run_from_deployment(
-                    this_deployment_id, parameters={"flow_id": this_flow.flow_id})
+                    this_deployment_id, parameters={"flow_id": this_flow.flow_id},
+                    tags=tags_by_flow[this_flow.flow_id])
                 )
 
             responses.extend(await asyncio.gather(*awaitables))
@@ -223,11 +236,11 @@ async def launcher(pipeline_config_path=None):
     amount_to_launch = determine_launchable_flow_count(
         weight_planned, weight_running, max_flows_running, max_flows_to_launch)
 
-    flows_to_launch, selected_weight, counts_per_type = gather_planned_flows(
+    flows_to_launch, tags_by_flow, selected_weight, counts_per_type = gather_planned_flows(
         session, amount_to_launch, flow_weights, flow_enabled)
     logger.info(f"{len(flows_to_launch)} flows (weight {selected_weight:.2f}) with IDs of {flows_to_launch} will be launched.")
     counts = [f"{counts_per_type[type]} {type}" for type in sorted(counts_per_type.keys())]
     if len(counts):
         logger.info("This consists of " + ", ".join(counts))
-    await launch_ready_flows(session, flows_to_launch, pipeline_config)
+    await launch_ready_flows(session, flows_to_launch, tags_by_flow, pipeline_config)
     logger.info("Launcher flow exit.")

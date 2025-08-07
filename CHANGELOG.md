@@ -6,6 +6,8 @@
 
 * Make TLMLoader only expect one returned object in https://github.com/punch-mission/punchpipe/pull/233
 * Temporarily turn off NFI PSF correction in https://github.com/punch-mission/punchpipe/pull/234
+* Tweaks to stray light models scheduling in https://github.com/punch-mission/punchpipe/pull/237
+* Tagging of flows with output file types in https://github.com/punch-mission/punchpipe/pull/237 and https://github.com/punch-mission/punchpipe/pull/238
 
 ## Version 0.0.12: August 6, 2025
 

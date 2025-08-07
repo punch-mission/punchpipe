@@ -74,13 +74,13 @@ def flow_weights():
 
 
 def test_gather_queued_flows(db, flow_weights):
-    planned_ids, selected_weight, count_per_type = gather_planned_flows.fn(db, 6, flow_weights,
+    planned_ids, tags_by_flow, selected_weight, count_per_type = gather_planned_flows.fn(db, 6, flow_weights,
                                                                            {"level0": True, "level1": True})
     assert len(planned_ids) == 3
     assert count_per_type["level0"] == 1
     assert count_per_type["level1"] == 2
     assert selected_weight == 5
-    planned_ids, selected_weight, count_per_type = gather_planned_flows.fn(db, 3, flow_weights,
+    planned_ids, tags_by_flow, selected_weight, count_per_type = gather_planned_flows.fn(db, 3, flow_weights,
                                                                            {"level0": True, "level1": True})
     assert len(planned_ids) == 2
     assert count_per_type["level0"] == 1
@@ -129,8 +129,8 @@ def test_filter_for_launchable_flows_with_max_of_1(db, flow_weights):
         ready_to_launch_weight = determine_launchable_flow_count(
             weight_planned, weight_running, max_weight_running, math.inf)
         assert ready_to_launch_weight == 1
-        flows, selected_weight, count_per_type = gather_planned_flows.fn(db, ready_to_launch_weight, flow_weights,
-                                                                         {"level0": True, "level1": True})
+        flows, tags_by_flow, selected_weight, count_per_type = gather_planned_flows.fn(
+            db, ready_to_launch_weight, flow_weights, {"level0": True, "level1": True})
         assert len(flows) == 1
         assert flows[0] == 3
 
