@@ -45,6 +45,16 @@ for type in ['M', 'Z', 'P', 'R']:
             did_reset = True
             for flow in early_flows:
                 flow.state = 'revivable'
+            # It's a good bet any pending stray light flows of this type will now crash since we deleted their input files, so let's reset them. Running ones are also in trouble, but let's not mess with that.
+            pending_flows = (session.query(Flow)
+                           .join(File, File.processing_flow == Flow.flow_id)
+                           .where(File.file_type == 'S' + type)
+                           .where(File.observatory == observatory)
+                           .where(Flow.flow_type == 'construct_stray_light')
+                           .where(Flow.state.in_(['planned', 'launched']))
+                           .all())
+            for flow in pending_flows:
+                flow.state = 'revivable'
             session.commit()
             print(f"*{type}{observatory} 🔄 : reset {len(early_flows)} L1-early flows")
         else:
