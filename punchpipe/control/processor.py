@@ -1,5 +1,5 @@
-import os
 import json
+import os
 from datetime import datetime
 
 from prefect import get_run_logger, tags
@@ -65,7 +65,7 @@ def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_confi
         logger.info(f"Expecting to output files with ids={expected_file_ids}.")
 
         tag_set = {entry.file_type + entry.observatory for entry in file_db_entry_list}
-        with tags(*tag_set):
+        with tags(*sorted(tag_set)):
             results = core_flow_to_launch(**flow_call_data)
         for result in results:
             result.meta['FILEVRSN'] = pipeline_config["file_version"]
