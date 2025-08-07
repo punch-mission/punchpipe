@@ -1,9 +1,9 @@
 import asyncio
-from collections import defaultdict
-from datetime import datetime, timedelta
 from math import ceil
 from random import shuffle
 from typing import List
+from datetime import datetime, timedelta
+from collections import defaultdict
 
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
@@ -12,7 +12,7 @@ from prefect.variables import Variable
 from sqlalchemy import and_, func, select, update
 from sqlalchemy.orm import Session
 
-from punchpipe.control.db import Flow, File
+from punchpipe.control.db import File, Flow
 from punchpipe.control.util import batched, get_database_session, load_pipeline_configuration
 
 
