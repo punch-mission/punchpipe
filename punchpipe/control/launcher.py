@@ -165,7 +165,6 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], tags_by_flow
 
             # Launch the batch
             for this_flow in batch:
-                tags = tags_by_flow[this_flow.flow_id]
                 this_deployment_id = deployment_ids[this_flow.flow_type + "_process_flow"]
                 awaitables.append(client.create_flow_run_from_deployment(
                     this_deployment_id, parameters={"flow_id": this_flow.flow_id},
