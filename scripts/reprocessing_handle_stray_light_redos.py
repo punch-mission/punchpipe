@@ -33,6 +33,10 @@ for type in ['M', 'Z', 'P', 'R']:
         cutoff_time = sorted(creation_times)[1] + timedelta(minutes=1)
 
         early_flows = (session.query(Flow)
+                       .join(File, File.processing_flow == Flow.flow_id)
+                       .where(File.file_type == 'X' + type)
+                       .where(File.observatory == observatory)
+                       .where(Flow.flow_type == 'level1_early')
                        .where(Flow.creation_time < cutoff_time)
                        .where(Flow.state != 'revivable')
                        .all())
