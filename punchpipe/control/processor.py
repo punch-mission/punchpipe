@@ -2,7 +2,7 @@ import os
 import json
 from datetime import datetime
 
-from prefect import get_run_logger
+from prefect import get_run_logger, tags
 from prefect.context import get_run_context
 
 from punchpipe.control.db import File, Flow
@@ -64,7 +64,9 @@ def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_confi
         expected_file_ids = {entry.file_id for entry in file_db_entry_list}
         logger.info(f"Expecting to output files with ids={expected_file_ids}.")
 
-        results = core_flow_to_launch(**flow_call_data)
+        tag_set = {entry.file_type + entry.observatory for entry in file_db_entry_list}
+        with tags(*tag_set):
+            results = core_flow_to_launch(**flow_call_data)
         for result in results:
             result.meta['FILEVRSN'] = pipeline_config["file_version"]
             file_db_entry = match_data_with_file_db_entry(result, file_db_entry_list)

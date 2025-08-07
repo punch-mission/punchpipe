@@ -129,7 +129,7 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
     logger = get_run_logger()
 
-    max_flows = 4 * pipeline_config['flows']['construct_stray_light'].get('concurrency_limit', 9e9)
+    max_flows = 2 * pipeline_config['flows']['construct_stray_light'].get('concurrency_limit', 9e9)
     existing_flows = (session.query(Flow)
                        .where(Flow.flow_type == 'construct_stray_light')
                        .where(Flow.state.in_(["planned", "launched", "running"])).count())
@@ -144,28 +144,32 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
                        .filter(File.level == "1")
                        .filter(File.file_type.in_(['SR', 'SZ', 'SP', 'SM']))
                        .all())
-    existing_models = set((model.file_type, model.observatory, model.date_obs) for model in existing_models)
     logger.info(f"There are {len(existing_models)} existing models")
 
-    oldest_file = (session.query(File)
+    oldest_possible_input_file = (session.query(File)
                           .filter(File.state == "created")
                           .filter(File.level == "1")
                           .filter(File.file_type.in_(['XR', 'XZ', 'XP', 'XM']))
                           .order_by(File.date_obs.asc())
                           .first())
-    if oldest_file is None:
+    if oldest_possible_input_file is None:
         logger.info("No possible input files in DB")
         return
 
+    existing_models = set((model.file_type, model.observatory, model.date_obs) for model in existing_models)
     t0 = datetime.strptime(pipeline_config['flows']['construct_stray_light']['t0'], "%Y-%m-%d %H:%M:%S")
     increment = timedelta(hours=pipeline_config['flows']['construct_stray_light']['model_spacing_hours'])
     n = 0
     models_to_try_creating = []
-    while (t := t0 + n * increment) < datetime.now():
+    # I'm sure there's a better way to do this, but let's step forward by increments to the present, and then we'll go
+    # backwards back to t0 scheduling, so that we prioritize the stray light models that QuickPUNCH uses
+    while t0 + n * increment < datetime.now():
         n += 1
-        if t < oldest_file.date_obs - increment:
-            # Speed this flow along if we're early in reprocessing with lots of unmade models but few ready to go
-            continue
+    for i in range(n, 0, -1):
+        t = t0 + i * increment
+        if t < oldest_possible_input_file.date_obs:
+            # This can help speed this flow for the beginning of reprocessing
+            break
         for model_type in ['SR', 'SM', 'SZ', 'SP']:
             for observatory in ['1', '2', '3', '4']:
                 key = (model_type, observatory, t)
@@ -174,11 +178,11 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
 
     logger.info(f"There are {len(models_to_try_creating)} un-created models")
 
-    n_scheduled = 0
+    scheduled = []
     for model_type, observatory, t in models_to_try_creating:
         args_dictionary = {"file_type": model_type, "spacecraft": observatory}
 
-        n_scheduled += generic_scheduler_flow_logic(
+        n_scheduled = generic_scheduler_flow_logic(
             construct_stray_light_query_ready_files,
             construct_stray_light_file_info,
             construct_stray_light_flow_info,
@@ -188,10 +192,14 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
             session=session,
             args_dictionary=args_dictionary
         )
-        if n_scheduled == flows_to_schedule:
+        if n_scheduled > 0:
+            scheduled.append((model_type + observatory, t))
+        if len(scheduled) == flows_to_schedule:
             break
 
-    logger.info(f"Scheduled {n_scheduled} models")
+    logger.info(f"Scheduled {len(scheduled)} models")
+    for type, t in scheduled:
+        logger.info(f"Scheduled {type} at {t}")
 
 
 def construct_stray_light_call_data_processor(call_data: dict, pipeline_config, session) -> dict:
