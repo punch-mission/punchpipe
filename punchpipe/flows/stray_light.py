@@ -144,7 +144,6 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
                        .filter(File.level == "1")
                        .filter(File.file_type.in_(['SR', 'SZ', 'SP', 'SM']))
                        .all())
-    existing_models = set((model.file_type, model.observatory, model.date_obs) for model in existing_models)
     logger.info(f"There are {len(existing_models)} existing models")
 
     oldest_file = (session.query(File)
@@ -157,20 +156,28 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
         logger.info("No possible input files in DB")
         return
 
+    types_and_counts = []
+    for model_type in ['SR', 'SM', 'SZ', 'SP']:
+        for observatory in ['1', '2', '3', '4']:
+            count = len([m for m in existing_models if m.file_type == model_type and m.observatory == observatory])
+            types_and_counts.append((count, model_type, observatory))
+    types_and_counts = sorted(types_and_counts, key=lambda x: x[0])
+    ordered_model_types = [(t, o) for c, t, o in types_and_counts]
+    logger.info(f"Prioritizing types (high to low) as f{[t + o for t, o in ordered_model_types]}")
+
+    existing_models = set((model.file_type, model.observatory, model.date_obs) for model in existing_models)
     t0 = datetime.strptime(pipeline_config['flows']['construct_stray_light']['t0'], "%Y-%m-%d %H:%M:%S")
     increment = timedelta(hours=pipeline_config['flows']['construct_stray_light']['model_spacing_hours'])
     n = 0
     models_to_try_creating = []
-    while (t := t0 + n * increment) < datetime.now():
+    while t0 + n * increment < datetime.now():
         n += 1
-        if t < oldest_file.date_obs - increment:
-            # Speed this flow along if we're early in reprocessing with lots of unmade models but few ready to go
-            continue
-        for model_type in ['SR', 'SM', 'SZ', 'SP']:
-            for observatory in ['1', '2', '3', '4']:
-                key = (model_type, observatory, t)
-                if key not in existing_models:
-                    models_to_try_creating.append(key)
+    for i in range(n, 0, -1):
+        t = t0 + i * increment
+        for model_type, observatory in ordered_model_types:
+            key = (model_type, observatory, t)
+            if key not in existing_models:
+                models_to_try_creating.append(key)
 
     logger.info(f"There are {len(models_to_try_creating)} un-created models")
 
