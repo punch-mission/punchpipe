@@ -1,5 +1,5 @@
-import itertools
 import os
+import itertools
 from datetime import UTC, datetime, timedelta
 
 from freezegun import freeze_time
@@ -9,7 +9,7 @@ from pytest_mock_resources import create_mysql_fixture
 
 from punchpipe import __version__
 from punchpipe.control.db import Base, File, Flow
-from punchpipe.control.util import load_pipeline_configuration, batched
+from punchpipe.control.util import batched, load_pipeline_configuration
 from punchpipe.flows.level2 import (
     group_l2_inputs,
     group_l2_inputs_single_observatory,
