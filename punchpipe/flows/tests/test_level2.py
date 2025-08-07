@@ -1,5 +1,5 @@
-import os
 import itertools
+import os
 from datetime import UTC, datetime, timedelta
 
 from freezegun import freeze_time
@@ -9,7 +9,7 @@ from pytest_mock_resources import create_mysql_fixture
 
 from punchpipe import __version__
 from punchpipe.control.db import Base, File, Flow
-from punchpipe.control.util import load_pipeline_configuration
+from punchpipe.control.util import load_pipeline_configuration, batched
 from punchpipe.flows.level2 import (
     group_l2_inputs,
     group_l2_inputs_single_observatory,
@@ -128,7 +128,7 @@ def test_level2_query_ready_files():
                 input_files = []
                 expected_groups = [[], [], []]
                 expected_output_group = 0
-                for triplet, is_complete in zip(itertools.batched(wfi1 + wfi2 + wfi3 + nfi, 3), groups_are_complete):
+                for triplet, is_complete in zip(batched(wfi1 + wfi2 + wfi3 + nfi, 3), groups_are_complete):
                     # We're iterating through the triplets sorted first by observatory, then by time.
                     if not is_complete:
                         # This triplet should be missing a file
