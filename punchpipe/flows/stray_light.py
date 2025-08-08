@@ -205,6 +205,7 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
 def construct_stray_light_call_data_processor(call_data: dict, pipeline_config, session) -> dict:
     # Prepend the directory path to each input file
     call_data['filepaths'] = file_name_to_full_path(call_data['filepaths'], pipeline_config['root'])
+    call_data['num_workers'] = 32
     return call_data
 
 @flow
