@@ -33,7 +33,7 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
     all_fittable_files = (session.query(File).filter(File.state.in_(("created", "progressed")))
                           .filter(File.level == "1")
                           .filter(File.observatory == "4")
-                          .filter(File.file_type == "CR").limit(1000).all())
+                          .filter(File.file_type == "QR").limit(1000).all())
     if len(all_fittable_files) < 1000:
         logger.info("Not enough fittable files")
         return []
