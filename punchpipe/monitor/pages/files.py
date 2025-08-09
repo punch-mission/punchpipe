@@ -140,7 +140,6 @@ def construct_base_query(columns, filter, include_count):
     Input('files-table', 'sort_by'),
     Input('files-table', 'filter_query'))
 def update_table(group_by, n, page_current, page_size, sort_by, filter):
-    print(filter)
     with get_database_session() as session:
         query = construct_base_query(group_by, filter, True)
         for col in sort_by:
