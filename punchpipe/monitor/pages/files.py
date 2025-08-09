@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 import pandas as pd
 import plotly.express as px
@@ -18,6 +18,7 @@ schedule_columns =[{'name': v.replace("_", " ").capitalize(), 'id': v} for v in 
 PAGE_SIZE = 100
 
 dash.register_page(__name__)
+
 
 layout = html.Div([
         dcc.Checklist(
@@ -52,6 +53,12 @@ layout = html.Div([
                 clearable=False,
             ),
         ], style={"width": "50%"}),
+        dcc.DatePickerRange(id='plot-range',
+                            min_date_allowed=date(2025, 3, 1),
+                            max_date_allowed=date.today() + timedelta(days=1),
+                            end_date=date.today() + timedelta(days=1),
+                            start_date=date.today() - timedelta(days=31),
+                            ),
         dcc.Graph(id='file-graph'),
         dcc.Interval(
             id='interval-component',
@@ -184,8 +191,10 @@ def make_keys(dff):
     Input('files-table', 'filter_query'),
     Input('files-table', 'sort_by'),
     Input('graph-color', 'value'),
+    Input('plot-range', 'start_date'),
+    Input('plot-range', 'end_date'),
 )
-def update_file_graph(n, group_by, filter, sort_by, color_key):
+def update_file_graph(n, group_by, filter, sort_by, color_key, start_date, end_date):
     group_by = [col.lower().replace(' ', '_') for col in group_by]
     color_key = color_key.lower().replace(' ', '_')
     query_cols = group_by + ['date_obs']
@@ -194,7 +203,7 @@ def update_file_graph(n, group_by, filter, sort_by, color_key):
         exclude_color_from_keys = True
         query_cols.append(color_key)
     query = construct_base_query(query_cols, filter, False)
-    query = query.where(File.date_obs > datetime(2025, 7, 5))
+    query = query.where(File.date_obs >= start_date).where(File.date_obs <= end_date)
     with get_database_session() as session:
         dff = pd.read_sql_query(query, session.connection())
 
