@@ -8,7 +8,7 @@ from dash import Input, Output, callback, dash_table, dcc, html
 from sqlalchemy import select
 
 from punchpipe.control.db import Flow, Health
-from punchpipe.control.util import get_database_session
+from punchpipe.monitor.app import session
 
 
 REFRESH_RATE = 60  # seconds
@@ -31,6 +31,7 @@ layout = html.Div([
                                     max_date_allowed=datetime.today() + timedelta(days=1),
                                     end_date=datetime.today() + timedelta(days=1),
                                     start_date=datetime.today() - timedelta(days=1),
+                                    persistence=True, persistence_type='memory',
                                     )
             ]),
             dbc.Col(width=True, children=[
@@ -39,7 +40,8 @@ layout = html.Div([
                     options=["cpu_usage", "memory_usage", "memory_percentage", "disk_usage", "disk_percentage", "num_pids"],
                     value="cpu_usage",
                     clearable=False,
-                    style={'width': '50%'}
+                    style={'width': '50%'},
+                    persistence=True, persistence_type='memory',
                 ),
             ])
         ]),
@@ -70,6 +72,7 @@ layout = html.Div([
                              sort_by=[],
                              style_table={'overflowX': 'auto',
                                           'textAlign': 'left'},
+                             persistence=True, persistence_type='memory',
                              ),
         dcc.Interval(
             id='interval-component',
@@ -118,21 +121,20 @@ def split_filter_part(filter_part):
     Input('flows-table', 'sort_by'),
     Input('flows-table', 'filter_query'))
 def update_flows(n, page_current, page_size, sort_by, filter):
-    with get_database_session() as session:
-        query = select(Flow)
-        for filter_part in filter.split(' && '):
-            col_name, operator, filter_value, py_method = split_filter_part(filter_part)
-            if col_name is not None:
-                query = query.where(getattr(getattr(Flow, col_name), py_method)(filter_value))
-        for col in sort_by:
-            sort_column = getattr(Flow, col['column_id'])
-            if col['direction'] == 'asc':
-                sort_column = sort_column.asc()
-            else:
-                sort_column = sort_column.desc()
-            query = query.order_by(sort_column)
-        query = query.offset(page_current * page_size).limit(page_size)
-        dff = pd.read_sql_query(query, session.connection())
+    query = select(Flow)
+    for filter_part in filter.split(' && '):
+        col_name, operator, filter_value, py_method = split_filter_part(filter_part)
+        if col_name is not None:
+            query = query.where(getattr(getattr(Flow, col_name), py_method)(filter_value))
+    for col in sort_by:
+        sort_column = getattr(Flow, col['column_id'])
+        if col['direction'] == 'asc':
+            sort_column = sort_column.asc()
+        else:
+            sort_column = sort_column.desc()
+        query = query.order_by(sort_column)
+    query = query.offset(page_current * page_size).limit(page_size)
+    dff = pd.read_sql_query(query, session.connection())
 
     return dff.to_dict('records')
 
@@ -161,19 +163,18 @@ def create_card_content(level: int | str, type: str | None, status: str, message
 )
 def update_cards(n):
     reference_time = datetime.now() - timedelta(hours=24)
-    with get_database_session() as session:
-        query = (f"SELECT flow_level AS level, flow_type, SUM(state = 'completed') AS n_good, "
-                  "SUM(state = 'failed') AS n_bad, SUM(state = 'running') AS n_running "
-                 f"FROM flows WHERE start_time > '{reference_time}' "
-                  "GROUP BY level, flow_type;")
-        df = pd.read_sql_query(query, session.connection())
-        # These states don't have a start_time set
-        query = ("SELECT flow_level AS level, flow_type, "
-                 "SUM(state = 'launched') AS n_launched, SUM(state = 'planned') AS n_planned "
-                 "FROM flows GROUP BY level, flow_type;")
-        second_df = pd.read_sql_query(query, session.connection())
-        df = df.merge(second_df.set_index('level'), on=['level', 'flow_type'], how='outer')
-        df.fillna(0, inplace=True)
+    query = (f"SELECT flow_level AS level, flow_type, SUM(state = 'completed') AS n_good, "
+              "SUM(state = 'failed') AS n_bad, SUM(state = 'running') AS n_running "
+             f"FROM flows WHERE start_time > '{reference_time}' "
+              "GROUP BY level, flow_type;")
+    df = pd.read_sql_query(query, session.connection())
+    # These states don't have a start_time set
+    query = ("SELECT flow_level AS level, flow_type, "
+             "SUM(state = 'launched') AS n_launched, SUM(state = 'planned') AS n_planned "
+             "FROM flows GROUP BY level, flow_type;")
+    second_df = pd.read_sql_query(query, session.connection())
+    df = df.merge(second_df.set_index('level'), on=['level', 'flow_type'], how='outer')
+    df.fillna(0, inplace=True)
 
     cards = []
     for level, type in zip(['0', '1', '2', '3', 'S', 'Q', 'Q'],
@@ -234,12 +235,11 @@ def create_file_card_content(level: int | str, type: str | None, status: str, me
     Input('interval-component', 'n_intervals'),
 )
 def update_file_cards(n):
-    with get_database_session() as session:
-        query = ("SELECT level, file_type, SUM(state = 'created') AS n_created, "
-                 "SUM(state = 'failed') AS n_failed, SUM(state = 'planned') AS n_planned, "
-                 "SUM(state = 'creating') AS n_creating, SUM(state = 'progressed') AS n_progressed, "
-                 "SUM(state = 'quickpunched') AS n_quickpunched FROM files GROUP BY level, file_type;")
-        df = pd.read_sql_query(query, session.connection())
+    query = ("SELECT level, file_type, SUM(state = 'created') AS n_created, "
+             "SUM(state = 'failed') AS n_failed, SUM(state = 'planned') AS n_planned, "
+             "SUM(state = 'creating') AS n_creating, SUM(state = 'progressed') AS n_progressed, "
+             "SUM(state = 'quickpunched') AS n_quickpunched FROM files GROUP BY level, file_type;")
+    df = pd.read_sql_query(query, session.connection())
 
     cards = []
     for level, type in zip(['0', '1', '2', '3', 'S', 'Q', 'Q'], [None, None, None, None, None, 'CN', 'CT']):
@@ -295,9 +295,10 @@ def update_machine_stats(n, machine_stat, start_date, end_date):
                    "disk_usage": "Disk Usage[GB]",
                    "disk_percentage": "Disk Usage %",
                    "num_pids": "Process Count"}
-    with get_database_session() as session:
-        query = select(Health).where(Health.datetime > start_date).where(Health.datetime < end_date)
-        df = pd.read_sql_query(query, session.connection())
+
+    query = select(Health).where(Health.datetime > start_date).where(Health.datetime < end_date)
+    df = pd.read_sql_query(query, session.connection())
+
     fig = px.line(df, x='datetime', y=machine_stat, title="Machine stats")
     fig.update_xaxes(title_text="Time")
     fig.update_yaxes(title_text=axis_labels[machine_stat])
@@ -311,13 +312,12 @@ def update_machine_stats(n, machine_stat, start_date, end_date):
 )
 def update_flow_stats(n):
     now = datetime.now()
-    with get_database_session() as session:
-        reference_time = now - timedelta(hours=72)
-        query = ("SELECT flow_type, end_time AS hour, AVG(TIMEDIFF(end_time, start_time)) AS duration, "
-                 "COUNT(*) AS count, state "
-                 f"FROM flows WHERE end_time > '{reference_time}' "
-                 "GROUP BY HOUR(end_time), DAY(end_time), MONTH(end_time), YEAR(end_time), flow_type, state;")
-        df = pd.read_sql_query(query, session.connection())
+    reference_time = now - timedelta(hours=72)
+    query = ("SELECT flow_type, end_time AS hour, AVG(TIMEDIFF(end_time, start_time)) AS duration, "
+             "COUNT(*) AS count, state "
+             f"FROM flows WHERE end_time > '{reference_time}' "
+             "GROUP BY HOUR(end_time), DAY(end_time), MONTH(end_time), YEAR(end_time), flow_type, state;")
+    df = pd.read_sql_query(query, session.connection())
     # Fill missing entries (for hours where nothing ran)
     df.hour = [ts.floor('h') for ts in df.hour]
     dates = pd.date_range(reference_time, now, freq=timedelta(hours=1)).floor('h')
