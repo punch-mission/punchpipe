@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -7,7 +7,7 @@ import dash
 from dash import Input, Output, callback, dash_table, dcc, html
 from sqlalchemy import select
 
-from punchpipe.control.db import Flow
+from punchpipe.control.db import Flow, Health
 from punchpipe.control.util import get_database_session
 
 
@@ -24,12 +24,26 @@ dash.register_page(__name__, path='/')
 
 layout = html.Div([
         dcc.Graph(id='machine-graph'),
-        dcc.Dropdown(
-            id="machine-stat",
-            options=["cpu_usage", "memory_usage", "memory_percentage", "disk_usage", "disk_percentage", "num_pids"],
-            value="cpu_usage",
-            clearable=False,
-        ),
+        dbc.Row(children=[
+            dbc.Col(width='auto', children=[
+                dcc.DatePickerRange(id='plot-range',
+                                    min_date_allowed=datetime(2025, 3, 1),
+                                    max_date_allowed=datetime.today() + timedelta(days=1),
+                                    end_date=datetime.today() + timedelta(days=1),
+                                    start_date=datetime.today() - timedelta(days=1),
+                                    )
+            ]),
+            dbc.Col(width=True, children=[
+                dcc.Dropdown(
+                    id="machine-stat",
+                    options=["cpu_usage", "memory_usage", "memory_percentage", "disk_usage", "disk_percentage", "num_pids"],
+                    value="cpu_usage",
+                    clearable=False,
+                    style={'width': '50%'}
+                ),
+            ])
+        ]),
+        html.Hr(),
         html.Div(
             id="status-cards"
         ),
@@ -271,18 +285,18 @@ def update_file_cards(n):
     Output('machine-graph', 'figure'),
     Input('interval-component', 'n_intervals'),
     Input('machine-stat', 'value'),
+    Input('plot-range', 'start_date'),
+    Input('plot-range', 'end_date'),
 )
-def update_machine_stats(n, machine_stat):
+def update_machine_stats(n, machine_stat, start_date, end_date):
     axis_labels = {"cpu_usage": "CPU Usage %",
                    "memory_usage": "Memory Usage[GB]",
                    "memory_percentage": "Memory Usage %",
                    "disk_usage": "Disk Usage[GB]",
                    "disk_percentage": "Disk Usage %",
                    "num_pids": "Process Count"}
-    now = datetime.now()
     with get_database_session() as session:
-        reference_time = now - timedelta(hours=24)
-        query = f"SELECT datetime, {machine_stat} FROM health WHERE datetime > '{reference_time}';"
+        query = select(Health).where(Health.datetime > start_date).where(Health.datetime < end_date)
         df = pd.read_sql_query(query, session.connection())
     fig = px.line(df, x='datetime', y=machine_stat, title="Machine stats")
     fig.update_xaxes(title_text="Time")
