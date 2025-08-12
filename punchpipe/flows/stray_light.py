@@ -120,6 +120,7 @@ def construct_stray_light_file_info(level1_files: t.List[File],
                 date_obs=reference_time,
                 date_beg=min(date_obses),
                 date_end=max(date_obses),
+                polarization=level1_files[0].polarization,
                 state="planned",
             ),]
 
