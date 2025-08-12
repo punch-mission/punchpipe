@@ -8,7 +8,7 @@ from dash import Input, Output, callback, dash_table, dcc, html
 from sqlalchemy import select, func
 
 from punchpipe.control.db import File
-from punchpipe.control.util import get_database_session
+from punchpipe.monitor.app import get_database_session
 
 
 REFRESH_RATE = 60  # seconds

@@ -8,7 +8,7 @@ from dash import Input, Output, callback, dash_table, dcc, html
 from sqlalchemy import select
 
 from punchpipe.control.db import Flow, Health
-from punchpipe.control.util import get_database_session
+from punchpipe.monitor.app import get_database_session
 
 
 REFRESH_RATE = 60  # seconds
@@ -175,7 +175,8 @@ def update_cards(n):
                  "SUM(state = 'launched') AS n_launched, SUM(state = 'planned') AS n_planned "
                  "FROM flows GROUP BY level, flow_type;")
         second_df = pd.read_sql_query(query, session.connection())
-    df = df.merge(second_df.set_index('level'), on=['level', 'flow_type'], how='outer')
+    df = df.dropna().merge(second_df.dropna().set_index('level'), on=['level', 'flow_type'], how='outer')
+    df = df.infer_objects()
     df.fillna(0, inplace=True)
 
     cards = []
@@ -200,7 +201,7 @@ def update_cards(n):
             color = "light"
             status = ""
             message = "No activity"
-        elif n_bad / n_good > 0.95:
+        elif (n_good > 0 and n_bad / n_good > 0.95) or (n_good == 0 and n_bad):
             color = "danger"
             status = "Bad"
         else:

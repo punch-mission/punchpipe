@@ -1,5 +1,21 @@
+from contextlib import contextmanager
+
 import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, page_registry, page_container
+from sqlalchemy.orm import Session
+
+from punchpipe.control.util import get_database_session as _get_database_session
+
+session, engine = _get_database_session(get_engine=True)
+session.close()
+
+@contextmanager
+def get_database_session():
+    session = Session(engine)
+    try:
+        yield session
+    finally:
+        session.close()
 
 
 def create_app():
