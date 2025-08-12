@@ -9,6 +9,7 @@
 * Tweaks to stray light models scheduling in https://github.com/punch-mission/punchpipe/pull/237
 * Tagging of flows with output file types in https://github.com/punch-mission/punchpipe/pull/237 and https://github.com/punch-mission/punchpipe/pull/238
 * Set L0 polarization state in database in https://github.com/punch-mission/punchpipe/pull/239
+* Fix LQ CNN scheduling and cap stray light generation thread count in https://github.com/punch-mission/punchpipe/pull/240
 
 ## Version 0.0.12: August 6, 2025
 
