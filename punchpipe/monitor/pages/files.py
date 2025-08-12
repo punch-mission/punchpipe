@@ -202,6 +202,7 @@ def split_filter_part(filter_part):
 
 def construct_base_query(columns, filter, extra_filters, include_count, date_obs_start,
                  date_obs_end, date_created_start, date_created_end):
+    # Build the parts of a query common to the table and graph
     cols = [getattr(File, col.lower().replace(' ', '_')) for col in columns]
     if include_count:
         cols += [func.count(File.file_id).label("count")]
@@ -240,6 +241,7 @@ def update_table(show_in_table, group_by, n, page_current, page_size, sort_by, f
                  date_obs_end, date_created_start, date_created_end):
     query = construct_base_query(group_by, filter, extra_filters, True, date_obs_start,
              date_obs_end, date_created_start, date_created_end)
+
     for col in sort_by:
         sort_column = getattr(File, col['column_id'])
         if col['direction'] == 'asc':
@@ -247,9 +249,11 @@ def update_table(show_in_table, group_by, n, page_current, page_size, sort_by, f
         else:
             sort_column = sort_column.desc()
         query = query.order_by(sort_column)
+
     for col in group_by:
         query = query.group_by(col.lower().replace(' ', '_'))
     query = query.offset(page_current * page_size).limit(page_size)
+
     with get_database_session() as session:
         dff = pd.read_sql_query(query, session.connection())
 
@@ -264,30 +268,42 @@ def update_table(show_in_table, group_by, n, page_current, page_size, sort_by, f
     Input('group-by', 'options'),
     Input('group-by', 'value'),
 )
-def update_table_columns(show_in_table, group_by_options, group_by_selection):
+def update_visible_columns(show_in_table, group_by_options, group_by_selection):
+    # When the "show in table" checkboxes change, update the "group by" options and the table columns
     table_columns = [{'name': col, 'id': col.lower().replace(' ', '_')} for col in USABLE_COLUMNS if col in show_in_table]
     table_columns.append({'name': 'Count', 'id': 'count'})
+
+    # Un-select any group-by checkboxes that won't be selectable anymore
     group_by_selection = [c for c in group_by_selection if c in show_in_table]
+
     group_by_options = [{'value': c, 'label': c, 'disabled': c not in show_in_table} for c in USABLE_COLUMNS]
     return table_columns, group_by_selection, group_by_options
 
 
-def make_keys(dff):
+def make_y_axis_labels(dff):
+    # Generate the label strings for the plot y axis
     joinables = []
     columns = list(dff.columns)
     if 'file_type' in columns and 'observatory' in columns:
+        # If we're grouping by these columns, special-case it to show e.g. "CR2" instead of "CR 2" or "2 CR" or whatever
         joinables.append(dff['file_type'] + dff['observatory'])
         columns.remove('file_type')
         columns.remove('observatory')
+
+    # These are x-axis values
     if 'date_obs' in columns:
         columns.remove('date_obs')
     if 'date_created' in columns:
         columns.remove('date_created')
+
     for column in columns:
         if len(dff[column].unique()) > 1:
             joinables.append(dff[column])
+
     if len(joinables) == 0:
+        # We need something
         joinables = [dff[columns[0]]]
+
     keys = joinables[0].copy()
     for col in joinables[1:]:
         keys += ' ' + col
@@ -318,6 +334,8 @@ def update_file_graph(n, group_by, filter, sort_by, color_key, shape_key, extra_
 
     query_cols = group_by + [graph_x_axis]
 
+    # Make sure the color and shape columns are in the query. If they're not in the "group by" selection, track that so
+    # we don't let these values become part of the y axis labels
     exclude_color_from_keys = False
     if color_key not in query_cols and color_key != 'nothing':
         exclude_color_from_keys = True
@@ -333,6 +351,7 @@ def update_file_graph(n, group_by, filter, sort_by, color_key, shape_key, extra_
     with get_database_session() as session:
         dff = pd.read_sql_query(query, session.connection())
 
+    # Extract the data that sets shape and color, and then remove if necessary
     if color_key != 'nothing':
         color_data = dff[color_key]
         if exclude_color_from_keys:
@@ -341,9 +360,12 @@ def update_file_graph(n, group_by, filter, sort_by, color_key, shape_key, extra_
         shape_data = dff[shape_key]
         if exclude_shape_from_keys:
             dff = dff.drop(shape_key, axis=1)
-    keys = make_keys(dff)
 
-    columns = [keys, dff[graph_x_axis]]
+
+    y_axis_labels = make_y_axis_labels(dff)
+
+    # Generate a minimal dataframe to pass to the graph
+    columns = [y_axis_labels, dff[graph_x_axis]]
     keys = ['name', graph_x_axis]
     if color_key != 'nothing':
         columns.append(color_data)
@@ -353,17 +375,20 @@ def update_file_graph(n, group_by, filter, sort_by, color_key, shape_key, extra_
         keys.append(shape_key)
     plot_df = pd.concat(columns, axis=1, keys=keys).dropna()
 
+    # Make sure groups appear on the y axis in the same order as in the table
     category_orders = {}
     if sort_by:
         sort_columns = [col['column_id'] for col in sort_by]
         sort_ascending = [col['direction'] == 'asc' for col in sort_by]
-        group_cols = group_by
-        label_order_df = dff.groupby(group_cols, as_index=False).first().sort_values(sort_columns, ascending=sort_ascending)
-        labels = list(make_keys(label_order_df))
+        # Group the data and sort the group labels
+        label_order_df = dff.groupby(group_by, as_index=False).first().sort_values(sort_columns, ascending=sort_ascending)
+        # Make the corresponding axis labels, in the same order
+        labels = list(make_y_axis_labels(label_order_df))
         category_orders['name'] = labels
     else:
         labels = plot_df['name'].unique()
 
+    # Sort the legend entries
     if color_key != 'nothing':
         category_orders[color_key] = sorted(plot_df[color_key].unique())
     if shape_key != 'nothing':
@@ -376,6 +401,7 @@ def update_file_graph(n, group_by, filter, sort_by, color_key, shape_key, extra_
                      color_discrete_sequence=px.colors.qualitative.D3)
     fig.update_xaxes(title_text=graph_x_axis)
 
+    # Adjust the plot height
     new_style = {'height': f"{150 + len(labels) * 30}px", 'min-height': '400px'}
 
     return fig, new_style
