@@ -77,6 +77,17 @@ layout = html.Div([
                                     initial_visible_month=date.today(),
                                     persistence=True, persistence_type='memory',
                                     ),
+                    html.Div([
+                        "Extra filters/shortcuts: ",
+                        dcc.Checklist(
+                            ["L0", "L1", "L2", "L3", "LQ"],
+                            ["L1"],
+                            inline=True,
+                            id='extra-filters2',
+                            inputStyle={"margin-left": "10px", "margin-right": "3px"},
+                            persistence=True, persistence_type='memory',
+                        ),
+                    ]),
                 ], width='auto', className='gx-5'),
         ]),
         dash_table.DataTable(id='files-table',
@@ -200,7 +211,7 @@ def split_filter_part(filter_part):
     return [None] * 4
 
 
-def construct_base_query(columns, filter, extra_filters, include_count, date_obs_start,
+def construct_base_query(columns, filter, extra_filters, extra_filters2, include_count, date_obs_start,
                  date_obs_end, date_created_start, date_created_end):
     # Build the parts of a query common to the table and graph
     cols = [getattr(File, col.lower().replace(' ', '_')) for col in columns]
@@ -212,10 +223,20 @@ def construct_base_query(columns, filter, extra_filters, include_count, date_obs
         if col_name is not None:
             query = query.where(getattr(getattr(File, col_name), py_method)(filter_value))
 
+    extra_filter_state = []
     if 'Existing files' in extra_filters:
-        query = query.where(File.state.in_(['created', 'progressed']))
+        extra_filter_state.extend(['created', 'progressed'])
     if 'Failed files' in extra_filters:
-        query = query.where(File.state == 'failed')
+        extra_filter_state.append('failed')
+    if extra_filter_state:
+        query = query.where(File.state.in_(extra_filter_state))
+
+    extra_filter_level = []
+    for value in extra_filters2:
+        if value[0] == 'L':
+            extra_filter_level.append(value[1:])
+    if extra_filter_level:
+        query = query.where(File.level.in_(extra_filter_level))
 
     query = query.where(File.date_obs >= date_obs_start).where(File.date_obs <= date_obs_end)
     query = query.where(File.date_created >= date_created_start).where(File.date_created <= date_created_end)
@@ -232,14 +253,15 @@ def construct_base_query(columns, filter, extra_filters, include_count, date_obs
     Input('files-table', 'sort_by'),
     Input('files-table', 'filter_query'),
     Input('extra-filters', 'value'),
+    Input('extra-filters2', 'value'),
     Input('table-date-obs', 'start_date'),
     Input('table-date-obs', 'end_date'),
     Input('table-date-created', 'start_date'),
     Input('table-date-created', 'end_date'),
 )
-def update_table(show_in_table, group_by, n, page_current, page_size, sort_by, filter, extra_filters, date_obs_start,
-                 date_obs_end, date_created_start, date_created_end):
-    query = construct_base_query(group_by, filter, extra_filters, True, date_obs_start,
+def update_table(show_in_table, group_by, n, page_current, page_size, sort_by, filter, extra_filters, extra_filters2,
+                 date_obs_start, date_obs_end, date_created_start, date_created_end):
+    query = construct_base_query(group_by, filter, extra_filters, extra_filters2, True, date_obs_start,
              date_obs_end, date_created_start, date_created_end)
 
     for col in sort_by:
@@ -320,14 +342,15 @@ def make_y_axis_labels(dff):
     Input('graph-color', 'value'),
     Input('graph-shape', 'value'),
     Input('extra-filters', 'value'),
+    Input('extra-filters2', 'value'),
     Input('graph-x-axis', 'value'),
     Input('table-date-obs', 'start_date'),
     Input('table-date-obs', 'end_date'),
     Input('table-date-created', 'start_date'),
     Input('table-date-created', 'end_date'),
 )
-def update_file_graph(n, group_by, filter, sort_by, color_key, shape_key, extra_filters, graph_x_axis, date_obs_start,
-                 date_obs_end, date_created_start, date_created_end):
+def update_file_graph(n, group_by, filter, sort_by, color_key, shape_key, extra_filters, extra_filters2, graph_x_axis,
+                      date_obs_start, date_obs_end, date_created_start, date_created_end):
     group_by = [col.lower().replace(' ', '_') for col in group_by]
     color_key = color_key.lower().replace(' ', '_')
     shape_key = shape_key.lower().replace(' ', '_')
@@ -346,7 +369,7 @@ def update_file_graph(n, group_by, filter, sort_by, color_key, shape_key, extra_
         exclude_shape_from_keys = True
         query_cols.append(shape_key)
 
-    query = construct_base_query(query_cols, filter, extra_filters, False, date_obs_start,
+    query = construct_base_query(query_cols, filter, extra_filters, extra_filters2, False, date_obs_start,
                  date_obs_end, date_created_start, date_created_end)
     with get_database_session() as session:
         dff = pd.read_sql_query(query, session.connection())
@@ -360,7 +383,6 @@ def update_file_graph(n, group_by, filter, sort_by, color_key, shape_key, extra_
         shape_data = dff[shape_key]
         if exclude_shape_from_keys:
             dff = dff.drop(shape_key, axis=1)
-
 
     y_axis_labels = make_y_axis_labels(dff)
 
