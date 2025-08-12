@@ -27,16 +27,6 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
 
     actually_ready = []
     for f in ready:
-        stray_light_models = get_two_closest_stray_light(f, session=session, max_distance=timedelta(days=10))
-        if stray_light_models[0] is None:
-            # No models within 10 days
-            any_stray_light_models = get_two_closest_stray_light(f, session=session)
-            if any_stray_light_models[0] is not None:
-                # There are stray light models, so probably we're reprocessing and the model generation just hasn't
-                # gotten here yet. If there were no stray light models, we're in the bootstrapping phase and should
-                # continue anyway.
-                logger.info(f"Stray light models too far away for {f.filename()}")
-                continue
         if get_psf_model_path(f, pipeline_config, session=session) is None:
             logger.info(f"Missing PSF for {f.filename()}")
             continue
@@ -148,6 +138,43 @@ def get_two_closest_stray_light(level0_file, session=None, max_distance: timedel
     if best_models[1].date_obs < best_models[0].date_obs:
         best_models = best_models[::-1]
     return best_models
+
+
+def get_two_best_stray_light(level0_file, session=None):
+    model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
+    before_model = (session.query(File)
+                    .filter(File.file_type == model_type)
+                    .filter(File.date_obs < level0_file.date_obs)
+                    .filter(File.observatory == level0_file.observatory)
+                    .order_by(File.date_obs.desc()).first())
+    after_model = (session.query(File)
+                   .filter(File.file_type == model_type)
+                   .filter(File.date_obs > level0_file.date_obs)
+                   .filter(File.observatory == level0_file.observatory)
+                   .order_by(File.date_obs.asc()).first())
+    if before_model is None or after_model is None:
+        # We're waiting for the scheduler to fill in here and tell us what's what
+        return None, None
+    if before_model.state == "created" and after_model.state == "created":
+        # Good to go!
+        return before_model, after_model
+    if before_model.state == "impossible" or after_model.state == "impossible":
+        # Flexible mode
+        dt = func.abs(func.timestampdiff(text("second"), File.date_obs, level0_file.date_obs))
+        before_model, after_model = (session.query(File, dt)
+                                     .filter(File.file_type == model_type)
+                                     .filter(File.observatory == level0_file.observatory)
+                                     .filter(File.state.in_(["created", "waiting", "planned", "creating"]))
+                                     .order_by(dt.asc())
+                                     .limit(2).all())
+        if before_model.state == "created" and after_model.state == "created":
+            # Good to go!
+            return before_model, after_model
+        else:
+            # Wait for files to generate
+            return None, None
+    # If we're here, we're waiting for at least one model to generate, but we do expect it to do so
+    return None, None
 
 
 def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
