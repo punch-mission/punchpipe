@@ -14,6 +14,7 @@ def generic_scheduler_flow_logic(
         session=None, reference_time: datetime | None = None,
         args_dictionary: dict = {},
         children_are_one_to_one: bool = False,
+        cap_planned_flows: bool = True,
     ) -> int:
     """
     Implement the core logic of each scheduler flow.
@@ -66,13 +67,14 @@ def generic_scheduler_flow_logic(
         if not pipeline_config["flows"][flow_type].get("enabled", True):
             logger.info(f"Flow {flow_type} is not enabled---halting scheduler")
             return 0
-        n_already_scheduled = (session.query(Flow)
-                                      .where(Flow.flow_type == flow_type)
-                                      .where(Flow.state == 'planned')
-                                      .count())
-        if n_already_scheduled >= max_start:
-            logger.info(f"This flow already has {n_already_scheduled} flows scheduled; stopping.")
-        max_start -= n_already_scheduled
+        if cap_planned_flows:
+            n_already_scheduled = (session.query(Flow)
+                                          .where(Flow.flow_type == flow_type)
+                                          .where(Flow.state == 'planned')
+                                          .count())
+            if n_already_scheduled >= max_start:
+                logger.info(f"This flow already has {n_already_scheduled} flows scheduled; stopping.")
+            max_start -= n_already_scheduled
 
     # Not every level*_query_ready_files function needs this max_n parameter---some instead have a use_n that's similar
     # at first glance, but fills a different role and needs to be tuned differently. To avoid confusion there, we don't
