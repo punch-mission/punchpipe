@@ -9,7 +9,7 @@ from punchpipe.control.util import get_database_session as _get_database_session
 
 # We'll keep and engine to keep a DB connection pool for the monitor, instead of making a new connection in each
 # individual function every time the page loads or refreshes.
-session, engine = _get_database_session(get_engine=True)
+session, engine = _get_database_session(get_engine=True, engine_kwargs=dict(pool_recycle=6*3600))
 session.close()
 
 
