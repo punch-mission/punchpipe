@@ -279,6 +279,9 @@ def update_table(show_in_table, group_by, n, page_current, page_size, sort_by, f
     with get_database_session() as session:
         dff = pd.read_sql_query(query, session.connection())
 
+    if len(dff) == 0:
+        dff.loc[-1] = ['-'] * (len(dff.columns) - 1) + ['No files found for these criteria']
+
     return dff.to_dict('records')
 
 
