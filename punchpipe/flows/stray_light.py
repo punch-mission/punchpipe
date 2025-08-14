@@ -163,11 +163,11 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
     flows_to_schedule = max_flows - existing_flows
     if flows_to_schedule <= 0:
         logger.info("Our maximum flow count has been reached; halting")
+        return
     else:
         logger.info(f"Will schedule up to {flows_to_schedule} flows")
 
     existing_models = (session.query(File)
-                       .filter(File.state.in_(["created", "planned", "creating", "impossible", "waiting"]))
                        .filter(File.level == "1")
                        .filter(File.file_type.in_(['SR', 'SM', 'SZ', 'SP']))
                        .all())
@@ -212,15 +212,16 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
             session, pipeline_config, model.date_obs, model)
         if ready_files:
             to_schedule.append((model, ready_files))
-            # Clear the placeholder model entry---it'll be regenerated in the scheduling flow
-            session.delete(model)
             logger.info(f"Will schedule {model.file_type} at {model.date_obs}")
             if len(to_schedule) == flows_to_schedule:
                 break
 
     if len(to_schedule):
         for model, input_files in to_schedule:
+            # Clear the placeholder model entry---it'll be regenerated in the scheduling flow
             args_dictionary = {"file_type": model.file_type, "spacecraft": model.observatory}
+            dateobs = model.date_obs
+            session.delete(model)
             generic_scheduler_flow_logic(
                 lambda *args, **kwargs: [input_files],
                 construct_stray_light_file_info,
@@ -230,7 +231,7 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
                 session=session,
                 args_dictionary=args_dictionary,
                 cap_planned_flows=False,
-                reference_time=model.date_obs,
+                reference_time=dateobs,
             )
 
         logger.info(f"Scheduled {len(to_schedule)} models")
