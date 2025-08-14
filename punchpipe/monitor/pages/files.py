@@ -7,13 +7,13 @@ import dash
 from dash import Input, Output, callback, dash_table, dcc, html
 from sqlalchemy import select, func
 
-from punchpipe.control.db import File
+from punchpipe.control.db import File, Flow
 from punchpipe.monitor.app import get_database_session
 
 
 REFRESH_RATE = 60  # seconds
 
-USABLE_COLUMNS = ["Level", "File type", "Observatory", "File version", "Polarization", "State"]
+USABLE_COLUMNS = ["Level", "File type", "Flow type", "Observatory", "File version", "Polarization", "State"]
 PAGE_SIZE = 100
 
 dash.register_page(__name__)
@@ -189,13 +189,13 @@ def split_filter_part(filter_part):
                                 py_method = 'in_'
                                 new_value = []
                                 for v in value:
+                                    v = v.strip()
                                     if len(v) > 1 and v[1] == '*':
                                         for suffix in ['R', 'M', 'Z', 'P']:
                                             new_value.append(v[0] + suffix)
                                     else:
                                         new_value.append(v)
                                 value = new_value
-                                value = [v.strip() for v in value]
                             elif value[0] == '*':
                                 value = value[1:]
                                 py_method = 'endswith'
@@ -214,10 +214,23 @@ def split_filter_part(filter_part):
 def construct_base_query(columns, filter, extra_filters, extra_filters2, include_count, date_obs_start,
                  date_obs_end, date_created_start, date_created_end):
     # Build the parts of a query common to the table and graph
-    cols = [getattr(File, col.lower().replace(' ', '_')) for col in columns]
+    cols = []
+    join_flow_type = False
+    for col in columns:
+        col = col.lower().replace(' ', '_')
+        if col == 'flow_type':
+            cols.append(getattr(Flow, col))
+            join_flow_type = True
+        else:
+            cols.append(getattr(File, col))
     if include_count:
         cols += [func.count(File.file_id).label("count")]
+
     query = select(*cols)
+
+    if join_flow_type:
+        query = query.join(Flow, Flow.flow_id == File.processing_flow)
+
     for filter_part in filter.split(' && '):
         col_name, operator, filter_value, py_method = split_filter_part(filter_part)
         if col_name is not None:
@@ -403,6 +416,7 @@ def update_file_graph(n, group_by, filter, sort_by, color_key, shape_key, extra_
     # Make sure groups appear on the y axis in the same order as in the table
     category_orders = {}
     if sort_by:
+        sort_by = [col for col in sort_by if col['column_id'] in dff.columns]
         sort_columns = [col['column_id'] for col in sort_by]
         sort_ascending = [col['direction'] == 'asc' for col in sort_by]
         # Group the data and sort the group labels
