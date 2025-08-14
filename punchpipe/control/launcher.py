@@ -156,7 +156,8 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], tags_by_flow
             delay_time = total_delay_time / (n_batches - 1)
         awaitables = []
         responses = []
-        for batch in batched(flow_info, batch_size):
+        all_batches = list(batched(flow_info, batch_size))
+        for batch_number, batch in enumerate(all_batches):
             start = datetime.now().timestamp()
 
             for flow in batch:
@@ -174,7 +175,7 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], tags_by_flow
 
             responses.extend(await asyncio.gather(*awaitables))
             awaitables = []
-            logger.info(f"Batch of {len(batch)} sent")
+            logger.info(f"Batch {batch_number}/{len(all_batches)} sent, containing {len(batch)} flows")
             if delay_time:
                 # Stagger the launches
                 await asyncio.sleep(delay_time - (datetime.now().timestamp() - start))
