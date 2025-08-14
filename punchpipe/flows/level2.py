@@ -63,7 +63,7 @@ def _level2_query_ready_files(session, polarized: bool, pipeline_config: dict, m
         # group_is_complete = len(group) == (12 if polarized else 4)
         group_is_complete = len(group) == (9 if polarized else 3)
         if group_is_complete:
-            grouped_ready_files.append([f.file_id for f in group])
+            grouped_ready_files.append(group)
 
         # group[-1] is the newest file by date_obs
         if (cutoff_time and group[-1].date_obs.replace(tzinfo=UTC) > cutoff_time):

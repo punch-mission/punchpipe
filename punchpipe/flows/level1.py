@@ -37,7 +37,7 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
         if get_vignetting_function_path(f, pipeline_config, session=session) is None:
             logger.info(f"Missing vignetting function for {f.filename()}")
             continue
-        actually_ready.append([f.file_id])
+        actually_ready.append([f])
         if len(actually_ready) >= max_n:
             break
     return actually_ready
@@ -287,7 +287,7 @@ def level1_late_query_ready_files(session, pipeline_config: dict, reference_time
         if get_psf_model_path(f, pipeline_config, session=session) is None:
             logger.info(f"Missing PSF for {f.filename()}")
             continue
-        actually_ready.append([f.file_id])
+        actually_ready.append([f])
         if len(actually_ready) >= max_n:
             break
     return actually_ready
@@ -406,7 +406,7 @@ def level1_quick_query_ready_files(session, pipeline_config: dict, reference_tim
         if get_psf_model_path(f, pipeline_config, session=session) is None:
             logger.info(f"Missing PSF for {f.filename()}")
             continue
-        actually_ready.append([f.file_id])
+        actually_ready.append([f])
         if len(actually_ready) >= max_n:
             break
     return actually_ready

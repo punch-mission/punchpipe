@@ -54,7 +54,7 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
     # Let's order it oldest-to-newest. They're currently the opposite from the database's sort
     grouped_files = grouped_files[::-1]
     logger.info("1 group heading out")
-    return [[f.file_id for f in grouped_files]]
+    return [grouped_files]
 
 
 def get_outlier_limits_path(level1_file, pipeline_config: dict=None, session=None, reference_time=None):
@@ -200,7 +200,7 @@ def levelq_CTM_query_ready_files(session, pipeline_config: dict, reference_time=
         newest_creation_time = min(f.date_created for f in group)
         group_is_being_actively_processed = cutoff_time_age and newest_creation_time >= cutoff_time_age
         if (group_is_complete or group_is_old_enough) and not group_is_being_actively_processed:
-            grouped_ready_files.append([f.file_id for f in group])
+            grouped_ready_files.append(group)
         if len(grouped_ready_files) >= max_n:
             break
     logger.info(f"{len(grouped_ready_files)} groups heading out")
