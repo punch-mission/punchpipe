@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
-from punchbowl.level1.flow import level1_core_flow
+from punchbowl.level1.flow import level1_early_core_flow, level1_late_core_flow
 
 from punchpipe import __version__
 from punchpipe.control import cache_layer
@@ -240,5 +240,5 @@ def level1_call_data_processor(call_data: dict, pipeline_config, session=None) -
 
 @flow
 def level1_process_flow(flow_id: int, pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, level1_core_flow, pipeline_config_path, session=session,
+    generic_process_flow_logic(flow_id, level1_early_core_flow, pipeline_config_path, session=session,
                                call_data_processor=level1_call_data_processor)
