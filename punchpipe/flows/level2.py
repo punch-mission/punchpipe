@@ -49,6 +49,9 @@ def _level2_query_ready_files(session, polarized: bool, pipeline_config: dict, m
     else:
         grouped_files = group_files_by_time(all_ready_files, max_duration_seconds=10)
 
+    # Switch to most-recent-first order
+    grouped_files = grouped_files[::-1]
+
     logger.info(f"{len(grouped_files)} sets of grouped files")
     grouped_ready_files = []
     cutoff_time = (pipeline_config["flows"]["level2" if polarized else "level2_clear"]
