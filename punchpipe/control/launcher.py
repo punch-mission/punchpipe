@@ -17,12 +17,12 @@ from punchpipe.control.util import batched, get_database_session, load_pipeline_
 
 
 @task(cache_policy=NO_CACHE)
-def gather_planned_flows(session, amount_to_launch, flow_weights, flow_enabled):
+def gather_planned_flows(session, weight_to_launch, max_flows_to_launch, flow_weights, flow_enabled):
     # We'll have to grab a bunch of possible flows to launch from the DB, and then on our end apply the weights and the
     # maximum-weight limit. But we can use the smallest weight to set an upper bound on how many launchable flows to
     # retrieve.
     enabled_flows = [flow for flow, enabled in flow_enabled.items() if enabled]
-    max_to_select = amount_to_launch / min([flow_weights[k] for k in enabled_flows])
+    max_to_select = weight_to_launch / min([flow_weights[k] for k in enabled_flows])
     flows = (session.query(Flow)
                    .where(Flow.state == "planned")
                    .where(Flow.flow_type.in_(enabled_flows))
@@ -31,7 +31,7 @@ def gather_planned_flows(session, amount_to_launch, flow_weights, flow_enabled):
     selected_flows = []
     selected_weight = 0
     count_per_type = defaultdict(lambda: 0)
-    while selected_weight < amount_to_launch and len(flows):
+    while selected_weight < weight_to_launch and len(selected_flows) < max_flows_to_launch and len(flows):
         flow = flows.pop(0)
         if not flow_enabled[flow.flow_type]:
             continue
@@ -90,16 +90,17 @@ def escalate_long_waiting_flows(session, pipeline_config):
     session.commit()
 
 
-def determine_launchable_flow_count(weight_planned, weight_running, max_running, max_to_launch):
+def determine_launchable_flow_count(weight_planned, weight_running, max_weight_running, max_weight_to_launch,
+                                    max_flows_to_launch):
     logger = get_run_logger()
-    amount_to_launch = max_running - weight_running
+    amount_to_launch = max_weight_running - weight_running
     logger.info(f"Total weight {amount_to_launch:.2f} can be launched at this time.")
 
-    amount_to_launch = min(amount_to_launch, max_to_launch)
+    amount_to_launch = min(amount_to_launch, max_weight_to_launch)
     amount_to_launch = max(0, amount_to_launch)
-    logger.info(f"Will launch up to {amount_to_launch:.2f} weight")
+    logger.info(f"Will launch up to {amount_to_launch:.2f} weight and {max_flows_to_launch} flows")
 
-    return min(amount_to_launch, weight_planned)
+    return min(amount_to_launch, weight_planned), max_flows_to_launch
 
 
 @task(cache_policy=NO_CACHE)
@@ -230,14 +231,15 @@ async def launcher(pipeline_config_path=None):
     # Perform the launcher flow responsibilities
     num_running_flows, num_planned_flows, weight_planned, weight_running = count_flows(session, flow_weights)
     logger.info(f"There are {num_running_flows} flows running right now (weight {weight_running:.2f}) and {num_planned_flows} planned flows (weight {weight_planned:.2f}).")
-    max_flows_running = pipeline_config["control"]["launcher"]["max_flows_running"]
+    max_weight_running = pipeline_config["control"]["launcher"]["max_weight_running"]
+    max_weight_to_launch = pipeline_config["control"]["launcher"]["max_weight_to_launch_at_once"]
     max_flows_to_launch = pipeline_config["control"]["launcher"]["max_flows_to_launch_at_once"]
 
-    amount_to_launch = determine_launchable_flow_count(
-        weight_planned, weight_running, max_flows_running, max_flows_to_launch)
+    weight_to_launch, max_flows_to_launch = determine_launchable_flow_count(
+        weight_planned, weight_running, max_weight_running, max_weight_to_launch, max_flows_to_launch)
 
     flows_to_launch, tags_by_flow, selected_weight, counts_per_type = gather_planned_flows(
-        session, amount_to_launch, flow_weights, flow_enabled)
+        session, weight_to_launch, max_flows_to_launch, flow_weights, flow_enabled)
     logger.info(f"{len(flows_to_launch)} flows (weight {selected_weight:.2f}) with IDs of {flows_to_launch} will be launched.")
     counts = [f"{counts_per_type[type]} {type}" for type in sorted(counts_per_type.keys())]
     if len(counts):
