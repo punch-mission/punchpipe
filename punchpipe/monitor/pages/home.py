@@ -22,7 +22,8 @@ PAGE_SIZE = 15
 
 dash.register_page(__name__, path='/')
 
-layout = html.Div([
+def layout():
+    return html.Div([
         dcc.Graph(id='machine-graph'),
         dbc.Row(children=[
             dbc.Col(width='auto', children=[

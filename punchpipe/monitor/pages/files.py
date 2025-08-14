@@ -18,8 +18,8 @@ PAGE_SIZE = 100
 
 dash.register_page(__name__)
 
-
-layout = html.Div([
+def layout():
+    return html.Div([
             dbc.Row([
                 dbc.Col([
                     html.Div([
