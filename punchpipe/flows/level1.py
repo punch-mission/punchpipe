@@ -6,16 +6,20 @@ from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from punchbowl.level1.flow import level1_early_core_flow, level1_late_core_flow
 from sqlalchemy import func, text
+from sqlalchemy.orm import aliased
 
 from punchpipe import __version__
 from punchpipe.control import cache_layer
-from punchpipe.control.db import File, Flow
+from punchpipe.control.db import File, FileRelationship, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
 from punchpipe.flows.util import file_name_to_full_path
 
 SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
 SCIENCE_LEVEL1_LATE_INPUT_TYPE_CODES = ["XM", "XZ", "XP", "XR"]
+SCIENCE_LEVEL1_LATE_OUTPUT_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
+SCIENCE_LEVEL1_QUICK_INPUT_TYPE_CODES = ["XR"]
+SCIENCE_LEVEL1_QUICK_OUTPUT_TYPE_CODES = ["QR"]
 
 @task(cache_policy=NO_CACHE)
 def level1_early_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
@@ -257,10 +261,20 @@ def level1_early_process_flow(flow_id: int, pipeline_config_path=None, session=N
 @task(cache_policy=NO_CACHE)
 def level1_late_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
-    ready = (session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL1_LATE_INPUT_TYPE_CODES))
-                                .filter(File.state == "created")
-                                .filter(File.level == "1")
-                                .order_by(File.date_obs.desc()).all())
+    parent = aliased(File)
+    child = aliased(File)
+    child_exists_subquery = (session.query(parent)
+                             .join(FileRelationship, FileRelationship.parent == parent.file_id)
+                             .join(child, FileRelationship.child == child.file_id)
+                             .filter(parent.file_id == File.file_id)
+                             .filter(child.file_type.in_(SCIENCE_LEVEL1_LATE_OUTPUT_TYPE_CODES))
+                             .exists())
+    ready = (session.query(File)
+             .filter(File.file_type.in_(SCIENCE_LEVEL1_LATE_INPUT_TYPE_CODES))
+             .filter(File.level == "1")
+             .filter(File.state.in_(["created", "progressed"]))
+             .filter(~child_exists_subquery)
+             .order_by(File.date_obs.desc()).all())
 
     actually_ready = []
     for f in ready:
@@ -366,10 +380,20 @@ def level1_late_process_flow(flow_id: int, pipeline_config_path=None, session=No
 @task(cache_policy=NO_CACHE)
 def level1_quick_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
-    ready = (session.query(File).filter(File.file_type == "XR")
-                                .filter(File.state == "created")
-                                .filter(File.level == "1")
-                                .order_by(File.date_obs.desc()).all())
+    parent = aliased(File)
+    child = aliased(File)
+    child_exists_subquery = (session.query(parent)
+                             .join(FileRelationship, FileRelationship.parent == parent.file_id)
+                             .join(child, FileRelationship.child == child.file_id)
+                             .filter(parent.file_id == File.file_id)
+                             .filter(child.file_type.in_(SCIENCE_LEVEL1_QUICK_OUTPUT_TYPE_CODES))
+                             .exists())
+    ready = (session.query(File)
+             .filter(File.file_type.in_(SCIENCE_LEVEL1_QUICK_INPUT_TYPE_CODES))
+             .filter(File.level == "1")
+             .filter(File.state.in_(["created", "progressed"]))
+             .filter(~child_exists_subquery)
+             .order_by(File.date_obs.desc()).all())
 
     actually_ready = []
     for f in ready:
