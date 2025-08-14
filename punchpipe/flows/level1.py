@@ -221,6 +221,7 @@ def level1_early_construct_file_info(level0_files: t.List[File], pipeline_config
             software_version=__version__,
             date_obs=level0_files[0].date_obs,
             polarization=level0_files[0].polarization,
+            outlier=level0_files[0].outlier,
             state="planned",
         ))
     return files
@@ -337,6 +338,7 @@ def level1_late_construct_file_info(input_files: t.List[File], pipeline_config: 
             software_version=__version__,
             date_obs=input_files[0].date_obs,
             polarization=input_files[0].polarization,
+            outlier=input_files[0].outlier,
             state="planned",
         )
     ]
@@ -455,6 +457,7 @@ def level1_quick_construct_file_info(input_files: t.List[File], pipeline_config:
             software_version=__version__,
             date_obs=input_files[0].date_obs,
             polarization=input_files[0].polarization,
+            outlier=input_files[0].outlier,
             state="planned",
         )
     ]
