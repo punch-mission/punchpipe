@@ -358,7 +358,7 @@ def update_file_graph(n, group_by, filter, sort_by, color_key, shape_key, extra_
     color_key = color_key.lower().replace(' ', '_')
     shape_key = shape_key.lower().replace(' ', '_')
 
-    query_cols = group_by + [graph_x_axis]
+    query_cols = group_by + ['date_created', 'date_obs']
 
     # Make sure the color and shape columns are in the query. If they're not in the "group by" selection, track that so
     # we don't let these values become part of the y axis labels
@@ -390,8 +390,8 @@ def update_file_graph(n, group_by, filter, sort_by, color_key, shape_key, extra_
     y_axis_labels = make_y_axis_labels(dff)
 
     # Generate a minimal dataframe to pass to the graph
-    columns = [y_axis_labels, dff[graph_x_axis]]
-    keys = ['name', graph_x_axis]
+    columns = [y_axis_labels, dff['date_created'], dff['date_obs']]
+    keys = ['name', 'date_created', 'date_obs']
     if color_key != 'nothing':
         columns.append(color_data)
         keys.append(color_key)
@@ -423,6 +423,7 @@ def update_file_graph(n, group_by, filter, sort_by, color_key, shape_key, extra_
                      color=color_key if color_key != 'nothing' else None,
                      symbol=shape_key if shape_key != 'nothing' else None,
                      category_orders=category_orders,
+                     hover_data={'date_created': '|%Y-%m-%d %H:%M:%S', 'date_obs': '|%Y-%m-%d %H:%M:%S'},
                      color_discrete_sequence=px.colors.qualitative.D3)
     fig.update_xaxes(title_text=graph_x_axis)
 
