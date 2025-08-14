@@ -196,17 +196,17 @@ def run(configuration_path, launch_prefect=False):
                 if launch_prefect:
                     prefect_process.poll()
                     prefect_services_process.poll()
-                    if prefect_process.returncode or prefect_services_process.returncode:
+                    if prefect_process.returncode is not None or prefect_services_process.returncode is not None:
                         print("Prefect process exited unexpectedly")
                         break
-                if cluster_process.returncode:
+                if cluster_process.returncode is not None:
                     print("Cluster process exited unexpectedly")
                     break
                 # Core processes are still running. Now check worker processes, which we can restart safely
-                if control_process.returncode:
+                if control_process.returncode is not None:
                     print(f"Restarted control process at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
                     control_process = control_process_launcher()
-                if data_process.returncode:
+                if data_process.returncode is not None:
                     print(f"Restarted data process at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
                     data_process = data_process_launcher()
                 time.sleep(10)
