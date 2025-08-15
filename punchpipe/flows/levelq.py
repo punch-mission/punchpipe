@@ -5,6 +5,7 @@ import typing as t
 from datetime import UTC, datetime, timedelta
 from functools import partial
 
+import numpy as np
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from prefect.context import get_run_context
@@ -29,17 +30,17 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
     if pending_flows:
         logger.info("A pending flow already exists. Skipping scheduling to let the batch grow.")
 
-    all_fittable_files = (session.query(File).filter(File.state.in_(("created", "quickpunched", "progressed")))
+    all_fittable_files = (session.query(File).filter(File.state.in_(("created", "progressed")))
                           .filter(File.level == "1")
                           .filter(File.observatory == "4")
-                          .filter(File.file_type == "CR").limit(1000).all())
+                          .filter(File.file_type == "QR").limit(1000).all())
     if len(all_fittable_files) < 1000:
         logger.info("Not enough fittable files")
         return []
     all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(File.level == "1")
                        .filter(File.observatory == "4")
-                       .filter(File.file_type == "CR").order_by(File.date_obs.desc()).limit(1000).all())
+                       .filter(File.file_type == "QR").order_by(File.date_obs.desc()).limit(1000).all())
     logger.info(f"{len(all_ready_files)} ready files")
 
     if len(all_ready_files) == 0:
@@ -57,10 +58,10 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
 
 
 def get_outlier_limits_path(level1_file, pipeline_config: dict=None, session=None, reference_time=None):
-    corresponding_outlier_limits_type = {"PM": "LM",
-                                         "PZ": "LZ",
-                                         "PP": "LP",
-                                         "CR": "LR"}
+    corresponding_outlier_limits_type = {"QM": "LM",
+                                         "QZ": "LZ",
+                                         "QP": "LP",
+                                         "QR": "LR"}
     outlier_limits_type = corresponding_outlier_limits_type[level1_file.file_type]
     best_limits = (session.query(File)
                      .filter(File.file_type == outlier_limits_type)
@@ -122,7 +123,6 @@ def levelq_CNN_scheduler_flow(pipeline_config_path=None, session=None, reference
         pipeline_config_path,
         reference_time=reference_time,
         session=session,
-        new_input_file_state="quickpunched",
         children_are_one_to_one=True,
     )
 
@@ -138,9 +138,9 @@ def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) ->
     files_to_fit = session.execute(
         select(File,
                dt := func.abs(func.timestampdiff(text("second"), File.date_obs, call_data['date_obs'])))
-        .filter(File.state.in_(("created", "quickpunched", "progressed")))
+        .filter(File.state.in_(("created", "progressed")))
         .filter(File.level == "1")
-        .filter(File.file_type == "CR")
+        .filter(File.file_type == "QR")
         .filter(File.observatory == "4")
         .filter(dt > 10 * 60)
         .order_by(dt.asc()).limit(target_number)).all()
@@ -171,7 +171,7 @@ def levelq_CTM_query_ready_files(session, pipeline_config: dict, reference_time=
     logger = get_run_logger()
     all_ready_files = (session.query(File).filter(File.state == "created")
                        .filter(or_(
-                            and_(File.level == "1", File.file_type == "CR", File.observatory.in_(['1', '2', '3'])),
+                            and_(File.level == "1", File.file_type == "QR", File.observatory.in_(['1', '2', '3'])),
                             # TODO: We're excluding NFI for now
                             # and_(File.level == "Q", File.file_type == "CN"),
                        )).order_by(File.date_obs.desc()).all())
@@ -187,10 +187,19 @@ def levelq_CTM_query_ready_files(session, pipeline_config: dict, reference_time=
     cutoff_time = pipeline_config["flows"]["levelq_CTM"].get("ignore_missing_after_days", None)
     if cutoff_time is not None:
         cutoff_time = datetime.now(tz=UTC) - timedelta(days=cutoff_time)
+    cutoff_time_age = pipeline_config["flows"]["levelq_CTM"].get("ignore_missing_min_file_age_minutes", None)
+    if cutoff_time_age is not None:
+        cutoff_time_age = datetime.now() - timedelta(minutes=cutoff_time_age)
     for group in grouped_files:
         # TODO: We're excluding NFI for now
-        # if len(group) == 4 or group[-1].date_obs.replace(tzinfo=UTC) < cutoff_time:
-        if len(group) == 3 or (cutoff_time and group[-1].date_obs.replace(tzinfo=UTC) < cutoff_time):
+        # group_is_complete = len(group) == 4
+        group_is_complete = len(group) == 3
+        group_is_old_enough = (cutoff_time
+                               # group[-1] is the newest file by date_obs
+                               and group[-1].date_obs.replace(tzinfo=UTC) < cutoff_time)
+        newest_creation_time = min(f.date_created for f in group)
+        group_is_being_actively_processed = cutoff_time_age and newest_creation_time >= cutoff_time_age
+        if (group_is_complete or group_is_old_enough) and not group_is_being_actively_processed:
             grouped_ready_files.append([f.file_id for f in group])
         if len(grouped_ready_files) >= max_n:
             break
@@ -242,7 +251,6 @@ def levelq_CTM_scheduler_flow(pipeline_config_path=None, session=None, reference
         pipeline_config_path,
         reference_time=reference_time,
         session=session,
-        new_input_file_state="quickpunched"
     )
 
 
@@ -260,12 +268,18 @@ def levelq_CTM_process_flow(flow_id: int, pipeline_config_path=None, session=Non
 @task
 def levelq_upload_query_ready_files(session, pipeline_config: dict, reference_time=None):
     logger = get_run_logger()
-    all_ready_files = (session.query(File).filter(File.state == "created")
-                       .filter(File.level == "Q").all())
+    lookback_days = pipeline_config['flows']["levelq_upload"].get("lookback_days", np.inf)
+    if np.isfinite(lookback_days):
+        all_ready_files = (session.query(File).filter(File.state == "created")
+                           .filter(File.level == "Q")
+                           .filter(File.date_obs >= datetime.now(UTC) - timedelta(days=lookback_days)).all())
+    else:
+        all_ready_files = (session.query(File).filter(File.state == "created")
+                           .filter(File.level == "Q").all())
     logger.info(f"{len(all_ready_files)} ready files")
     currently_creating_files = session.query(File).filter(File.state == "creating").filter(File.level == "Q").all()
     logger.info(f"{len(currently_creating_files)} level Q files currently being processed")
-    out = [f.file_id for f in all_ready_files] # if len(currently_creating_files) == 0 else []
+    out = [f.file_id for f in all_ready_files]
     logger.info(f"Delivering {len(out)} level Q files in this batch.")
     return [out]
 

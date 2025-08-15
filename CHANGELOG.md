@@ -4,11 +4,25 @@
 
 ## Unreleased
 
+* Make TLMLoader only expect one returned object in https://github.com/punch-mission/punchpipe/pull/233
+* Temporarily turn off NFI PSF correction in https://github.com/punch-mission/punchpipe/pull/234
+* Tweaks to stray light models scheduling in https://github.com/punch-mission/punchpipe/pull/237
+* Tagging of flows with output file types in https://github.com/punch-mission/punchpipe/pull/237 and https://github.com/punch-mission/punchpipe/pull/238
+* Set L0 polarization state in database in https://github.com/punch-mission/punchpipe/pull/239
+* Fix LQ CNN scheduling, set stray light polarization in DB, and cap stray light generation thread count in https://github.com/punch-mission/punchpipe/pull/240
+
+## Version 0.0.12: August 6, 2025
+
 * Broaden stray light search window to 31 in https://github.com/punch-mission/punchpipe/pull/217
 * Fixes to run the stray light model generation flow in https://github.com/punch-mission/punchpipe/pull/216
 * Fix to selection of "after" stray light model in https://github.com/punch-mission/punchpipe/pull/218
+* Set stray light models' date_obs to the reference time; only select "created" models for L1 inputs; use DataLoader API for all cache types; dashboard fix in https://github.com/punch-mission/punchpipe/pull/219
 * Absolute file paths are no longer stored in the database in https://github.com/punch-mission/punchpipe/pull/222
 * Fixes for PTM scheduling and input file selection in https://github.com/punch-mission/punchpipe/pull/224
+* Split L1 flow, implemented regular stray light models, and improvements to flow scheduling and running in https://github.com/punch-mission/punchpipe/pull/225
+* Dont make mosiacs out of very recently-written files in https://github.com/punch-mission/punchpipe/pull/226
+* For now, skips NFI PSF correction in https://github.com/punch-mission/punchpipe/pull/227
+* Limits recency of file upload for NOAA QuickPUNCH in https://github.com/punch-mission/punchpipe/pull/230
 
 ## Version 0.0.11: July 23, 2025
 

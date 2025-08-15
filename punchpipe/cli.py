@@ -86,7 +86,7 @@ def construct_flows_to_serve(configuration_path, include_data=True, include_cont
             concurrency_value = config["flows"][flow_name].get("concurrency_limit", None)
             concurrency_config = ConcurrencyLimitConfig(
                     limit=concurrency_value,
-                    collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW
+                    collision_strategy=ConcurrencyLimitStrategy.ENQUEUE
                 ) if concurrency_value else None
             flow_deployment = flow_function.to_deployment(
                 name=specific_name,
@@ -147,12 +147,8 @@ def run(configuration_path, launch_prefect=False):
         data_process = None
         control_process = None
         try:
-            work_cores = [str(x) for x in range(0, 64, 4)]
-            work_cores = ','.join(work_cores)
-            control_cores = [str(x) for x in list(range(1, 64, 4)) + list(range(2, 64, 4)) + list(range(3, 64, 4))]
-            control_cores = ','.join(control_cores)
-            numa_prefix_control = ['numactl', '--membind', '0', f'--physcpubind={control_cores}']
-            numa_prefix_workers = ['numactl', '--preferred', '1', f'--physcpubind={work_cores},64-125,192-255']
+            numa_prefix_control = ['numactl', '--localalloc', '--physcpubind=0-11']
+            numa_prefix_workers = ['numactl', '--localalloc', '--physcpubind=12-63,64-125,192-255']
             if launch_prefect:
                 print("Launcing prefect")
                 prefect_process = subprocess.Popen(

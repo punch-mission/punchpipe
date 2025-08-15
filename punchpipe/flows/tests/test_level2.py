@@ -9,7 +9,7 @@ from pytest_mock_resources import create_mysql_fixture
 
 from punchpipe import __version__
 from punchpipe.control.db import Base, File, Flow
-from punchpipe.control.util import load_pipeline_configuration
+from punchpipe.control.util import batched, load_pipeline_configuration
 from punchpipe.flows.level2 import (
     group_l2_inputs,
     group_l2_inputs_single_observatory,
@@ -31,7 +31,8 @@ def session_fn(session):
                        file_version='none',
                        software_version='none',
                        polarization='X',
-                       date_obs=datetime(2023, 1, 1, 0, 0, 0))
+                       date_obs=datetime(2023, 1, 1, 0, 0, 0),
+                       date_created=datetime(2022, 12, 25, 0, 0, 0))
 
     level1_fileM = File(level='1',
                        file_type='PM',
@@ -40,7 +41,8 @@ def session_fn(session):
                        file_version='none',
                        software_version='none',
                        polarization='M',
-                       date_obs=datetime(2023, 1, 1, 0, 2, 0))
+                       date_obs=datetime(2023, 1, 1, 0, 2, 0),
+                       date_created=datetime(2022, 12, 25, 0, 0, 0))
 
     level1_fileZ = File(level='1',
                        file_type='PZ',
@@ -49,7 +51,8 @@ def session_fn(session):
                        file_version='none',
                        software_version='none',
                        polarization='Z',
-                       date_obs=datetime(2023, 1, 1, 0, 1, 0))
+                       date_obs=datetime(2023, 1, 1, 0, 1, 0),
+                       date_created=datetime(2022, 12, 25, 0, 0, 0))
 
     level1_fileP = File(level='1',
                        file_type='PP',
@@ -58,7 +61,8 @@ def session_fn(session):
                        file_version='none',
                        software_version='none',
                        polarization='P',
-                       date_obs=datetime(2023, 1, 1, 0, 0, 0))
+                       date_obs=datetime(2023, 1, 1, 0, 0, 0),
+                       date_created=datetime(2022, 12, 25, 0, 0, 0))
 
     level1_file_clear = File(level='1',
                              file_type='CR',
@@ -67,7 +71,8 @@ def session_fn(session):
                              file_version='none',
                              software_version='none',
                              polarization='C',
-                             date_obs=datetime(2023, 1, 1, 0, 0, 0))
+                             date_obs=datetime(2023, 1, 1, 0, 0, 0),
+                             date_created=datetime(2022, 12, 25, 0, 0, 0))
 
     level1_file_clear_not_ready = File(level='1',
                              file_type='CR',
@@ -76,7 +81,8 @@ def session_fn(session):
                              file_version='none',
                              software_version='none',
                              polarization='C',
-                             date_obs=datetime(2023, 1, 1, 0, 0, 0))
+                             date_obs=datetime(2023, 1, 1, 0, 0, 0),
+                             date_created=datetime(2022, 12, 25, 0, 0, 0))
 
     session.add(level0_file)
     session.add(level1_fileM)
@@ -122,7 +128,7 @@ def test_level2_query_ready_files():
                 input_files = []
                 expected_groups = [[], [], []]
                 expected_output_group = 0
-                for triplet, is_complete in zip(itertools.batched(wfi1 + wfi2 + wfi3 + nfi, 3), groups_are_complete):
+                for triplet, is_complete in zip(batched(wfi1 + wfi2 + wfi3 + nfi, 3), groups_are_complete):
                     # We're iterating through the triplets sorted first by observatory, then by time.
                     if not is_complete:
                         # This triplet should be missing a file

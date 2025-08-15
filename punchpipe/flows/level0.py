@@ -307,7 +307,7 @@ def ingest_tlm_file(path: str,
     session.add(tlm_db_entry)
     session.commit()
 
-    parsed, _ = TLMLoader(path, defs, apid_name2num).load()
+    parsed = TLMLoader(path, defs, apid_name2num).load()
     success = parsed is not None
 
     if success:
@@ -693,7 +693,7 @@ def get_metadata(first_image_packet,
                           for tlm_id in needed_tlm_ids}
     loaded_tlm = {}
     for tlm_id, tlm_path in tlm_id_to_tlm_path.items():
-        parsed, path = TLMLoader(tlm_path, defs, apid_name2num).load()
+        parsed = TLMLoader(tlm_path, defs, apid_name2num).load()
         loaded_tlm[tlm_id] = parsed
 
     before_xact = {key: loaded_tlm[before_xact_db.tlm_id]['ENG_XACT'][key][before_xact_db.packet_index]
@@ -869,7 +869,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
     # parse any TLM files
     tlm_contents = []
     for tlm_id, tlm_path in tlm_id_to_tlm_path.items():
-        parsed_contents, path = TLMLoader(tlm_path, defs, apid_name2num).load()
+        parsed_contents = TLMLoader(tlm_path, defs, apid_name2num).load()
         if parsed_contents is not None:
             tlm_contents.append(parsed_contents)
         else:
@@ -992,6 +992,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
 
             # we also need to add it to the database
             l0_db_entry = File(level="0",
+                               polarization='C' if file_type[0] == 'C' else file_type[1],
                                file_type=file_type,
                                observatory=str(soc_spacecraft_id),
                                file_version=pipeline_config['file_version'],
