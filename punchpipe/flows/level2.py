@@ -67,6 +67,7 @@ def _level2_query_ready_files(session, polarized: bool, pipeline_config: dict, m
         group_is_complete = len(group) == (9 if polarized else 3)
         if group_is_complete:
             grouped_ready_files.append(group)
+            continue
 
         # group[-1] is the newest file by date_obs
         if (cutoff_time and group[-1].date_obs.replace(tzinfo=UTC) > cutoff_time):
@@ -115,7 +116,7 @@ def _level2_query_ready_files(session, polarized: bool, pipeline_config: dict, m
                                   .all())
         if len(expected_inputs) == len(group):
             # We have the L1s for all the L0s, and we don't expect new L0s, so let's make an incomplete mosaic
-            grouped_ready_files.append([f.file_id for f in group])
+            grouped_ready_files.append(group)
         # Otherwise, we'll pass for now on processing this trefoil
         continue
 
