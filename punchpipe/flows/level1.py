@@ -27,16 +27,6 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
 
     actually_ready = []
     for f in ready:
-        stray_light_models = get_two_closest_stray_light(f, session=session, max_distance=timedelta(days=10))
-        if stray_light_models[0] is None:
-            # No models within 10 days
-            any_stray_light_models = get_two_closest_stray_light(f, session=session)
-            if any_stray_light_models[0] is not None:
-                # There are stray light models, so probably we're reprocessing and the model generation just hasn't
-                # gotten here yet. If there were no stray light models, we're in the bootstrapping phase and should
-                # continue anyway.
-                logger.info(f"Stray light models too far away for {f.filename()}")
-                continue
         if get_psf_model_path(f, pipeline_config, session=session) is None:
             logger.info(f"Missing PSF for {f.filename()}")
             continue
@@ -107,30 +97,6 @@ STRAY_LIGHT_CORRESPONDING_TYPES = {"PM": "SM",
                                    "XR": "SR"}
 
 
-def get_stray_light_before(level0_file, pipeline_config: dict, session=None, reference_time=None):
-    model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
-    best_model = (session.query(File)
-                  .filter(File.file_type == model_type)
-                  .filter(File.observatory == level0_file.observatory)
-                  .where(File.date_obs <= level0_file.date_obs)
-                  .where(File.date_obs > level0_file.date_obs - timedelta(days=31))
-                  .where(File.state == "created")
-                  .order_by(File.date_obs.desc()).first())
-    return best_model
-
-
-def get_stray_light_after(level0_file, pipeline_config: dict, session=None, reference_time=None):
-    model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
-    best_model = (session.query(File)
-                  .filter(File.file_type == model_type)
-                  .filter(File.observatory == level0_file.observatory)
-                  .where(File.date_obs >= level0_file.date_obs)
-                  .where(File.date_obs < level0_file.date_obs + timedelta(days=31))
-                  .where(File.state == "created")
-                  .order_by(File.date_obs.asc()).first())
-    return best_model
-
-
 def get_two_closest_stray_light(level0_file, session=None, max_distance: timedelta = None):
     model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
     best_models = (session.query(File, dt := func.abs(func.timestampdiff(
@@ -148,6 +114,48 @@ def get_two_closest_stray_light(level0_file, session=None, max_distance: timedel
     if best_models[1].date_obs < best_models[0].date_obs:
         best_models = best_models[::-1]
     return best_models
+
+
+def get_two_best_stray_light(level0_file, session=None):
+    model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
+    before_model = (session.query(File)
+                    .filter(File.file_type == model_type)
+                    .filter(File.observatory == level0_file.observatory)
+                    .filter(File.level == '1')
+                    .filter(File.date_obs < level0_file.date_obs)
+                    .order_by(File.date_obs.desc()).first())
+    after_model = (session.query(File)
+                   .filter(File.file_type == model_type)
+                   .filter(File.observatory == level0_file.observatory)
+                   .filter(File.level == '1')
+                   .filter(File.date_obs > level0_file.date_obs)
+                   .order_by(File.date_obs.asc()).first())
+    if before_model is None or after_model is None:
+        # We're waiting for the scheduler to fill in here and tell us what's what
+        return None, None
+    elif before_model.state == "created" and after_model.state == "created":
+        # Good to go!
+        return before_model, after_model
+    elif before_model.state == "impossible" or after_model.state == "impossible":
+        # Flexible mode
+        dt = func.abs(func.timestampdiff(text("second"), File.date_obs, level0_file.date_obs))
+        models = (session.query(File, dt)
+                  .filter(File.file_type == model_type)
+                  .filter(File.observatory == level0_file.observatory)
+                  .filter(File.level == '1')
+                  .filter(File.state != "impossible")
+                  .order_by(dt.asc())
+                  .limit(2).all())
+        # Drop the dt values
+        before_model, after_model = [x[0] for x in models]
+        if before_model.state == "created" and after_model.state == "created":
+            # Good to go!
+            return before_model, after_model
+        else:
+            # Wait for files to generate
+            return None, None
+    # If we're here, we're waiting for at least one model to generate, but we do expect it to do so
+    return None, None
 
 
 def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
@@ -300,11 +308,8 @@ def level1_late_query_ready_files(session, pipeline_config: dict, reference_time
         if get_psf_model_path(f, pipeline_config, session=session) is None:
             logger.info(f"Missing PSF for {f.filename()}")
             continue
-        if get_stray_light_before(f, pipeline_config, session=session) is None:
-            logger.info(f"Missing stray light before model for {f.filename()}")
-            continue
-        if get_stray_light_after(f, pipeline_config, session=session) is None:
-            logger.info(f"Missing stray light after model for {f.filename()}")
+        if list(get_two_best_stray_light(f, session=session)) == [None, None]:
+            logger.info(f"Waiting for stray light models for {f.filename()}")
             continue
         actually_ready.append([f.file_id])
         if len(actually_ready) >= max_n:
@@ -320,16 +325,15 @@ def level1_late_construct_flow_info(input_files: list[File], output_files: list[
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
     best_psf_model = get_psf_model_path(input_files[0], pipeline_config, session=session)
-    best_stray_light_before = get_stray_light_before(input_files[0], pipeline_config, session=session)
-    best_stray_light_after = get_stray_light_after(input_files[0], pipeline_config, session=session)
+    stray_light_before, stray_light_after = get_two_best_stray_light(input_files[0], session=session)
     mask_function = get_mask_file(input_files[0], pipeline_config, session=session)
 
     call_data = json.dumps(
         {
             "input_data": [input_file.filename() for input_file in input_files],
             "psf_model_path": best_psf_model,
-            "stray_light_before_path": best_stray_light_before.filename(),
-            "stray_light_after_path": best_stray_light_after.filename(),
+            "stray_light_before_path": stray_light_before.filename() if stray_light_before else None,
+            "stray_light_after_path": stray_light_after.filename() if stray_light_after else None,
             "mask_path": mask_function.filename().replace('.fits', '.bin'),
         }
     )
