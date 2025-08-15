@@ -850,6 +850,11 @@ def form_preliminary_wcs(soc_spacecraft_id, metadata, plate_scale):
     celestial_wcs.wcs.cunit = "deg", "deg"
     return calculate_helio_wcs_from_celestial(celestial_wcs, Time(metadata['datetime']), (2048, 2048))[0]
 
+
+def form_single_image_caller(args):
+    return form_single_image(*args)
+
+
 def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, spacecraft_secrets, outlier_limits):
     session = Session(engine)
 
@@ -1048,9 +1053,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
     return replay_needs, not skip_image
 
 @flow
-def level0_form_images(pipeline_config, defs, apid_name2num, outlier_limits, session):
-    logger = get_run_logger()
-
+def level0_form_images(pipeline_config, defs, apid_name2num, outlier_limits, session, logger):
     spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
 
     now = datetime.now(UTC)
@@ -1075,6 +1078,7 @@ def level0_form_images(pipeline_config, defs, apid_name2num, outlier_limits, ses
                           .all())
         for t in distinct_times:
             image_inputs.append((spacecraft[0], t[0], defs, apid_name2num, pipeline_config, spacecraft_secrets, outlier_limits))
+    logger.info(f"Got {len(image_inputs)} images to try forming")
 
     try:
         num_workers = pipeline_config['flows']['level0']['options']['num_workers']
@@ -1083,14 +1087,15 @@ def level0_form_images(pipeline_config, defs, apid_name2num, outlier_limits, ses
         logger.warning(f"No num_workers defined, using {num_workers} workers")
 
     with multiprocessing.get_context('spawn').Pool(num_workers, initializer=initializer) as pool:
-        results = pool.starmap(form_single_image, image_inputs)
-
-    for new_replay_needs, successful_image in results:
-        replay_needs.extend(new_replay_needs)
-        if successful_image:
-            success_count += 1
-        else:
-            skip_count += 1
+        for i, (new_replay_needs, successful_image) in enumerate(
+                pool.imap(form_single_image_caller, image_inputs, chunksize=10)):
+            replay_needs.extend(new_replay_needs)
+            if successful_image:
+                success_count += 1
+            else:
+                skip_count += 1
+            if i % 1000 == 0:
+                logger.info(f"Completed {i} / {len(image_inputs)} image formation attempts")
 
     history = PacketHistory(datetime=datetime.now(UTC),
                             num_images_succeeded=success_count,
@@ -1168,7 +1173,7 @@ def level0_core_flow(pipeline_config: dict, skip_if_no_new_tlm: bool = True, lim
         with multiprocessing.get_context('spawn').Pool(num_workers, initializer=initializer) as pool:
             pool.starmap(ingest_tlm_file, tlm_ingest_inputs)
 
-        level0_form_images(pipeline_config, defs, apid_name2num, outlier_limits, session)
+        level0_form_images(pipeline_config, defs, apid_name2num, outlier_limits, session, logger)
     session.close()
 
 def get_outlier_limits_paths(session, reference_time):
@@ -1229,7 +1234,7 @@ def level0_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
     if len(flows):
         return
 
-    new_flow = level0_construct_flow_info(pipeline_config, session, skip_if_no_new_tlm=skip_if_no_new_tlm)
+    new_flow = level0_construct_flow_info(pipeline_config, session, skip_if_no_new_tlm=False)
 
     session.add(new_flow)
     session.commit()
