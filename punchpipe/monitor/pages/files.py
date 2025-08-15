@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
 import dash
-from dash import Input, Output, callback, dash_table, dcc, html
+from dash import Input, Output, State, callback, dash_table, dcc, html
 from sqlalchemy import select, func
 
 from punchpipe.control.db import File, Flow
@@ -310,20 +310,35 @@ def update_table(show_in_table, group_by, n, page_current, page_size, sort_by, f
     Output('files-table', 'columns'),
     Output('group-by', 'value'),
     Output('group-by', 'options'),
+    Output('files-table', 'sort_by'),
+    Output('files-table', 'filter_query'),
     Input('show-in-table', 'value'),
-    Input('group-by', 'options'),
-    Input('group-by', 'value'),
+    State('group-by', 'value'),
+    State('files-table', 'sort_by'),
+    State('files-table', 'filter_query'),
 )
-def update_visible_columns(show_in_table, group_by_options, group_by_selection):
+def update_visible_columns(show_in_table, group_by_selection, current_sort, current_filter):
     # When the "show in table" checkboxes change, update the "group by" options and the table columns
     table_columns = [{'name': col, 'id': col.lower().replace(' ', '_')} for col in USABLE_COLUMNS if col in show_in_table]
     table_columns.append({'name': 'Count', 'id': 'count'})
+    current_col_ids = [col['id'] for col in table_columns]
+
+    group_by_options = [{'value': c, 'label': c, 'disabled': c not in show_in_table} for c in USABLE_COLUMNS]
 
     # Un-select any group-by checkboxes that won't be selectable anymore
     group_by_selection = [c for c in group_by_selection if c in show_in_table]
 
-    group_by_options = [{'value': c, 'label': c, 'disabled': c not in show_in_table} for c in USABLE_COLUMNS]
-    return table_columns, group_by_selection, group_by_options
+    # Clear sorts for non-shown columns
+    current_sort = [col for col in current_sort if col['column_id'] in current_col_ids]
+
+    new_filter_parts = []
+    for filter_part in current_filter.split(' && '):
+        col_name, operator, filter_value, py_method = split_filter_part(filter_part)
+        if col_name in current_col_ids:
+            new_filter_parts.append(filter_part)
+    current_filter = ' && '.join(new_filter_parts)
+
+    return table_columns, group_by_selection, group_by_options, current_sort, current_filter
 
 
 def make_y_axis_labels(dff):
