@@ -32,7 +32,7 @@ from prefect.context import get_run_context
 from prefect_sqlalchemy import SqlAlchemyConnector
 from punchbowl.data import NormalizedMetadata, get_base_file_name, write_ndcube_to_fits, punch_io
 from punchbowl.data.wcs import calculate_helio_wcs_from_celestial, calculate_pc_matrix
-from punchbowl.levelq.limits import LimitSet
+from punchbowl.limits import LimitSet
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 from sunpy.coordinates import (
@@ -558,7 +558,6 @@ def organize_gain_info(spacecraft_id):
     return gains
 
 
-@task
 def decode_image_packets(img_packets, compression_settings):
     if compression_settings["JPEG"] and not compression_settings["CMP_BYP"]:
         byte_stream = img_packets.tobytes()
@@ -994,11 +993,12 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
 
             punch_io._update_statistics(cube, modify_inplace=True)
 
-            limits = outlier_limits.get(cube.meta['FILETYPE'].value[1] + cube.meta['OBSRVTRY'].value, None)
+            limits = outlier_limits.get(cube.meta['TYPECODE'].value[1] + cube.meta['OBSCODE'].value, None)
             if limits is None:
                 is_outlier = False
             else:
-                is_outlier = not limits.is_good(cube.meta)
+                # to_fits_header populates CROTA
+                is_outlier = not limits.is_good(cube.meta.to_fits_header(cube.wcs, False))
 
             meta['OUTLIER'] = int(is_outlier)
 
@@ -1136,6 +1136,8 @@ def level0_core_flow(pipeline_config: dict, skip_if_no_new_tlm: bool = True, lim
     outlier_limits = {}
     if limit_files is not None:
         for limit_file in limit_files:
+            if limit_file is None:
+                continue
             limits = LimitSet.from_file(limit_file)
             file_name = os.path.basename(limit_file)
             code = file_name.split("_")[2][:2]
@@ -1178,10 +1180,13 @@ def get_outlier_limits_paths(session, reference_time):
                              .filter(File.observatory == obs)
                              .where(File.date_obs <= reference_time)
                              .order_by(File.date_obs.desc(), File.file_version.desc()).first())
-            limit_files.append(best_limits.filename())
+            if best_limits is None:
+                limit_files.append(None)
+            else:
+                limit_files.append(best_limits.filename().replace('.fits', '.npz'))
     return limit_files
 
-@task
+@task(cache_policy=NO_CACHE)
 def level0_construct_flow_info(pipeline_config: dict, session, skip_if_no_new_tlm: bool = True):
     flow_type = "level0"
     state = "planned"
@@ -1237,6 +1242,8 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
     if session is None:
         session = Session(engine)
 
+    pipeline_config = load_pipeline_configuration(pipeline_config_path)
+
     # fetch the appropriate flow db entry
     flow_db_entry = session.query(Flow).where(Flow.flow_id == flow_id).one()
     logger.info(f"Running on flow db entry with id={flow_db_entry.flow_id}.")
@@ -1253,7 +1260,7 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
     flow_call_data = json.loads(flow_db_entry.call_data)
     logger.info(f"Running with {flow_call_data}")
 
-    flow_call_data["limit_files"] = file_name_to_full_path(flow_call_data["limit_files"])
+    flow_call_data["limit_files"] = file_name_to_full_path(flow_call_data["limit_files"], pipeline_config['root'])
 
     try:
         level0_core_flow(**flow_call_data)
