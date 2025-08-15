@@ -53,7 +53,8 @@ def get_distortion_path(level0_file, pipeline_config: dict, session=None, refere
                      .filter(File.file_type == "DS")
                      .filter(File.observatory == level0_file.observatory)
                      .where(File.date_obs <= level0_file.date_obs)
-                     .order_by(File.date_obs.desc()).first())
+                     .where(File.file_version.not_like("v%")) #filters out "v0a"
+                     .order_by(File.file_version.desc(), File.date_obs.desc()).first())
     return best_function
 
 def get_vignetting_function_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
@@ -62,19 +63,12 @@ def get_vignetting_function_path(level0_file, pipeline_config: dict, session=Non
                                               "PP": "GP",
                                               "CR": "GR"}
     vignetting_function_type = corresponding_vignetting_function_type[level0_file.file_type]
-    best_functions = (session.query(File)
+    best_function = (session.query(File)
                      .filter(File.file_type == vignetting_function_type)
                      .filter(File.observatory == level0_file.observatory)
                      .where(File.date_obs <= level0_file.date_obs)
-                     .order_by(File.date_obs.desc())).all()
-    file_versions = [None]*len(best_functions)
-    for i, function in enumerate(best_functions):
-        file_versions[i] = function.file_version
-        # TODO - ... select function here. Or make a function to call in each calibration grabber.
-
-    # TODO - get rid of this after selection
-    best_function = best_functions[0]
-
+                     .where(File.file_version.not_like("v%")) #filters out "v0a".
+                     .order_by(File.file_version.desc(), File.date_obs.desc())).first()
     return best_function
 
 
@@ -88,7 +82,8 @@ def get_psf_model_path(level0_file, pipeline_config: dict, session=None, referen
                   .filter(File.file_type == psf_model_type)
                   .filter(File.observatory == level0_file.observatory)
                   .where(File.date_obs <= level0_file.date_obs)
-                  .order_by(File.date_obs.desc()).first())
+                  .where(File.file_version.not_like("v%")) #filters out "v0a".
+                  .order_by(File.file_version.desc(), File.date_obs.desc()).first())
     return best_model
 
 def get_stray_light_before(level0_file, pipeline_config: dict, session=None, reference_time=None):
@@ -102,7 +97,8 @@ def get_stray_light_before(level0_file, pipeline_config: dict, session=None, ref
                   .filter(File.observatory == level0_file.observatory)
                   .where(File.date_obs <= level0_file.date_obs)
                   .where(File.date_obs > level0_file.date_obs - timedelta(days=31))
-                  .order_by(File.date_obs.desc()).first())
+                  .where(File.file_version.not_like("v%")) #filters out "v0a".
+                  .order_by(File.file_version.desc(), File.date_obs.desc()).first())
     return best_model
 
 
@@ -117,7 +113,8 @@ def get_stray_light_after(level0_file, pipeline_config: dict, session=None, refe
                   .filter(File.observatory == level0_file.observatory)
                   .where(File.date_obs >= level0_file.date_obs)
                   .where(File.date_obs < level0_file.date_obs + timedelta(days=31))
-                  .order_by(File.date_obs.asc()).first())
+                  .where(File.file_version.not_like("v%")) #filters out "v0a".
+                  .order_by(File.file_version.desc(), File.date_obs.asc()).first())
     return best_model
 
 
@@ -126,7 +123,8 @@ def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, ref
                   .filter(File.file_type == 'FQ')
                   .filter(File.observatory == level0_file.observatory)
                   .where(File.date_obs <= level0_file.date_obs)
-                  .order_by(File.date_obs.desc()).first())
+                  .where(File.file_version.not_like("v%")) #filters out "v0a".
+                  .order_by(File.file_version.desc(), File.date_obs.desc()).first())
     return best_model
 
 
@@ -135,7 +133,8 @@ def get_mask_file(level0_file, pipeline_config: dict, session=None, reference_ti
                   .filter(File.file_type == 'MS')
                   .filter(File.observatory == level0_file.observatory)
                   .where(File.date_obs <= level0_file.date_obs)
-                  .order_by(File.date_obs.desc()).first())
+                  .where(File.file_version.not_like("v%")) #filters out "v0a".
+                  .order_by(File.file_version.desc(), File.date_obs.desc()).first())
     return best_model
 
 
