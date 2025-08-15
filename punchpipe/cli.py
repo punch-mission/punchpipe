@@ -14,11 +14,8 @@ from prefect.client.schemas.objects import ConcurrencyLimitConfig, ConcurrencyLi
 from prefect.variables import Variable
 
 from punchpipe.control.util import load_pipeline_configuration
-from punchpipe.monitor.app import create_app
 
 THIS_DIR = os.path.dirname(__file__)
-app = create_app()
-server = app.server
 
 def main():
     """Run the PUNCH automated pipeline"""
@@ -165,8 +162,8 @@ def run(configuration_path, launch_prefect=False, launch_dask_cluster=False):
                                                    stdout=f, stderr=f)
             monitor_process = subprocess.Popen([*numa_prefix_control, "gunicorn",
                                                 "-b", "0.0.0.0:8050",
-                                                "--chdir", THIS_DIR,
-                                                "cli:server"],
+                                                "--chdir", THIS_DIR + '/monitor',
+                                                "app:server"],
                                                stdout=f, stderr=f)
             time.sleep(1)
             Variable.set("punchpipe_config", configuration_path, overwrite=True)
