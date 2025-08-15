@@ -18,17 +18,18 @@ model_paths += sorted(glob(os.path.join(model_directory, "PUNCH_L1_G*.fits")))
 model_paths += sorted(glob(os.path.join(model_directory, "PUNCH_L1_S*.fits")))
 model_paths += sorted(glob(os.path.join(model_directory, "PUNCH_L1_D*.fits")))
 model_paths += sorted(glob(os.path.join(model_directory, "PUNCH_L1_MS*.bin")))
-model_paths += sorted(glob(os.path.join(model_directory, "PUNCH_L1_L*.npz")))
+model_paths += sorted(glob(os.path.join(model_directory, "PUNCH_L0_L*.npz")))
 
 for model_path in model_paths:
     base_path = os.path.basename(model_path)
+    level = base_path.split("_")[1][1]
     code = base_path.split("_")[2][:2]
     obs = base_path.split("_")[2][-1]
     date = datetime.strptime(base_path.split("_")[3], "%Y%m%d%H%M%S")
     version = base_path.split("_")[-1].split(".")[0][1:]
 
     file = File(
-        level="1",
+        level=level,
         file_type=code,
         observatory=obs,
         file_version=version,
