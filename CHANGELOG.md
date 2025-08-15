@@ -11,6 +11,7 @@
 * Set L0 polarization state in database in https://github.com/punch-mission/punchpipe/pull/239
 * Fix LQ CNN scheduling, set stray light polarization in DB, and cap stray light generation thread count in https://github.com/punch-mission/punchpipe/pull/240
 * Dash board updates, including Files page, in https://github.com/punch-mission/punchpipe/pull/242
+* Misc pipeline optimizations and fixes in https://github.com/punch-mission/punchpipe/pull/243
 
 ## Version 0.0.12: August 6, 2025
 

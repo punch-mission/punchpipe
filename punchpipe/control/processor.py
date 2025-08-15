@@ -75,9 +75,9 @@ def generic_process_flow_logic(flow_id: int, core_flow_to_launch, pipeline_confi
             filename = write_file(result, file_db_entry, pipeline_config)
             logger.info(f"Wrote to {filename}")
 
-        for file_id in expected_file_ids.difference(output_file_ids):
-            entry = session.query(File).where(File.file_id == file_id).one()
-            entry.state = "unreported"
+        missing_file_ids = expected_file_ids.difference(output_file_ids)
+        if missing_file_ids:
+            raise RuntimeError(f"We did not get an output cube for file ids {missing_file_ids}")
 
         session.commit()
 
