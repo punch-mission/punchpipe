@@ -16,10 +16,10 @@ from punchpipe.control.db import File
 
 DEFAULT_SCALING = (5e-13, 5e-11)
 
-def get_database_session(get_engine=False):
+def get_database_session(get_engine=False, engine_kwargs={}):
     """Sets up a session to connect to the MariaDB punchpipe database"""
     credentials = SqlAlchemyConnector.load("mariadb-creds", _sync=True)
-    engine = credentials.get_engine()
+    engine = credentials.get_engine(**engine_kwargs)
     session = Session(engine)
 
     if get_engine:
