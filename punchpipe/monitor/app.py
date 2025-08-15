@@ -1,11 +1,10 @@
 from contextlib import contextmanager
 
 import dash_bootstrap_components as dbc
-from dash import Dash, dcc, html, page_registry, page_container
+from dash import Dash, dcc, html, page_container, page_registry
 from sqlalchemy.orm import Session
 
 from punchpipe.control.util import get_database_session as _get_database_session
-
 
 # We'll keep and engine to keep a DB connection pool for the monitor, instead of making a new connection in each
 # individual function every time the page loads or refreshes.

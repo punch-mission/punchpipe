@@ -1,15 +1,14 @@
 from datetime import datetime, timedelta
 
+import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
-import dash
 from dash import Input, Output, callback, dash_table, dcc, html
 from sqlalchemy import select
 
 from punchpipe.control.db import Flow, Health
 from punchpipe.monitor.app import get_database_session
-
 
 REFRESH_RATE = 60  # seconds
 
