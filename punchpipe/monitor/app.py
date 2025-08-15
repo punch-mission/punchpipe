@@ -22,7 +22,7 @@ def get_database_session():
 
 
 def create_app():
-    app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP], use_pages=True, pages_folder="monitor/pages")
+    app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP], use_pages=True, pages_folder="pages")
 
     app.layout = html.Div([
         html.H1('PUNCHPipe dashboard'),
@@ -34,3 +34,8 @@ def create_app():
     ])
 
     return app
+
+
+if __name__ == "app":
+    app = create_app()
+    server = app.server
