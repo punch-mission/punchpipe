@@ -46,13 +46,14 @@ def layout():
                     ]),
                 ], width='auto', className='gx-5'),
                 dbc.Col([
-                    "date_obs:",
+                    "date_obs: ",
                     dcc.DatePickerRange(id='table-date-obs',
                                     min_date_allowed=date(2025, 3, 1),
                                     max_date_allowed=date.today() + timedelta(days=1),
-                                    end_date=date.today() + timedelta(days=1),
                                     start_date=date.today() - timedelta(days=31),
+                                    end_date=date.today() + timedelta(days=1),
                                     initial_visible_month=date.today(),
+                                    clearable=True,
                                     persistence=True, persistence_type='memory',
                                     ),
                     html.Div([
@@ -68,13 +69,14 @@ def layout():
                     ]),
                 ], width='auto', className='gx-5'),
                 dbc.Col([
-                    "date_created:",
+                    "date_created: ",
                     dcc.DatePickerRange(id='table-date-created',
                                     min_date_allowed=date(2025, 3, 1),
                                     max_date_allowed=date.today() + timedelta(days=1),
-                                    end_date=date.today() + timedelta(days=1),
-                                    start_date=date.today() - timedelta(days=31),
+                                    start_date=None,
+                                    end_date=None,
                                     initial_visible_month=date.today(),
+                                    clearable=True,
                                     persistence=True, persistence_type='memory',
                                     ),
                     html.Div([
@@ -251,8 +253,14 @@ def construct_base_query(columns, filter, extra_filters, extra_filters2, include
     if extra_filter_level:
         query = query.where(File.level.in_(extra_filter_level))
 
-    query = query.where(File.date_obs >= date_obs_start).where(File.date_obs <= date_obs_end)
-    query = query.where(File.date_created >= date_created_start).where(File.date_created <= date_created_end)
+    if date_obs_start:
+        query = query.where(File.date_obs >= date_obs_start)
+    if date_obs_end:
+        query = query.where(File.date_obs <= date_obs_end)
+    if date_created_start:
+        query = query.where(File.date_created >= date_created_start)
+    if date_created_end:
+        query = query.where(File.date_created <= date_created_end)
     return query
 
 
