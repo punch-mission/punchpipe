@@ -112,7 +112,6 @@ def generic_scheduler_flow_logic(
             # set the processing flow now that we know the flow_id after committing the flow info
             for child_file in children_files:
                 child_file.processing_flow = database_flow_info.flow_id
-            session.commit()
 
             # create a file relationship between the prior and next levels
             if children_are_one_to_one:
@@ -121,5 +120,5 @@ def generic_scheduler_flow_logic(
                 iterable = itertools.product(parent_files, children_files)
             for parent_file, child_file in iterable:
                 session.add(FileRelationship(parent=parent_file.file_id, child=child_file.file_id))
-            session.commit()
+        session.commit()
     return len(ready_file_ids)
