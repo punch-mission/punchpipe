@@ -25,7 +25,7 @@ dash.register_page(__name__, path='/')
 def layout():
     return html.Div([
         dcc.Graph(id='machine-graph'),
-        dbc.Row(children=[
+        dbc.Row(align='center', children=[
             dbc.Col(width='auto', children=[
                 dcc.DatePickerRange(id='plot-range',
                                     min_date_allowed=datetime(2025, 3, 1),
@@ -34,6 +34,19 @@ def layout():
                                     start_date=datetime.today() - timedelta(days=1),
                                     persistence=True, persistence_type='memory',
                                     )
+            ]),
+            dbc.Col(width='auto', children=[
+                "Averaging window (minutes)",
+                dcc.Input(
+                    id="machine-stat-smoothing",
+                    type="number",
+                    debounce=1,
+                    min=1,
+                    step=1,
+                    value=5,
+                    style={"display": "block"},
+                    persistence=True, persistence_type='memory',
+                ),
             ]),
             dbc.Col(width=True, children=[
                 dcc.Dropdown(
@@ -44,7 +57,7 @@ def layout():
                     style={'width': '50%'},
                     persistence=True, persistence_type='memory',
                 ),
-            ])
+            ]),
         ]),
         html.Hr(),
         html.Div(
@@ -292,8 +305,9 @@ def update_file_cards(n):
     Input('machine-stat', 'value'),
     Input('plot-range', 'start_date'),
     Input('plot-range', 'end_date'),
+    Input('machine-stat-smoothing', 'value'),
 )
-def update_machine_stats(n, machine_stat, start_date, end_date):
+def update_machine_stats(n, machine_stat, start_date, end_date, smooth_window):
     axis_labels = {"cpu_usage": "CPU Usage %",
                    "memory_usage": "Memory Usage[GB]",
                    "memory_percentage": "Memory Usage %",
@@ -304,6 +318,10 @@ def update_machine_stats(n, machine_stat, start_date, end_date):
     query = select(Health).where(Health.datetime > start_date).where(Health.datetime < end_date)
     with get_database_session() as session:
         df = pd.read_sql_query(query, session.connection())
+
+    if smooth_window is not None and smooth_window > 1:
+        smooth_window = int(round(smooth_window))
+        df = df.rolling(f"{smooth_window}min", on="datetime", center=True, min_periods=0).mean()
 
     fig = px.line(df, x='datetime', y=machine_stat, title="Machine stats")
     fig.update_xaxes(title_text="Time")
