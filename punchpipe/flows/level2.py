@@ -2,7 +2,6 @@ import json
 import typing as t
 from datetime import UTC, datetime, timedelta
 
-from numpy.polynomial.polynomial import polyzero
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from punchbowl.level2.flow import level2_core_flow
