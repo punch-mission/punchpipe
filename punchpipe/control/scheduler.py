@@ -5,7 +5,7 @@ from datetime import datetime
 from prefect import get_run_logger
 
 from punchpipe.control.db import File, FileRelationship, Flow
-from punchpipe.control.util import get_database_session, load_pipeline_configuration, update_file_state
+from punchpipe.control.util import get_database_session, load_pipeline_configuration
 
 
 def generic_scheduler_flow_logic(
