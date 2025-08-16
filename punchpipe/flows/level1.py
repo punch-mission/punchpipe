@@ -6,16 +6,20 @@ from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from punchbowl.level1.flow import level1_early_core_flow, level1_late_core_flow
 from sqlalchemy import func, text
+from sqlalchemy.orm import aliased
 
 from punchpipe import __version__
 from punchpipe.control import cache_layer
-from punchpipe.control.db import File, Flow
+from punchpipe.control.db import File, FileRelationship, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
 from punchpipe.flows.util import file_name_to_full_path
 
 SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
 SCIENCE_LEVEL1_LATE_INPUT_TYPE_CODES = ["XM", "XZ", "XP", "XR"]
+SCIENCE_LEVEL1_LATE_OUTPUT_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
+SCIENCE_LEVEL1_QUICK_INPUT_TYPE_CODES = ["XR"]
+SCIENCE_LEVEL1_QUICK_OUTPUT_TYPE_CODES = ["QR"]
 
 @task(cache_policy=NO_CACHE)
 def level1_early_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
@@ -27,19 +31,13 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
 
     actually_ready = []
     for f in ready:
-        if get_psf_model_path(f, pipeline_config, session=session) is None:
-            logger.info(f"Missing PSF for {f.filename()}")
-            continue
         if get_quartic_model_path(f, pipeline_config, session=session) is None:
             logger.info(f"Missing quartic model for {f.filename()}")
             continue
         if get_vignetting_function_path(f, pipeline_config, session=session) is None:
             logger.info(f"Missing vignetting function for {f.filename()}")
             continue
-        if get_distortion_path(f, pipeline_config, session=session) is None:
-            logger.info(f"Missing distortion function for {f.filename()}")
-            continue
-        actually_ready.append([f.file_id])
+        actually_ready.append([f])
         if len(actually_ready) >= max_n:
             break
     return actually_ready
@@ -189,34 +187,18 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: lis
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
     best_vignetting_function = get_vignetting_function_path(level0_files[0], pipeline_config, session=session)
-    best_psf_model = get_psf_model_path(level0_files[0], pipeline_config, session=session)
     best_quartic_model = get_quartic_model_path(level0_files[0], pipeline_config, session=session)
-    best_distortion = get_distortion_path(level0_files[0], pipeline_config, session=session)
     ccd_parameters = get_ccd_parameters(level0_files[0], pipeline_config, session=session)
-    best_stray_light_before, best_stray_light_after = get_two_closest_stray_light(level0_files[0], session=session)
     mask_function = get_mask_file(level0_files[0], pipeline_config, session=session)
-
-    is_clear = level0_files[0].polarization == 'C'
-    have_stray_light = (best_stray_light_before is not None
-                        and best_stray_light_after is not None)
-    if not have_stray_light and is_clear:
-        level1_files.pop(0)
 
     call_data = json.dumps(
         {
             "input_data": [level0_file.filename() for level0_file in level0_files],
             "vignetting_function_path": best_vignetting_function.filename(),
-            "psf_model_path": best_psf_model,
             "quartic_coefficient_path": best_quartic_model.filename(),
             "gain_bottom": ccd_parameters['gain_bottom'],
             "gain_top": ccd_parameters['gain_top'],
-            "distortion_path": best_distortion.filename(),
-            "stray_light_before_path": best_stray_light_before.filename() if best_stray_light_before else None,
-            "stray_light_after_path": best_stray_light_after.filename() if best_stray_light_after else None,
             "mask_path": mask_function.filename().replace('.fits', '.bin'),
-            "return_with_stray_light": True, # This makes the X file
-            "return_preliminary_stray_light_subtracted": have_stray_light and is_clear, # This makes the Q file
-            "do_align": have_stray_light,
         }
     )
     return Flow(
@@ -231,18 +213,6 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: lis
 
 def level1_early_construct_file_info(level0_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
     files = []
-    if level0_files[0].polarization == 'C':
-        files.append(File(
-            level="1",
-            file_type='Q' + level0_files[0].file_type[1:],
-            observatory=level0_files[0].observatory,
-            file_version=pipeline_config["file_version"],
-            software_version=__version__,
-            date_obs=level0_files[0].date_obs,
-            polarization=level0_files[0].polarization,
-            state="planned",
-        ))
-
     files.append(File(
             level="1",
             file_type='X' + level0_files[0].file_type[1:],
@@ -251,6 +221,7 @@ def level1_early_construct_file_info(level0_files: t.List[File], pipeline_config
             software_version=__version__,
             date_obs=level0_files[0].date_obs,
             polarization=level0_files[0].polarization,
+            outlier=level0_files[0].outlier,
             state="planned",
         ))
     return files
@@ -269,16 +240,9 @@ def level1_early_scheduler_flow(pipeline_config_path=None, session=None, referen
 
 
 def level1_early_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
-    for key in ['input_data', 'quartic_coefficient_path', 'vignetting_function_path',
-                 'distortion_path', 'stray_light_before_path', 'stray_light_after_path', 'mask_path']:
+    for key in ['input_data', 'quartic_coefficient_path', 'vignetting_function_path', 'mask_path']:
         call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
-    # TODO: remove this hack
-    # We're skipping NFI PSF model so we just convert any empty string to None for the PSF model
-    if call_data['psf_model_path'] == "":
-        call_data['psf_model_path'] = None
-    else:
-        call_data['psf_model_path'] = file_name_to_full_path(call_data['psf_model_path'], pipeline_config['root'])
-        call_data['psf_model_path'] = cache_layer.psf.wrap_if_appropriate(call_data['psf_model_path'])
+
     call_data['quartic_coefficient_path'] = cache_layer.quartic_coefficients.wrap_if_appropriate(
         call_data['quartic_coefficient_path'])
     call_data['vignetting_function_path'] = cache_layer.vignetting_function.wrap_if_appropriate(
@@ -298,20 +262,33 @@ def level1_early_process_flow(flow_id: int, pipeline_config_path=None, session=N
 @task(cache_policy=NO_CACHE)
 def level1_late_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
-    ready = (session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL1_LATE_INPUT_TYPE_CODES))
-                                .filter(File.state == "created")
-                                .filter(File.level == "1")
-                                .order_by(File.date_obs.desc()).all())
+    parent = aliased(File)
+    child = aliased(File)
+    child_exists_subquery = (session.query(parent)
+                             .join(FileRelationship, FileRelationship.parent == parent.file_id)
+                             .join(child, FileRelationship.child == child.file_id)
+                             .filter(parent.file_id == File.file_id)
+                             .filter(child.file_type.in_(SCIENCE_LEVEL1_LATE_OUTPUT_TYPE_CODES))
+                             .exists())
+    ready = (session.query(File)
+             .filter(File.file_type.in_(SCIENCE_LEVEL1_LATE_INPUT_TYPE_CODES))
+             .filter(File.level == "1")
+             .filter(File.state.in_(["created", "progressed"]))
+             .filter(~child_exists_subquery)
+             .order_by(File.date_obs.desc()).all())
 
     actually_ready = []
     for f in ready:
-        if get_psf_model_path(f, pipeline_config, session=session) is None:
-            logger.info(f"Missing PSF for {f.filename()}")
-            continue
         if list(get_two_best_stray_light(f, session=session)) == [None, None]:
             logger.info(f"Waiting for stray light models for {f.filename()}")
             continue
-        actually_ready.append([f.file_id])
+        if get_distortion_path(f, pipeline_config, session=session) is None:
+            logger.info(f"Missing distortion function for {f.filename()}")
+            continue
+        if get_psf_model_path(f, pipeline_config, session=session) is None:
+            logger.info(f"Missing PSF for {f.filename()}")
+            continue
+        actually_ready.append([f])
         if len(actually_ready) >= max_n:
             break
     return actually_ready
@@ -325,6 +302,7 @@ def level1_late_construct_flow_info(input_files: list[File], output_files: list[
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
     best_psf_model = get_psf_model_path(input_files[0], pipeline_config, session=session)
+    best_distortion = get_distortion_path(input_files[0], pipeline_config, session=session)
     stray_light_before, stray_light_after = get_two_best_stray_light(input_files[0], session=session)
     mask_function = get_mask_file(input_files[0], pipeline_config, session=session)
 
@@ -332,9 +310,11 @@ def level1_late_construct_flow_info(input_files: list[File], output_files: list[
         {
             "input_data": [input_file.filename() for input_file in input_files],
             "psf_model_path": best_psf_model,
+            "distortion_path": best_distortion.filename(),
             "stray_light_before_path": stray_light_before.filename() if stray_light_before else None,
             "stray_light_after_path": stray_light_after.filename() if stray_light_after else None,
             "mask_path": mask_function.filename().replace('.fits', '.bin'),
+            "output_as_Q_file": False,
         }
     )
     return Flow(
@@ -358,6 +338,7 @@ def level1_late_construct_file_info(input_files: t.List[File], pipeline_config: 
             software_version=__version__,
             date_obs=input_files[0].date_obs,
             polarization=input_files[0].polarization,
+            outlier=input_files[0].outlier,
             state="planned",
         )
     ]
@@ -376,7 +357,7 @@ def level1_late_scheduler_flow(pipeline_config_path=None, session=None, referenc
 
 
 def level1_late_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
-    for key in ['input_data', 'mask_path', 'stray_light_before_path', 'stray_light_after_path']:
+    for key in ['input_data', 'mask_path', 'stray_light_before_path', 'stray_light_after_path', 'distortion_path']:
         call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
 
     # TODO: this is a hack to skip NFI PSF. Remove!
@@ -396,3 +377,122 @@ def level1_late_call_data_processor(call_data: dict, pipeline_config, session=No
 def level1_late_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, level1_late_core_flow, pipeline_config_path, session=session,
                                call_data_processor=level1_late_call_data_processor)
+
+
+@task(cache_policy=NO_CACHE)
+def level1_quick_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
+    logger = get_run_logger()
+    parent = aliased(File)
+    child = aliased(File)
+    child_exists_subquery = (session.query(parent)
+                             .join(FileRelationship, FileRelationship.parent == parent.file_id)
+                             .join(child, FileRelationship.child == child.file_id)
+                             .filter(parent.file_id == File.file_id)
+                             .filter(child.file_type.in_(SCIENCE_LEVEL1_QUICK_OUTPUT_TYPE_CODES))
+                             .exists())
+    ready = (session.query(File)
+             .filter(File.file_type.in_(SCIENCE_LEVEL1_QUICK_INPUT_TYPE_CODES))
+             .filter(File.level == "1")
+             .filter(File.state.in_(["created", "progressed"]))
+             .filter(~child_exists_subquery)
+             .order_by(File.date_obs.desc()).all())
+
+    actually_ready = []
+    for f in ready:
+        if list(get_two_closest_stray_light(f, session=session)) == [None, None]:
+            logger.info(f"Waiting for stray light models for {f.filename()}")
+            continue
+        if get_distortion_path(f, pipeline_config, session=session) is None:
+            logger.info(f"Missing distortion function for {f.filename()}")
+            continue
+        if get_psf_model_path(f, pipeline_config, session=session) is None:
+            logger.info(f"Missing PSF for {f.filename()}")
+            continue
+        actually_ready.append([f])
+        if len(actually_ready) >= max_n:
+            break
+    return actually_ready
+
+
+def level1_quick_construct_flow_info(input_files: list[File], output_files: list[File],
+                                    pipeline_config: dict, session=None, reference_time=None):
+    flow_type = "level1_quick"
+    state = "planned"
+    creation_time = datetime.now()
+    priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
+
+    best_psf_model = get_psf_model_path(input_files[0], pipeline_config, session=session)
+    best_distortion = get_distortion_path(input_files[0], pipeline_config, session=session)
+    stray_light_before, stray_light_after = get_two_closest_stray_light(input_files[0], session=session)
+    mask_function = get_mask_file(input_files[0], pipeline_config, session=session)
+
+    call_data = json.dumps(
+        {
+            "input_data": [input_file.filename() for input_file in input_files],
+            "psf_model_path": best_psf_model,
+            "distortion_path": best_distortion.filename(),
+            "stray_light_before_path": stray_light_before.filename() if stray_light_before else None,
+            "stray_light_after_path": stray_light_after.filename() if stray_light_after else None,
+            "mask_path": mask_function.filename().replace('.fits', '.bin'),
+            "output_as_Q_file": True,
+        }
+    )
+    return Flow(
+        flow_type=flow_type,
+        flow_level="1",
+        state=state,
+        creation_time=creation_time,
+        priority=priority,
+        call_data=call_data,
+    )
+
+
+def level1_quick_construct_file_info(input_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
+    return [
+        File(
+            level="1",
+            file_type="Q" + input_files[0].file_type[1:],
+            observatory=input_files[0].observatory,
+            file_version=pipeline_config["file_version"],
+            software_version=__version__,
+            date_obs=input_files[0].date_obs,
+            polarization=input_files[0].polarization,
+            outlier=input_files[0].outlier,
+            state="planned",
+        )
+    ]
+
+
+@flow
+def level1_quick_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
+    generic_scheduler_flow_logic(
+        level1_quick_query_ready_files,
+        level1_quick_construct_file_info,
+        level1_quick_construct_flow_info,
+        pipeline_config_path,
+        reference_time=reference_time,
+        session=session,
+    )
+
+
+def level1_quick_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+    for key in ['input_data', 'mask_path', 'stray_light_before_path', 'stray_light_after_path', 'distortion_path']:
+        call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
+
+    # TODO: this is a hack to skip NFI PSF. Remove!
+    if call_data['psf_model_path'] == "":
+        call_data['psf_model_path'] = None
+    else:
+        call_data['psf_model_path'] = file_name_to_full_path(call_data['psf_model_path'], pipeline_config['root'])
+        call_data['psf_model_path'] = cache_layer.psf.wrap_if_appropriate(call_data['psf_model_path'])
+
+    # Anything more than 16 doesn't offer any real benefit, and the default of n_cpu on punch190 is actually slower than
+    # 16! Here we choose less to have less spiky CPU usage to play better with other flows.
+    call_data['max_workers'] = 2
+    return call_data
+
+
+@flow
+def level1_quick_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+    generic_process_flow_logic(flow_id, level1_late_core_flow, pipeline_config_path, session=session,
+                               call_data_processor=level1_quick_call_data_processor)

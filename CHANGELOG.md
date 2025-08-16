@@ -14,6 +14,7 @@
 * Dash board updates, including Files page, in https://github.com/punch-mission/punchpipe/pull/242
 * Misc pipeline optimizations and fixes in https://github.com/punch-mission/punchpipe/pull/243
 * Dashboard code moved out of cli.py in https://github.com/punch-mission/punchpipe/pull/245
+* Mark outliers in L0 stage, and propagate state forward in https://github.com/punch-mission/punchpipe/pull/247
 
 ## Version 0.0.12: August 6, 2025
 
