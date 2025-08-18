@@ -30,8 +30,9 @@ from prefect.blocks.fields import SecretDict
 from prefect.cache_policies import NO_CACHE
 from prefect.context import get_run_context
 from prefect_sqlalchemy import SqlAlchemyConnector
-from punchbowl.data import NormalizedMetadata, get_base_file_name, write_ndcube_to_fits
+from punchbowl.data import NormalizedMetadata, get_base_file_name, punch_io, write_ndcube_to_fits
 from punchbowl.data.wcs import calculate_helio_wcs_from_celestial, calculate_pc_matrix
+from punchbowl.limits import LimitSet
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 from sunpy.coordinates import (
@@ -59,6 +60,7 @@ from punchpipe.control.db import (
     TLMFiles,
 )
 from punchpipe.control.util import load_pipeline_configuration
+from punchpipe.flows.util import file_name_to_full_path
 
 FIXED_PACKETS = ['ENG_XACT', 'ENG_LED', 'ENG_PFW', 'ENG_CEB', "ENG_LZ"]
 VARIABLE_PACKETS = ['SCI_XFI']
@@ -556,7 +558,6 @@ def organize_gain_info(spacecraft_id):
     return gains
 
 
-@task
 def decode_image_packets(img_packets, compression_settings):
     if compression_settings["JPEG"] and not compression_settings["CMP_BYP"]:
         byte_stream = img_packets.tobytes()
@@ -849,7 +850,12 @@ def form_preliminary_wcs(soc_spacecraft_id, metadata, plate_scale):
     celestial_wcs.wcs.cunit = "deg", "deg"
     return calculate_helio_wcs_from_celestial(celestial_wcs, Time(metadata['datetime']), (2048, 2048))[0]
 
-def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, spacecraft_secrets):
+
+def form_single_image_caller(args):
+    return form_single_image(*args)
+
+
+def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, spacecraft_secrets, outlier_limits):
     session = Session(engine)
 
     replay_needs = []
@@ -990,6 +996,17 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
             cube.meta.provenance = [os.path.basename(p) for p in needed_tlm_paths]
             cube.meta.history.add_now("form_single_image", f"ran with punchpipe v{__version__}")
 
+            punch_io._update_statistics(cube, modify_inplace=True)
+
+            limits = outlier_limits.get(cube.meta['TYPECODE'].value[1] + cube.meta['OBSCODE'].value, None)
+            if limits is None:
+                is_outlier = False
+            else:
+                # to_fits_header populates CROTA
+                is_outlier = not limits.is_good(cube.meta.to_fits_header(cube.wcs, False))
+
+            meta['OUTLIER'] = int(is_outlier)
+
             # we also need to add it to the database
             l0_db_entry = File(level="0",
                                polarization='C' if file_type[0] == 'C' else file_type[1],
@@ -997,6 +1014,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                                observatory=str(soc_spacecraft_id),
                                file_version=pipeline_config['file_version'],
                                software_version=__version__,
+                               outlier=is_outlier,
                                date_created=datetime.now(UTC),
                                date_obs=parse_datetime_str(fits_info['DATE-OBS']),
                                date_beg=parse_datetime_str(fits_info['DATE-BEG']),
@@ -1007,7 +1025,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
             out_path = os.path.join(l0_db_entry.directory(pipeline_config['root']),
                                     get_base_file_name(cube)) + ".fits"
             os.makedirs(os.path.dirname(out_path), exist_ok=True)
-            write_ndcube_to_fits(cube, out_path, overwrite=True)
+            write_ndcube_to_fits(cube, out_path, overwrite=True, skip_stats=True)
             session.add(l0_db_entry)
             session.commit()
         except Exception as e:
@@ -1035,9 +1053,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
     return replay_needs, not skip_image
 
 @flow
-def level0_form_images(pipeline_config, defs, apid_name2num, session):
-    logger = get_run_logger()
-
+def level0_form_images(pipeline_config, defs, apid_name2num, outlier_limits, session, logger):
     spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
 
     now = datetime.now(UTC)
@@ -1061,7 +1077,8 @@ def level0_form_images(pipeline_config, defs, apid_name2num, session):
                           .distinct()
                           .all())
         for t in distinct_times:
-            image_inputs.append((spacecraft[0], t[0], defs, apid_name2num, pipeline_config, spacecraft_secrets))
+            image_inputs.append((spacecraft[0], t[0], defs, apid_name2num, pipeline_config, spacecraft_secrets, outlier_limits))
+    logger.info(f"Got {len(image_inputs)} images to try forming")
 
     try:
         num_workers = pipeline_config['flows']['level0']['options']['num_workers']
@@ -1070,14 +1087,15 @@ def level0_form_images(pipeline_config, defs, apid_name2num, session):
         logger.warning(f"No num_workers defined, using {num_workers} workers")
 
     with multiprocessing.get_context('spawn').Pool(num_workers, initializer=initializer) as pool:
-        results = pool.starmap(form_single_image, image_inputs)
-
-    for new_replay_needs, successful_image in results:
-        replay_needs.extend(new_replay_needs)
-        if successful_image:
-            success_count += 1
-        else:
-            skip_count += 1
+        for i, (new_replay_needs, successful_image) in enumerate(
+                pool.imap(form_single_image_caller, image_inputs, chunksize=10)):
+            replay_needs.extend(new_replay_needs)
+            if successful_image:
+                success_count += 1
+            else:
+                skip_count += 1
+            if i % 1000 == 0:
+                logger.info(f"Completed {i} / {len(image_inputs)} image formation attempts")
 
     history = PacketHistory(datetime=datetime.now(UTC),
                             num_images_succeeded=success_count,
@@ -1116,9 +1134,20 @@ def level0_form_images(pipeline_config, defs, apid_name2num, session):
     session.close()
 
 @flow(log_prints=True)
-def level0_core_flow(pipeline_config: dict, skip_if_no_new_tlm: bool = True):
+def level0_core_flow(pipeline_config: dict, skip_if_no_new_tlm: bool = True, limit_files: list[str] = None):
     logger = get_run_logger()
     session = Session(engine)
+
+    outlier_limits = {}
+    if limit_files is not None:
+        for limit_file in limit_files:
+            if limit_file is None:
+                continue
+            limits = LimitSet.from_file(limit_file)
+            file_name = os.path.basename(limit_file)
+            code = file_name.split("_")[2][:2]
+            obs = file_name.split("_")[2][-1]
+            outlier_limits[code[1] + obs] = limits
 
     tlm_xls_path = pipeline_config['tlm_xls_path']
     logger.info(f"Using {tlm_xls_path}")
@@ -1144,20 +1173,38 @@ def level0_core_flow(pipeline_config: dict, skip_if_no_new_tlm: bool = True):
         with multiprocessing.get_context('spawn').Pool(num_workers, initializer=initializer) as pool:
             pool.starmap(ingest_tlm_file, tlm_ingest_inputs)
 
-        level0_form_images(pipeline_config, defs, apid_name2num, session)
+        level0_form_images(pipeline_config, defs, apid_name2num, outlier_limits, session, logger)
     session.close()
 
-@task
-def level0_construct_flow_info(pipeline_config: dict, skip_if_no_new_tlm: bool = True):
+def get_outlier_limits_paths(session, reference_time):
+    limit_files = []
+    for pol in ['M', 'Z', 'P', 'R']:
+        for obs in ['1', '2', '3', '4']:
+            best_limits = (session.query(File)
+                             .filter(File.file_type == 'L' + pol)
+                             .filter(File.level == '0')
+                             .filter(File.observatory == obs)
+                             .where(File.date_obs <= reference_time)
+                             .order_by(File.date_obs.desc(), File.file_version.desc()).first())
+            if best_limits is None:
+                limit_files.append(None)
+            else:
+                limit_files.append(best_limits.filename().replace('.fits', '.npz'))
+    return limit_files
+
+@task(cache_policy=NO_CACHE)
+def level0_construct_flow_info(pipeline_config: dict, session, skip_if_no_new_tlm: bool = True):
     flow_type = "level0"
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
+    limits = get_outlier_limits_paths(session, creation_time)
 
     call_data = json.dumps(
         {
             "pipeline_config": pipeline_config,
             "skip_if_no_new_tlm": skip_if_no_new_tlm,
+            "limit_files": limits,
         }
     )
     return Flow(
@@ -1188,7 +1235,7 @@ def level0_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
     if len(flows):
         return
 
-    new_flow = level0_construct_flow_info(pipeline_config, skip_if_no_new_tlm=skip_if_no_new_tlm)
+    new_flow = level0_construct_flow_info(pipeline_config, session, skip_if_no_new_tlm=skip_if_no_new_tlm)
 
     session.add(new_flow)
     session.commit()
@@ -1200,6 +1247,8 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
 
     if session is None:
         session = Session(engine)
+
+    pipeline_config = load_pipeline_configuration(pipeline_config_path)
 
     # fetch the appropriate flow db entry
     flow_db_entry = session.query(Flow).where(Flow.flow_id == flow_id).one()
@@ -1216,6 +1265,9 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
     # load the call data and launch the core flow
     flow_call_data = json.loads(flow_db_entry.call_data)
     logger.info(f"Running with {flow_call_data}")
+
+    flow_call_data["limit_files"] = file_name_to_full_path(flow_call_data["limit_files"], pipeline_config['root'])
+
     try:
         level0_core_flow(**flow_call_data)
     except Exception as e:

@@ -70,6 +70,7 @@ def levelh_construct_file_info(level0_files: t.List[File], pipeline_config: dict
             software_version=__version__,
             date_obs=level0_files[0].date_obs,
             polarization=level0_files[0].polarization,
+            outlier=level0_files[0].outlier,
             state="planned",
         )
     ]

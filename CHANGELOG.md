@@ -15,6 +15,7 @@
 * Misc pipeline optimizations and fixes in https://github.com/punch-mission/punchpipe/pull/243
 * Dashboard code moved out of cli.py in https://github.com/punch-mission/punchpipe/pull/245
 * Support setting alpha file path and edge trimming in L2/LQ flows in https://github.com/punch-mission/punchpipe/pull/248
+* Mark outliers in L0 stage, and propagate state forward in https://github.com/punch-mission/punchpipe/pull/247
 
 ## Version 0.0.12: August 6, 2025
 
