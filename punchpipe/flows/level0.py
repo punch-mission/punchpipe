@@ -1182,6 +1182,7 @@ def get_outlier_limits_paths(session, reference_time):
         for obs in ['1', '2', '3', '4']:
             best_limits = (session.query(File)
                              .filter(File.file_type == 'L' + pol)
+                             .filter(File.level == '0')
                              .filter(File.observatory == obs)
                              .where(File.date_obs <= reference_time)
                              .order_by(File.date_obs.desc(), File.file_version.desc()).first())
@@ -1234,7 +1235,7 @@ def level0_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
     if len(flows):
         return
 
-    new_flow = level0_construct_flow_info(pipeline_config, session, skip_if_no_new_tlm=False)
+    new_flow = level0_construct_flow_info(pipeline_config, session, skip_if_no_new_tlm=skip_if_no_new_tlm)
 
     session.add(new_flow)
     session.commit()

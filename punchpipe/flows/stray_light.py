@@ -35,7 +35,7 @@ def construct_stray_light_check_for_inputs(session,
     base_query = (session.query(File)
                   .filter(File.state.in_(["created", "progressed"]))
                   .filter(File.observatory == reference_file.observatory)
-                  .filter(File.outlier == False)
+                  .filter(~File.outlier)
                   )
 
     first_half_inputs = (base_query
