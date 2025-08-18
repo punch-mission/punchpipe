@@ -177,10 +177,14 @@ def level2_construct_flow_info(level1_files: list[File], level2_file: File, pipe
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
+    alphas_path = pipeline_config["flows"][flow_type].get("alpha_file_path", None)
+    trim_edges_px = pipeline_config["flows"][flow_type].get("trim_edges_px", 0)
     call_data = json.dumps(
         {
             "data_list": [level1_file.filename() for level1_file in level1_files],
             "voter_filenames": [[] for _ in level1_files],
+            "alphas_file": alphas_path,
+            "trim_edges_px": trim_edges_px,
         }
     )
     return Flow(
