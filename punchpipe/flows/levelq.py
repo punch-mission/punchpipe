@@ -240,9 +240,13 @@ def levelq_CTM_construct_flow_info(level1_files: list[File], levelq_file: File, 
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
+    alphas_path = pipeline_config["flows"][flow_type].get("alpha_file_path", None)
+    trim_edges_px = pipeline_config["flows"][flow_type].get("trim_edges_px", 0)
     call_data = json.dumps(
         {
             "data_list": [level1_file.filename() for level1_file in level1_files],
+            "alphas_file": alphas_path,
+            "trim_edges_px": trim_edges_px,
         }
     )
     return Flow(
