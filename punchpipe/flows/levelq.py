@@ -33,6 +33,7 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
     all_fittable_files = (session.query(File).filter(File.state.in_(("created", "progressed")))
                           .filter(File.level == "1")
                           .filter(File.observatory == "4")
+                          .filter(~File.outlier)
                           .filter(File.file_type == "QR").limit(1000).all())
     if len(all_fittable_files) < 1000:
         logger.info("Not enough fittable files")
@@ -110,6 +111,7 @@ def levelq_CNN_construct_file_info(level1_files: t.List[File], pipeline_config: 
                 software_version=__version__,
                 date_obs=level1_file.date_obs,
                 state="planned",
+                outlier=level1_file.outlier,
             )
         for level1_file in level1_files
     ]
@@ -143,6 +145,7 @@ def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) ->
         .filter(File.level == "1")
         .filter(File.file_type == "QR")
         .filter(File.observatory == "4")
+        .filter(~File.outlier)
         .filter(dt > 10 * 60)
         .order_by(dt.asc()).limit(target_number)).all()
 
@@ -263,6 +266,7 @@ def levelq_CTM_construct_file_info(level1_files: t.List[File], pipeline_config: 
                 software_version=__version__,
                 date_obs=average_datetime([f.date_obs for f in level1_files]),
                 state="planned",
+                outlier=any(file.outlier for file in level1_files),
             ),
     ]
 

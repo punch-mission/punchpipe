@@ -12,7 +12,7 @@ from punchpipe.monitor.app import get_database_session
 
 REFRESH_RATE = 60  # seconds
 
-USABLE_COLUMNS = ["Level", "File type", "Flow type", "Observatory", "File version", "Polarization", "State"]
+USABLE_COLUMNS = ["Level", "File type", "Flow type", "Observatory", "File version", "Polarization", "State", "Outlier"]
 PAGE_SIZE = 100
 
 dash.register_page(__name__)
@@ -116,7 +116,7 @@ def layout():
                     "Color points by: ",
                     dcc.Dropdown(
                         id="graph-color",
-                        options=["Nothing", "Level", "Flow type", "File type", "Observatory", "File version", "Polarization", "State"],
+                        options=["Nothing"] + USABLE_COLUMNS,
                         value="Observatory",
                         clearable=False,
                         style={'width' :'400px'},
@@ -129,7 +129,7 @@ def layout():
                     "Set shapes by: ",
                     dcc.Dropdown(
                         id="graph-shape",
-                        options=["Nothing", "Level", "Flow type", "File type", "Observatory", "File version", "Polarization", "State"],
+                        options=["Nothing"] + USABLE_COLUMNS,
                         value="Nothing",
                         clearable=False,
                         style={'width' :'400px'},

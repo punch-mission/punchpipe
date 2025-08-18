@@ -252,6 +252,7 @@ def level2_construct_file_info(level1_files: t.List[File], pipeline_config: dict
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
                 date_obs=average_datetime([f.date_obs for f in level1_files]),
+                outlier=any(file.outlier for file in level1_files),
                 state="planned",
             )]
 
