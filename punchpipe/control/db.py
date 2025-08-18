@@ -21,7 +21,7 @@ class File(Base):
     date_end = Column(DATETIME(fsp=6), nullable=True)
     polarization = Column(String(2), nullable=True)
     state = Column(String(64), nullable=False)
-    outlier = Column(Boolean, nullable=True)
+    outlier = Column(Boolean, nullable=False, default=False)
     processing_flow = Column(Integer, nullable=True)
 
     def summary(self):
