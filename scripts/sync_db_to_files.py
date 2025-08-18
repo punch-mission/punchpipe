@@ -17,7 +17,7 @@ from punchpipe.control.util import get_database_session
 def read_new_file_metadata(file, path):
     # Get the correct number of microsseconds from the FITS header
     if file.file_type[0] in ['M', 'L']:
-        return None, None
+        return None, None, None
 
     new_dateobs, new_date_created, new_outlier = None, None, None
     with fits.open(path, disable_image_compression=True) as hdul:
