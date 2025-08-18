@@ -5,7 +5,7 @@ from datetime import datetime
 from prefect import get_run_logger
 
 from punchpipe.control.db import File, FileRelationship, Flow
-from punchpipe.control.util import get_database_session, load_pipeline_configuration, update_file_state
+from punchpipe.control.util import get_database_session, load_pipeline_configuration
 
 
 def generic_scheduler_flow_logic(
@@ -85,19 +85,17 @@ def generic_scheduler_flow_logic(
     else:
         extra_args = {}
     # find all files that are ready to run
-    ready_file_ids = query_ready_files_func(
+    ready_files = query_ready_files_func(
         session, pipeline_config, reference_time=reference_time, **extra_args, **args_dictionary)[:max_start]
-    logger.info(f"Got {len(ready_file_ids)} groups of ready files")
-    if ready_file_ids:
-        for group in ready_file_ids:
-            parent_files = []
-            for file_id in group:
+    logger.info(f"Got {len(ready_files)} groups of ready files")
+    if ready_files:
+        for parent_files in ready_files:
+            if isinstance(parent_files[0], int):
+                parent_files = session.query(File).where(File.file_id.in_(parent_files)).all()
+            if update_input_file_state:
                 # mark the file as progressed so that there aren't duplicate processing flows
-                if update_input_file_state:
-                    update_file_state(session, file_id, new_input_file_state)
-
-                # get the prior level file's information
-                parent_files += session.query(File).where(File.file_id == file_id).all()
+                for file in parent_files:
+                    file.state = new_input_file_state
 
             # prepare the new level flow and file
             children_files = construct_child_file_info(parent_files, pipeline_config, reference_time=reference_time, **args_dictionary)
@@ -121,4 +119,4 @@ def generic_scheduler_flow_logic(
             for parent_file, child_file in iterable:
                 session.add(FileRelationship(parent=parent_file.file_id, child=child_file.file_id))
         session.commit()
-    return len(ready_file_ids)
+    return len(ready_files)

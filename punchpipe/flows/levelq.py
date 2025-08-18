@@ -54,7 +54,7 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
     # Let's order it oldest-to-newest. They're currently the opposite from the database's sort
     grouped_files = grouped_files[::-1]
     logger.info("1 group heading out")
-    return [[f.file_id for f in grouped_files]]
+    return [grouped_files]
 
 
 def get_outlier_limits_path(level1_file, pipeline_config: dict=None, session=None, reference_time=None):
@@ -105,6 +105,7 @@ def levelq_CNN_construct_file_info(level1_files: t.List[File], pipeline_config: 
                 level="Q",
                 file_type="CN",
                 observatory="N",
+                polarization="C",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
                 date_obs=level1_file.date_obs,
@@ -187,22 +188,45 @@ def levelq_CTM_query_ready_files(session, pipeline_config: dict, reference_time=
     cutoff_time = pipeline_config["flows"]["levelq_CTM"].get("ignore_missing_after_days", None)
     if cutoff_time is not None:
         cutoff_time = datetime.now(tz=UTC) - timedelta(days=cutoff_time)
-    cutoff_time_age = pipeline_config["flows"]["levelq_CTM"].get("ignore_missing_min_file_age_minutes", None)
-    if cutoff_time_age is not None:
-        cutoff_time_age = datetime.now() - timedelta(minutes=cutoff_time_age)
+
     for group in grouped_files:
+        if len(grouped_ready_files) >= max_n:
+            break
         # TODO: We're excluding NFI for now
         # group_is_complete = len(group) == 4
         group_is_complete = len(group) == 3
-        group_is_old_enough = (cutoff_time
-                               # group[-1] is the newest file by date_obs
-                               and group[-1].date_obs.replace(tzinfo=UTC) < cutoff_time)
-        newest_creation_time = min(f.date_created for f in group)
-        group_is_being_actively_processed = cutoff_time_age and newest_creation_time >= cutoff_time_age
-        if (group_is_complete or group_is_old_enough) and not group_is_being_actively_processed:
-            grouped_ready_files.append([f.file_id for f in group])
-        if len(grouped_ready_files) >= max_n:
-            break
+        if group_is_complete:
+            grouped_ready_files.append(group)
+            continue
+
+        # group[-1] is the newest file by date_obs
+        if (cutoff_time and group[-1].date_obs.replace(tzinfo=UTC) > cutoff_time):
+            # We're still potentially waiting for downlinks
+            continue
+
+
+        # We now have to consider making an incomplete trefoil. We want to look at the L0 files to see if we're still
+        # waiting on any L1s. This is especially important when reprocessing. To do that, we need to determine a time
+        # range within which to grab L0s
+        center = group[0].date_obs
+        search_width = timedelta(minutes=1)
+        search_types = ['QR']
+
+        # Grab all the L0s that produce inputs for this trefoil
+        expected_inputs = (session.query(File)
+                                  .filter(File.level == "0")
+                                  # TODO: This line temporarily excludes NFI
+                                  .filter(File.observatory.in_(['1', '2', '3']))
+                                  .filter(File.file_type.in_(search_types))
+                                  .filter(File.date_obs > center - search_width)
+                                  .filter(File.date_obs < center + search_width)
+                                  .all())
+        if len(expected_inputs) == len(group):
+            # We have the L1s for all the L0s, and we don't expect new L0s, so let's make an incomplete mosaic
+            grouped_ready_files.append(group)
+        # Otherwise, we'll pass for now on processing this trefoil
+        continue
+
     logger.info(f"{len(grouped_ready_files)} groups heading out")
     return grouped_ready_files
 
@@ -234,6 +258,7 @@ def levelq_CTM_construct_file_info(level1_files: t.List[File], pipeline_config: 
                 level="Q",
                 file_type="CT",
                 observatory="M",
+                polarization="C",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
                 date_obs=average_datetime([f.date_obs for f in level1_files]),
