@@ -19,9 +19,9 @@ TEST_DIR = os.path.dirname(__file__)
 
 def session_fn(session):
     level0_file = File(level="0",
-                       file_type="XX",
-                       observatory="0",
-                       state="created",
+                       file_type="QR",
+                       observatory="1",
+                       state="progressed",
                        file_version="none",
                        software_version="none",
                        date_obs=datetime(2023, 1, 1, 0, 0, 0))
@@ -86,7 +86,7 @@ def test_levelq_CTM_construct_file_info():
     assert constructed_file_info.file_version == "0.0.1"
     assert constructed_file_info.software_version == __version__
     assert constructed_file_info.date_obs == level1_file[0].date_obs
-    assert constructed_file_info.polarization is None
+    assert constructed_file_info.polarization == 'C'
     assert constructed_file_info.state == "planned"
 
 

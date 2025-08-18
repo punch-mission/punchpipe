@@ -24,15 +24,35 @@ TEST_DIR = os.path.dirname(__file__)
 
 
 def session_fn(session):
-    level0_file = File(level='0',
-                       file_type='XX',
-                       observatory='3',
-                       state='created',
-                       file_version='none',
-                       software_version='none',
-                       polarization='X',
-                       date_obs=datetime(2023, 1, 1, 0, 0, 0),
-                       date_created=datetime(2022, 12, 25, 0, 0, 0))
+    level0_fileM = File(level='0',
+                        file_type='PM',
+                        observatory='3',
+                        state='progressed',
+                        file_version='none',
+                        software_version='none',
+                        polarization='M',
+                        date_obs=datetime(2023, 1, 1, 0, 0, 0),
+                        date_created=datetime(2022, 12, 25, 0, 0, 0))
+
+    level0_fileZ = File(level='0',
+                        file_type='PZ',
+                        observatory='3',
+                        state='progressed',
+                        file_version='none',
+                        software_version='none',
+                         polarization='Z',
+                        date_obs=datetime(2023, 1, 1, 0, 0, 0),
+                        date_created=datetime(2022, 12, 25, 0, 0, 0))
+
+    level0_fileP = File(level='0',
+                        file_type='PP',
+                        observatory='3',
+                        state='progressed',
+                        file_version='none',
+                        software_version='none',
+                        polarization='P',
+                        date_obs=datetime(2023, 1, 1, 0, 0, 0),
+                        date_created=datetime(2022, 12, 25, 0, 0, 0))
 
     level1_fileM = File(level='1',
                        file_type='PM',
@@ -64,17 +84,17 @@ def session_fn(session):
                        date_obs=datetime(2023, 1, 1, 0, 0, 0),
                        date_created=datetime(2022, 12, 25, 0, 0, 0))
 
-    level1_file_clear = File(level='1',
+    level0_file_clear = File(level='0',
                              file_type='CR',
                              observatory='3',
-                             state='quickpunched',
+                             state='progressed',
                              file_version='none',
                              software_version='none',
                              polarization='C',
                              date_obs=datetime(2023, 1, 1, 0, 0, 0),
                              date_created=datetime(2022, 12, 25, 0, 0, 0))
 
-    level1_file_clear_not_ready = File(level='1',
+    level1_file_clear = File(level='1',
                              file_type='CR',
                              observatory='3',
                              state='created',
@@ -84,10 +104,23 @@ def session_fn(session):
                              date_obs=datetime(2023, 1, 1, 0, 0, 0),
                              date_created=datetime(2022, 12, 25, 0, 0, 0))
 
-    session.add(level0_file)
+    level1_file_clear_not_ready = File(level='1',
+                             file_type='CR',
+                             observatory='3',
+                             state='creating',
+                             file_version='none',
+                             software_version='none',
+                             polarization='C',
+                             date_obs=datetime(2023, 1, 1, 0, 0, 0),
+                             date_created=datetime(2022, 12, 25, 0, 0, 0))
+
+    session.add(level0_fileM)
+    session.add(level0_fileZ)
+    session.add(level0_fileP)
     session.add(level1_fileM)
     session.add(level1_fileZ)
     session.add(level1_fileP)
+    session.add(level0_file_clear)
     session.add(level1_file_clear)
     session.add(level1_file_clear_not_ready)
 
@@ -223,7 +256,7 @@ def test_level2_construct_file_info():
     assert constructed_file_info.file_version == "0.0.1"
     assert constructed_file_info.software_version == __version__
     assert constructed_file_info.date_obs == level1_file[0].date_obs
-    assert constructed_file_info.polarization == level1_file[0].polarization
+    assert constructed_file_info.polarization == 'Y'
     assert constructed_file_info.state == "planned"
 
 

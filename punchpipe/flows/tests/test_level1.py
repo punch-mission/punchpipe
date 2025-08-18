@@ -167,17 +167,15 @@ def test_level1_early_construct_file_info_clear():
                        software_version='none',
                        polarization='C',
                        date_obs=datetime.now(UTC))]
-    q_file, x_file = level1_early_construct_file_info(level0_file, pipeline_config)
+    x_file = level1_early_construct_file_info(level0_file, pipeline_config)[0]
     assert x_file.file_type == 'X' + level0_file[0].file_type[1:]
-    assert q_file.file_type == 'Q' + level0_file[0].file_type[1:]
-    for file in q_file, x_file:
-        assert file.level == "1"
-        assert file.observatory == level0_file[0].observatory
-        assert file.file_version == "0.0.1"
-        assert file.software_version == __version__
-        assert file.date_obs == level0_file[0].date_obs
-        assert file.polarization == level0_file[0].polarization
-        assert file.state == "planned"
+    assert x_file.level == "1"
+    assert x_file.observatory == level0_file[0].observatory
+    assert x_file.file_version == "0.0.1"
+    assert x_file.software_version == __version__
+    assert x_file.date_obs == level0_file[0].date_obs
+    assert x_file.polarization == level0_file[0].polarization
+    assert x_file.state == "planned"
 
 
 def test_level1_late_construct_file_info():
