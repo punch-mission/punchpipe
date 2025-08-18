@@ -238,6 +238,28 @@ def test_level2_query_ready_files_ignore_missing_clear(db):
             assert len(ready_file_ids) == 1
 
 
+def test_level2_clear_query_ready_files_unprocessed_L0(db):
+    try:
+        with disable_run_logger(), freeze_time(datetime(2023, 1, 1, 0, 5, 0)):  # noqa: F841
+            pipeline_config = {'flows': {'level2_clear': {'ignore_missing_after_days': 0}}}
+            ready_file_ids = level2_query_ready_clear_files.fn(db, pipeline_config)
+            assert len(ready_file_ids) == 1
+
+            level0_file = File(level="0",
+                               file_type="CR",
+                               observatory="2",
+                               state="progressed",
+                               file_version="none",
+                               software_version="none",
+                               date_obs=datetime(2023, 1, 1, 0, 0, 0))
+            db.add(level0_file)
+
+            ready_file_ids = level2_query_ready_clear_files.fn(db, pipeline_config)
+            assert len(ready_file_ids) == 0
+    finally:
+        db.rollback()
+
+
 def test_level2_construct_file_info():
     pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
@@ -284,7 +306,7 @@ def test_level2_scheduler_flow(db):
     with prefect_test_harness():
         level2_scheduler_flow(pipeline_config_path, db)
     results = db.query(Flow).where(Flow.state == 'planned').all()
-    assert len(results) == 0
+    assert len(results) == 1
 
 
 def test_level2_process_flow(db):
