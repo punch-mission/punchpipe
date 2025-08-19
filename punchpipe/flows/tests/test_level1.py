@@ -346,12 +346,8 @@ def test_level1_early_construct_flow_info(db, prefect_test_fixture):
     assert flow_info.priority == 6
 
     call_data = json.loads(flow_info.call_data)
-    assert call_data["psf_model_path"][-7:] == 'v1.fits'
     assert call_data["quartic_coefficient_path"][-7:] == 'v1.fits'
     assert call_data["vignetting_function_path"][-7:] == 'v1.fits'
-    assert call_data["stray_light_before_path"][-7:] == 'v1.fits'
-    assert call_data["stray_light_after_path"][-7:] == 'v1.fits'
-    assert call_data["distortion_path"][-7:] == 'v1.fits'
     assert call_data["mask_path"][-6:] == 'v1.bin'
 
 
@@ -375,6 +371,13 @@ def test_level1_late_construct_flow_info(db, prefect_test_fixture):
     assert flow_info.state == "planned"
     assert flow_info.flow_level == "1"
     assert flow_info.priority == 6
+
+    call_data = json.loads(flow_info.call_data)
+    assert call_data["psf_model_path"][-7:] == 'v1.fits'
+    assert call_data["stray_light_before_path"][-7:] == 'v1.fits'
+    assert call_data["stray_light_after_path"][-7:] == 'v1.fits'
+    assert call_data["distortion_path"][-7:] == 'v1.fits'
+    assert call_data["mask_path"][-6:] == 'v1.bin'
 
 
 def test_level1_early_scheduler_flow(db):
