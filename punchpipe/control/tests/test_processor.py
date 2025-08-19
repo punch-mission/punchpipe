@@ -174,12 +174,8 @@ def test_simple_generic_process_flow_unreported(db):
     flow.state = 'launched'
     db.commit()
     del flow
-    with prefect_test_harness():
+    with prefect_test_harness(), pytest.raises(RuntimeError, match=".*We did not get an output cube.*"):
         empty_flow(1, session=db)
-
-    level1_file = db.query(File).where(File.file_id == 2).one()
-    assert level1_file.state == "unreported"
-    del level1_file
 
 
 @flow

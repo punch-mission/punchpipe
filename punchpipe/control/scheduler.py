@@ -5,7 +5,7 @@ from datetime import datetime
 from prefect import get_run_logger
 
 from punchpipe.control.db import File, FileRelationship, Flow
-from punchpipe.control.util import get_database_session, load_pipeline_configuration, update_file_state
+from punchpipe.control.util import get_database_session, load_pipeline_configuration
 
 
 def generic_scheduler_flow_logic(
@@ -14,6 +14,7 @@ def generic_scheduler_flow_logic(
         session=None, reference_time: datetime | None = None,
         args_dictionary: dict = {},
         children_are_one_to_one: bool = False,
+        cap_planned_flows: bool = True,
     ) -> int:
     """
     Implement the core logic of each scheduler flow.
@@ -66,13 +67,14 @@ def generic_scheduler_flow_logic(
         if not pipeline_config["flows"][flow_type].get("enabled", True):
             logger.info(f"Flow {flow_type} is not enabled---halting scheduler")
             return 0
-        n_already_scheduled = (session.query(Flow)
-                                      .where(Flow.flow_type == flow_type)
-                                      .where(Flow.state == 'planned')
-                                      .count())
-        if n_already_scheduled >= max_start:
-            logger.info(f"This flow already has {n_already_scheduled} flows scheduled; stopping.")
-        max_start -= n_already_scheduled
+        if cap_planned_flows:
+            n_already_scheduled = (session.query(Flow)
+                                          .where(Flow.flow_type == flow_type)
+                                          .where(Flow.state == 'planned')
+                                          .count())
+            if n_already_scheduled >= max_start:
+                logger.info(f"This flow already has {n_already_scheduled} flows scheduled; stopping.")
+            max_start -= n_already_scheduled
 
     # Not every level*_query_ready_files function needs this max_n parameter---some instead have a use_n that's similar
     # at first glance, but fills a different role and needs to be tuned differently. To avoid confusion there, we don't
@@ -83,19 +85,17 @@ def generic_scheduler_flow_logic(
     else:
         extra_args = {}
     # find all files that are ready to run
-    ready_file_ids = query_ready_files_func(
+    ready_files = query_ready_files_func(
         session, pipeline_config, reference_time=reference_time, **extra_args, **args_dictionary)[:max_start]
-    logger.info(f"Got {len(ready_file_ids)} groups of ready files")
-    if ready_file_ids:
-        for group in ready_file_ids:
-            parent_files = []
-            for file_id in group:
+    logger.info(f"Got {len(ready_files)} groups of ready files")
+    if ready_files:
+        for parent_files in ready_files:
+            if isinstance(parent_files[0], int):
+                parent_files = session.query(File).where(File.file_id.in_(parent_files)).all()
+            if update_input_file_state:
                 # mark the file as progressed so that there aren't duplicate processing flows
-                if update_input_file_state:
-                    update_file_state(session, file_id, new_input_file_state)
-
-                # get the prior level file's information
-                parent_files += session.query(File).where(File.file_id == file_id).all()
+                for file in parent_files:
+                    file.state = new_input_file_state
 
             # prepare the new level flow and file
             children_files = construct_child_file_info(parent_files, pipeline_config, reference_time=reference_time, **args_dictionary)
@@ -110,7 +110,6 @@ def generic_scheduler_flow_logic(
             # set the processing flow now that we know the flow_id after committing the flow info
             for child_file in children_files:
                 child_file.processing_flow = database_flow_info.flow_id
-            session.commit()
 
             # create a file relationship between the prior and next levels
             if children_are_one_to_one:
@@ -119,5 +118,5 @@ def generic_scheduler_flow_logic(
                 iterable = itertools.product(parent_files, children_files)
             for parent_file, child_file in iterable:
                 session.add(FileRelationship(parent=parent_file.file_id, child=child_file.file_id))
-            session.commit()
-    return len(ready_file_ids)
+        session.commit()
+    return len(ready_files)

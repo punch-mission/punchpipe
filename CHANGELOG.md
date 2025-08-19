@@ -10,6 +10,12 @@
 * Tagging of flows with output file types in https://github.com/punch-mission/punchpipe/pull/237 and https://github.com/punch-mission/punchpipe/pull/238
 * Set L0 polarization state in database in https://github.com/punch-mission/punchpipe/pull/239
 * Fix LQ CNN scheduling, set stray light polarization in DB, and cap stray light generation thread count in https://github.com/punch-mission/punchpipe/pull/240
+* Redo stray light model scheduling and selection in https://github.com/punch-mission/punchpipe/pull/244
+* Dash board updates, including Files page, in https://github.com/punch-mission/punchpipe/pull/242
+* Misc pipeline optimizations and fixes in https://github.com/punch-mission/punchpipe/pull/243
+* Dashboard code moved out of cli.py in https://github.com/punch-mission/punchpipe/pull/245
+* Support setting alpha file path and edge trimming in L2/LQ flows in https://github.com/punch-mission/punchpipe/pull/248
+* Mark outliers in L0 stage, and propagate state forward in https://github.com/punch-mission/punchpipe/pull/247
 
 ## Version 0.0.12: August 6, 2025
 

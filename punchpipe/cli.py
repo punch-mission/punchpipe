@@ -14,11 +14,8 @@ from prefect.client.schemas.objects import ConcurrencyLimitConfig, ConcurrencyLi
 from prefect.variables import Variable
 
 from punchpipe.control.util import load_pipeline_configuration
-from punchpipe.monitor.app import create_app
 
 THIS_DIR = os.path.dirname(__file__)
-app = create_app()
-server = app.server
 
 def main():
     """Run the PUNCH automated pipeline"""
@@ -31,12 +28,13 @@ def main():
 
     run_parser.add_argument("config", type=str, help="Path to config.")
     run_parser.add_argument("--launch-prefect", action="store_true", help="Launch the prefect server")
+    run_parser.add_argument("--no-dask-cluster", action="store_true", help="Skip launching the dask cluster")
     serve_control_parser.add_argument("config", type=str, help="Path to config.")
     serve_data_parser.add_argument("config", type=str, help="Path to config.")
     args = parser.parse_args()
 
     if args.command == 'run':
-        run(args.config, args.launch_prefect)
+        run(args.config, args.launch_prefect, not args.no_dask_cluster)
     elif args.command == 'serve-data':
         run_data(args.config)
     elif args.command == 'serve-control':
@@ -128,7 +126,7 @@ def run_control(configuration_path):
     configuration_path = str(Path(configuration_path).resolve())
     serve(*construct_flows_to_serve(configuration_path, include_control=True, include_data=False))
 
-def run(configuration_path, launch_prefect=False):
+def run(configuration_path, launch_prefect=False, launch_dask_cluster=False):
     now = datetime.now()
 
     configuration_path = str(Path(configuration_path).resolve())
@@ -159,12 +157,13 @@ def run(configuration_path, launch_prefect=False):
                 prefect_services_process = subprocess.Popen(
                     [*numa_prefix_control, "prefect", "server", "services", "start"], stdout=f, stderr=f)
 
-            cluster_process = subprocess.Popen([*numa_prefix_workers, 'punchpipe_cluster', configuration_path],
-                                               stdout=f, stderr=f)
+            if launch_dask_cluster:
+                cluster_process = subprocess.Popen([*numa_prefix_workers, 'punchpipe_cluster', configuration_path],
+                                                   stdout=f, stderr=f)
             monitor_process = subprocess.Popen([*numa_prefix_control, "gunicorn",
                                                 "-b", "0.0.0.0:8050",
-                                                "--chdir", THIS_DIR,
-                                                "cli:server"],
+                                                "--chdir", THIS_DIR + '/monitor',
+                                                "app:server"],
                                                stdout=f, stderr=f)
             time.sleep(1)
             Variable.set("punchpipe_config", configuration_path, overwrite=True)
@@ -190,23 +189,24 @@ def run(configuration_path, launch_prefect=False):
             time.sleep(10)
             while True:
                 # `.poll()` updates but does not return the object's returncode attribute
-                cluster_process.poll()
+                if cluster_process is not None:
+                    cluster_process.poll()
                 control_process.poll()
                 data_process.poll()
                 if launch_prefect:
                     prefect_process.poll()
                     prefect_services_process.poll()
-                    if prefect_process.returncode or prefect_services_process.returncode:
+                    if prefect_process.returncode is not None or prefect_services_process.returncode is not None:
                         print("Prefect process exited unexpectedly")
                         break
-                if cluster_process.returncode:
+                if cluster_process is not None and cluster_process.returncode is not None:
                     print("Cluster process exited unexpectedly")
                     break
                 # Core processes are still running. Now check worker processes, which we can restart safely
-                if control_process.returncode:
+                if control_process.returncode is not None:
                     print(f"Restarted control process at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
                     control_process = control_process_launcher()
-                if data_process.returncode:
+                if data_process.returncode is not None:
                     print(f"Restarted data process at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
                     data_process = data_process_launcher()
                 time.sleep(10)

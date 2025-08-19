@@ -17,9 +17,9 @@ from punchpipe.control.util import get_database_session
 def read_new_file_metadata(file, path):
     # Get the correct number of microsseconds from the FITS header
     if file.file_type[0] in ['M', 'L']:
-        return None, None
+        return None, None, None
 
-    new_dateobs, new_date_created = None, None
+    new_dateobs, new_date_created, new_outlier = None, None, None
     with fits.open(path, disable_image_compression=True) as hdul:
         if len(hdul) > 1 and 'DATE-OBS' in hdul[1].header:
             p = hdul[1].header['DATE-OBS'].split('.')
@@ -33,7 +33,9 @@ def read_new_file_metadata(file, path):
                 ms = p[1]
                 ms = ms + '0' * (6 - len(ms))
                 new_date_created = file.date_obs.replace(microsecond=int(ms))
-    return new_dateobs, new_date_created
+        if len(hdul) > 1 and 'OUTLIER' in hdul[1].header:
+            new_outlier = hdul[1].header['OUTLIER']
+    return new_dateobs, new_date_created, new_outlier
 
 if __name__ == "__main__":
     multiprocessing.set_start_method("forkserver")
@@ -85,6 +87,7 @@ if __name__ == "__main__":
             date_obs=date,
             polarization=pol,
             state='created',
+            outlier=False,
         )
 
         if file.filename() not in existing_files:
@@ -98,12 +101,14 @@ if __name__ == "__main__":
     print(f"Found {n_added} new files, skipping {n_existing} existing files")
 
     print("Reading metadata...")
-    for file, (date_obs, date_created) in zip(
+    for file, (date_obs, date_created, new_outlier) in zip(
             new_files, process_map(read_new_file_metadata, new_files, new_file_paths, chunksize=10, max_workers=10)):
         if date_obs is not None:
             file.date_obs = date_obs
         if date_created is not None:
             file.date_created = date_created
+        if new_outlier is not None:
+            file.outlier = new_outlier
 
     print("Adding to DB...")
     session.bulk_save_objects(new_files)
