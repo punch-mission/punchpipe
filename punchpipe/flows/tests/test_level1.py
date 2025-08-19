@@ -62,7 +62,7 @@ def session_fn(session):
 
     psf_model1 = File(level="1",
                        file_type="RM",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='1',
                        software_version='none',
@@ -70,7 +70,7 @@ def session_fn(session):
 
     psf_model0 = File(level="1",
                        file_type="RM",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='0b',
                        software_version='none',
@@ -86,7 +86,7 @@ def session_fn(session):
 
     quartic_fit_coeffs1 = File(level="1",
                        file_type="FQ",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='1',
                        software_version='none',
@@ -94,7 +94,7 @@ def session_fn(session):
 
     quartic_fit_coeffs0 = File(level="1",
                        file_type="FQ",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='0b',
                        software_version='none',
@@ -110,7 +110,7 @@ def session_fn(session):
 
     vignetting_function1 = File(level="1",
                        file_type="GM",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='1',
                        software_version='none',
@@ -118,7 +118,7 @@ def session_fn(session):
 
     vignetting_function0 = File(level="1",
                        file_type="GM",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='0b',
                        software_version='none',
@@ -142,7 +142,7 @@ def session_fn(session):
 
     stray_light_before0 = File(level="1",
                        file_type="SM",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='0b',
                        software_version='none',
@@ -150,7 +150,7 @@ def session_fn(session):
 
     stray_light_after2 = File(level="1",
                        file_type="SM",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='0b',
                        software_version='none',
@@ -158,7 +158,7 @@ def session_fn(session):
 
     stray_light_after1 = File(level="1",
                        file_type="SM",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='1',
                        software_version='none',
@@ -166,7 +166,7 @@ def session_fn(session):
 
     stray_light_after0 = File(level="1",
                        file_type="SM",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='0b',
                        software_version='none',
@@ -182,7 +182,7 @@ def session_fn(session):
 
     distortion1 = File(level="1",
                        file_type="DS",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='1',
                        software_version='none',
@@ -190,7 +190,7 @@ def session_fn(session):
 
     distortion0 = File(level="1",
                        file_type="DS",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='0b',
                        software_version='none',
@@ -206,7 +206,7 @@ def session_fn(session):
 
     mask_file1 = File(level="1",
                        file_type="MS",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='1',
                        software_version='none',
@@ -214,7 +214,7 @@ def session_fn(session):
 
     mask_file0 = File(level="1",
                        file_type="MS",
-                       observatory='4',
+                       observatory='2',
                        state='created',
                        file_version='0b',
                        software_version='none',
