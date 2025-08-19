@@ -47,7 +47,8 @@ def get_distortion_path(level0_file, pipeline_config: dict, session=None, refere
                      .filter(File.file_type == "DS")
                      .filter(File.observatory == level0_file.observatory)
                      .where(File.date_obs <= level0_file.date_obs)
-                     .order_by(File.date_obs.desc()).first())
+                     .where(File.file_version.not_like("v%")) #filters out "v0a"
+                     .order_by(File.file_version.desc(), File.date_obs.desc()).first())
     return best_function
 
 def get_vignetting_function_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
@@ -60,7 +61,8 @@ def get_vignetting_function_path(level0_file, pipeline_config: dict, session=Non
                      .filter(File.file_type == vignetting_function_type)
                      .filter(File.observatory == level0_file.observatory)
                      .where(File.date_obs <= level0_file.date_obs)
-                     .order_by(File.date_obs.desc()).first())
+                     .where(File.file_version.not_like("v%")) #filters out "v0a".
+                     .order_by(File.file_version.desc(), File.date_obs.desc())).first()
     return best_function
 
 
@@ -81,9 +83,9 @@ def get_psf_model_path(level0_file, pipeline_config: dict, session=None, referen
                   .filter(File.file_type == psf_model_type)
                   .filter(File.observatory == level0_file.observatory)
                   .where(File.date_obs <= level0_file.date_obs)
-                  .order_by(File.date_obs.desc()).first())
+                  .where(File.file_version.not_like("v%")) #filters out "v0a".
+                  .order_by(File.file_version.desc(), File.date_obs.desc()).first())
     return best_model.filename()
-
 
 STRAY_LIGHT_CORRESPONDING_TYPES = {"PM": "SM",
                                    "PZ": "SZ",
@@ -101,10 +103,12 @@ def get_two_closest_stray_light(level0_file, session=None, max_distance: timedel
                         text("second"), File.date_obs, level0_file.date_obs)))
                   .filter(File.file_type == model_type)
                   .filter(File.observatory == level0_file.observatory)
-                  .filter(File.state == "created"))
+                  .filter(File.state == "created")
+                  .filter(File.file_version.not_like("v%"))) #filters out "v0a".
     if max_distance:
         best_models = best_models.filter(dt < max_distance.total_seconds())
-    best_models = best_models.order_by(dt.asc()).limit(2).all()
+    highest_version = best_models.order_by(File.file_version).first().file_version
+    best_models = best_models.filter(File.file_version == highest_version).order_by(dt.asc()).limit(2).all()
     if len(best_models) < 2:
         return None, None
     # Drop the dt values
@@ -121,13 +125,15 @@ def get_two_best_stray_light(level0_file, session=None):
                     .filter(File.observatory == level0_file.observatory)
                     .filter(File.level == '1')
                     .filter(File.date_obs < level0_file.date_obs)
-                    .order_by(File.date_obs.desc()).first())
+                    .filter(File.file_version.not_like("v%")) #filters out "v0a".
+                    .order_by(File.file_version.desc(), File.date_obs.desc()).first())
     after_model = (session.query(File)
                    .filter(File.file_type == model_type)
                    .filter(File.observatory == level0_file.observatory)
                    .filter(File.level == '1')
                    .filter(File.date_obs > level0_file.date_obs)
-                   .order_by(File.date_obs.asc()).first())
+                   .filter(File.file_version.not_like("v%")) #filters out "v0a".
+                   .order_by(File.file_version.desc(), File.date_obs.asc()).first())
     if before_model is None or after_model is None:
         # We're waiting for the scheduler to fill in here and tell us what's what
         return None, None
@@ -161,7 +167,8 @@ def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, ref
                   .filter(File.file_type == 'FQ')
                   .filter(File.observatory == level0_file.observatory)
                   .where(File.date_obs <= level0_file.date_obs)
-                  .order_by(File.date_obs.desc()).first())
+                  .where(File.file_version.not_like("v%")) #filters out "v0a".
+                  .order_by(File.file_version.desc(), File.date_obs.desc()).first())
     return best_model
 
 
@@ -170,7 +177,8 @@ def get_mask_file(level0_file, pipeline_config: dict, session=None, reference_ti
                   .filter(File.file_type == 'MS')
                   .filter(File.observatory == level0_file.observatory)
                   .where(File.date_obs <= level0_file.date_obs)
-                  .order_by(File.date_obs.desc()).first())
+                  .where(File.file_version.not_like("v%")) #filters out "v0a".
+                  .order_by(File.file_version.desc(), File.date_obs.desc()).first())
     return best_model
 
 

@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -51,72 +52,199 @@ def session_fn(session):
                        software_version='none',
                        date_obs=datetime.now(UTC))
 
-    psf_model = File(level="1",
+    psf_model2 = File(level="1",
                        file_type="RM",
                        observatory='2',
                        state='created',
-                       file_version='none',
+                       file_version='0b',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)-timedelta(hours=3))
+
+    psf_model1 = File(level="1",
+                       file_type="RM",
+                       observatory='2',
+                       state='created',
+                       file_version='1',
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(days=1))
 
-    quartic_fit_coeffs = File(level="1",
+    psf_model0 = File(level="1",
+                       file_type="RM",
+                       observatory='2',
+                       state='created',
+                       file_version='0b',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)-timedelta(days=1))
+
+    quartic_fit_coeffs2 = File(level="1",
                        file_type="FQ",
                        observatory='2',
                        state='created',
-                       file_version='none',
+                       file_version='0b',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)-timedelta(hours=3))
+
+    quartic_fit_coeffs1 = File(level="1",
+                       file_type="FQ",
+                       observatory='2',
+                       state='created',
+                       file_version='1',
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(days=1))
 
-    vignetting_function = File(level="1",
+    quartic_fit_coeffs0 = File(level="1",
+                       file_type="FQ",
+                       observatory='2',
+                       state='created',
+                       file_version='0b',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)-timedelta(days=1))
+
+    vignetting_function2 = File(level="1",
                        file_type="GM",
                        observatory='2',
                        state='created',
-                       file_version='none',
+                       file_version='0b',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)-timedelta(hours=3))
+
+    vignetting_function1 = File(level="1",
+                       file_type="GM",
+                       observatory='2',
+                       state='created',
+                       file_version='1',
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(days=1))
 
-    stray_light_before = File(level="1",
+    vignetting_function0 = File(level="1",
+                       file_type="GM",
+                       observatory='2',
+                       state='created',
+                       file_version='0b',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)-timedelta(days=1))
+
+    stray_light_before2 = File(level="1",
                        file_type="SM",
                        observatory='2',
                        state='created',
-                       file_version='none',
+                       file_version='0b',
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(hours=12))
 
-    stray_light_after = File(level="1",
+    stray_light_before1 = File(level="1",
                        file_type="SM",
                        observatory='2',
                        state='created',
-                       file_version='none',
+                       file_version='1',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)-timedelta(hours=16))
+
+    stray_light_before0 = File(level="1",
+                       file_type="SM",
+                       observatory='2',
+                       state='created',
+                       file_version='0b',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)-timedelta(hours=12))
+
+    stray_light_after2 = File(level="1",
+                       file_type="SM",
+                       observatory='2',
+                       state='created',
+                       file_version='0b',
                        software_version='none',
                        date_obs=datetime.now(UTC)+timedelta(hours=12))
 
-    distortion = File(level="1",
+    stray_light_after1 = File(level="1",
+                       file_type="SM",
+                       observatory='2',
+                       state='created',
+                       file_version='1',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)+timedelta(hours=16))
+
+    stray_light_after0 = File(level="1",
+                       file_type="SM",
+                       observatory='2',
+                       state='created',
+                       file_version='0b',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)+timedelta(hours=12))
+
+    distortion2 = File(level="1",
                        file_type="DS",
                        observatory='2',
                        state='created',
-                       file_version='none',
+                       file_version='0b',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)-timedelta(hours=3))
+
+    distortion1 = File(level="1",
+                       file_type="DS",
+                       observatory='2',
+                       state='created',
+                       file_version='1',
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(days=1))
 
-    mask_file = File(level="1",
+    distortion0 = File(level="1",
+                       file_type="DS",
+                       observatory='2',
+                       state='created',
+                       file_version='0b',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)-timedelta(days=1))
+
+    mask_file2 = File(level="1",
                        file_type="MS",
                        observatory='2',
                        state='created',
-                       file_version='none',
+                       file_version='0b',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)-timedelta(hours=3))
+
+    mask_file1 = File(level="1",
+                       file_type="MS",
+                       observatory='2',
+                       state='created',
+                       file_version='1',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)-timedelta(days=1))
+
+    mask_file0 = File(level="1",
+                       file_type="MS",
+                       observatory='2',
+                       state='created',
+                       file_version='0b',
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(days=1))
 
     session.add(level0_file)
     session.add(level1_file)
     session.add(level1_x_file)
-    session.add(psf_model)
-    session.add(quartic_fit_coeffs)
-    session.add(vignetting_function)
-    session.add(distortion)
-    session.add(stray_light_before)
-    session.add(stray_light_after)
-    session.add(mask_file)
+
+    session.add(psf_model0)
+    session.add(psf_model1)
+    session.add(psf_model2)
+    session.add(quartic_fit_coeffs0)
+    session.add(quartic_fit_coeffs1)
+    session.add(quartic_fit_coeffs2)
+    session.add(vignetting_function0)
+    session.add(vignetting_function1)
+    session.add(vignetting_function2)
+    session.add(distortion0)
+    session.add(distortion1)
+    session.add(distortion2)
+    session.add(stray_light_before0)
+    session.add(stray_light_before1)
+    session.add(stray_light_before2)
+    session.add(stray_light_after0)
+    session.add(stray_light_after1)
+    session.add(stray_light_after2)
+    session.add(mask_file0)
+    session.add(mask_file1)
+    session.add(mask_file2)
 
 db = create_mysql_fixture(Base, session_fn, session=True)
 
@@ -217,6 +345,11 @@ def test_level1_early_construct_flow_info(db, prefect_test_fixture):
     assert flow_info.flow_level == "1"
     assert flow_info.priority == 6
 
+    call_data = json.loads(flow_info.call_data)
+    assert call_data["quartic_coefficient_path"][-7:] == 'v1.fits'
+    assert call_data["vignetting_function_path"][-7:] == 'v1.fits'
+    assert call_data["mask_path"][-6:] == 'v1.bin'
+
 
 def test_level1_late_construct_flow_info(db, prefect_test_fixture):
     pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
@@ -238,6 +371,13 @@ def test_level1_late_construct_flow_info(db, prefect_test_fixture):
     assert flow_info.state == "planned"
     assert flow_info.flow_level == "1"
     assert flow_info.priority == 6
+
+    call_data = json.loads(flow_info.call_data)
+    assert call_data["psf_model_path"][-7:] == 'v1.fits'
+    assert call_data["stray_light_before_path"][-7:] == 'v1.fits'
+    assert call_data["stray_light_after_path"][-7:] == 'v1.fits'
+    assert call_data["distortion_path"][-7:] == 'v1.fits'
+    assert call_data["mask_path"][-6:] == 'v1.bin'
 
 
 def test_level1_early_scheduler_flow(db):
