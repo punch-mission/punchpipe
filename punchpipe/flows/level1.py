@@ -125,13 +125,15 @@ def get_two_best_stray_light(level0_file, session=None):
                     .filter(File.observatory == level0_file.observatory)
                     .filter(File.level == '1')
                     .filter(File.date_obs < level0_file.date_obs)
-                    .order_by(File.date_obs.desc()).first())
+                    .filter(File.file_version.not_like("v%")) #filters out "v0a".
+                    .order_by(File.file_version.desc(), File.date_obs.desc()).first())
     after_model = (session.query(File)
                    .filter(File.file_type == model_type)
                    .filter(File.observatory == level0_file.observatory)
                    .filter(File.level == '1')
                    .filter(File.date_obs > level0_file.date_obs)
-                   .order_by(File.date_obs.asc()).first())
+                   .filter(File.file_version.not_like("v%")) #filters out "v0a".
+                   .order_by(File.file_version.desc(), File.date_obs.asc()).first())
     if before_model is None or after_model is None:
         # We're waiting for the scheduler to fill in here and tell us what's what
         return None, None
