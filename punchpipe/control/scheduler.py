@@ -90,6 +90,8 @@ def generic_scheduler_flow_logic(
     logger.info(f"Got {len(ready_files)} groups of ready files")
     if ready_files:
         for parent_files in ready_files:
+            if not parent_files:
+                continue
             if isinstance(parent_files[0], int):
                 parent_files = session.query(File).where(File.file_id.in_(parent_files)).all()
             if update_input_file_state:
