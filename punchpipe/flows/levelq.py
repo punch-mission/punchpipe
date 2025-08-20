@@ -58,36 +58,18 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
     return [grouped_files]
 
 
-def get_outlier_limits_path(level1_file, pipeline_config: dict=None, session=None, reference_time=None):
-    corresponding_outlier_limits_type = {"QM": "LM",
-                                         "QZ": "LZ",
-                                         "QP": "LP",
-                                         "QR": "LR"}
-    outlier_limits_type = corresponding_outlier_limits_type[level1_file.file_type]
-    best_limits = (session.query(File)
-                     .filter(File.file_type == outlier_limits_type)
-                     .filter(File.observatory == level1_file.observatory)
-                     .where(File.date_obs <= level1_file.date_obs)
-                     .order_by(File.date_obs.desc(), File.file_version.desc()).first())
-    return best_limits
-
-
 @task(cache_policy=NO_CACHE)
 def levelq_CNN_construct_flow_info(level1_files: list[File], levelq_file: File, pipeline_config: dict, session=None, reference_time=None):
     flow_type = "levelq_CNN"
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
-    outlier_limits = get_outlier_limits_path(level1_files[0], session=session)
-    if outlier_limits is not None:
-        outlier_limits = outlier_limits.filename().replace('.fits', '.npz')
     call_data = json.dumps(
         {
             "data_list": [level1_file.filename() for level1_file in level1_files],
             # This date_obs is only used to find other files to fit the PCA to, if there aren't enough
             # to-be-subtracted images in the batch
             "date_obs": average_datetime([f.date_obs for f in level1_files]).strftime("%Y-%m-%d %H:%M:%S"),
-            "outlier_limits": outlier_limits,
         }
     )
     return Flow(
@@ -132,7 +114,7 @@ def levelq_CNN_scheduler_flow(pipeline_config_path=None, session=None, reference
 
 def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) -> dict:
     # Prepend the data root to each input file
-    for key in ['data_list', 'outlier_limits']:
+    for key in ['data_list']:
         if call_data[key] is not None:
             call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
 
