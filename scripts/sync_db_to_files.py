@@ -15,7 +15,7 @@ from punchpipe.control.util import get_database_session
 
 
 def read_new_file_metadata(file, path):
-    # Get the correct number of microsseconds from the FITS header
+    # Get the correct number of microseconds from the FITS header
     if file.file_type[0] in ['M', 'L']:
         return None, None, None
 
@@ -28,11 +28,13 @@ def read_new_file_metadata(file, path):
                 ms = ms + '0' * (6 - len(ms))
                 new_dateobs = file.date_obs.replace(microsecond=int(ms))
         if len(hdul) > 1 and 'DATE' in hdul[1].header:
-            p = hdul[1].header['DATE'].split('.')
+            date = hdul[1].header['DATE']
+            p = date.split('.')
             if len(p) == 2:
-                ms = p[1]
-                ms = ms + '0' * (6 - len(ms))
-                new_date_created = file.date_obs.replace(microsecond=int(ms))
+                new_date_created = datetime.strptime(date, "%Y-%m-%dT%H:%M:%S.%f")
+            elif date:
+                new_date_created = datetime.strptime(date, "%Y-%m-%dT%H:%M:%S")
+
         if len(hdul) > 1 and 'OUTLIER' in hdul[1].header:
             new_outlier = hdul[1].header['OUTLIER']
     return new_dateobs, new_date_created, new_outlier
