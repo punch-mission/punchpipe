@@ -29,18 +29,52 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
                                 .filter(File.level == "0")
                                 .order_by(File.date_obs.desc()).all())
 
+    quartic_models = get_quartic_model_paths(ready, pipeline_config, session)
+    vignetting_functions = get_vignetting_function_paths(ready, pipeline_config, session)
+    mask_files = get_mask_files(ready, pipeline_config, session)
     actually_ready = []
-    for f in ready:
-        if get_quartic_model_path(f, pipeline_config, session=session) is None:
+    for f, quartic_model, vignetting_function, mask_file in zip(
+            ready, quartic_models, vignetting_functions, mask_files):
+        if quartic_model is None:
             logger.info(f"Missing quartic model for {f.filename()}")
             continue
-        if get_vignetting_function_path(f, pipeline_config, session=session) is None:
+        if vignetting_function is None:
             logger.info(f"Missing vignetting function for {f.filename()}")
             continue
+        if mask_file is None:
+            logger.info(f"Missing mask file for {f.filename()}")
+            continue
+        # Smuggle the identified models out of this function
+        f.quartic_model = quartic_model
+        f.vignetting_function = vignetting_function
+        f.mask_file = mask_file
         actually_ready.append([f])
         if len(actually_ready) >= max_n:
             break
     return actually_ready
+
+
+def get_distortion_paths(level0_files, pipeline_config: dict, session=None):
+    # Get all models, in reverse-chronological order
+    models = (session.query(File)
+              .filter(File.file_type == 'DS')
+              .where(File.file_version.not_like("v%")) #filters out "v0a"
+              .order_by(File.file_version.desc(), File.date_obs.desc()).all())
+    results = []
+    for l0_file in level0_files:
+        # We want to pick the latest model that's before the observation, so we go backwards in time, past any
+        # later-in-time models, until we hit the first model that's before the observation.
+        for model in models:
+            if l0_file.observatory != model.observatory:
+                continue
+            if model.date_obs > l0_file.date_obs:
+                continue
+            results.append(model)
+            break
+        else:
+            results.append(None)
+    return results
+
 
 def get_distortion_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
     best_function = (session.query(File)
@@ -51,12 +85,40 @@ def get_distortion_path(level0_file, pipeline_config: dict, session=None, refere
                      .order_by(File.file_version.desc(), File.date_obs.desc()).first())
     return best_function
 
+
+VIGNETTING_CORRESPONDING_TYPES = {"PM": "GM",
+                                  "PZ": "GZ",
+                                  "PP": "GP",
+                                  "CR": "GR"}
+
+
+def get_vignetting_function_paths(level0_files, pipeline_config: dict, session=None):
+    # Get all models, in reverse-chronological order
+    models = (session.query(File)
+              .filter(File.file_type.in_(['GM', 'GZ', 'GP', 'GR']))
+              .where(File.file_version.not_like("v%")) #filters out "v0a".
+              .order_by(File.file_version.desc(), File.date_obs.desc()).all())
+    results = []
+    for l0_file in level0_files:
+        target_type = VIGNETTING_CORRESPONDING_TYPES[l0_file.file_type]
+        # We want to pick the latest model that's before the observation, so we go backwards in time, past any
+        # later-in-time models, until we hit the first model that's before the observation.
+        for model in models:
+            if l0_file.observatory != model.observatory:
+                continue
+            if target_type != model.file_type:
+                continue
+            if model.date_obs > l0_file.date_obs:
+                continue
+            results.append(model)
+            break
+        else:
+            results.append(None)
+    return results
+
+
 def get_vignetting_function_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
-    corresponding_vignetting_function_type = {"PM": "GM",
-                                              "PZ": "GZ",
-                                              "PP": "GP",
-                                              "CR": "GR"}
-    vignetting_function_type = corresponding_vignetting_function_type[level0_file.file_type]
+    vignetting_function_type = VIGNETTING_CORRESPONDING_TYPES[level0_file.file_type]
     best_function = (session.query(File)
                      .filter(File.file_type == vignetting_function_type)
                      .filter(File.observatory == level0_file.observatory)
@@ -66,16 +128,47 @@ def get_vignetting_function_path(level0_file, pipeline_config: dict, session=Non
     return best_function
 
 
+PSF_MODEL_CORRESPONDING_TYPES = {"PM": "RM",
+                                 "PZ": "RZ",
+                                 "PP": "RP",
+                                 "CR": "RC",
+                                 "XM": "RM",
+                                 "XZ": "RZ",
+                                 "XP": "RP",
+                                 "XR": "RC"}
+
+
+def get_psf_model_paths(level0_files, pipeline_config: dict, session=None):
+    # Get all models, in reverse-chronological order
+    models = (session.query(File)
+              .filter(File.file_type.startswith('R'))
+              .where(File.file_version.not_like("v%")) #filters out "v0a".
+              .order_by(File.file_version.desc(), File.date_obs.desc()).all())
+    results = []
+    for l0_file in level0_files:
+        # TODO - Turn this back on once fine tuned for NFI
+        if l0_file.observatory == "4":
+            results.append("")
+            continue
+        target_type = PSF_MODEL_CORRESPONDING_TYPES[l0_file.file_type]
+        # We want to pick the latest model that's before the observation, so we go backwards in time, past any
+        # later-in-time models, until we hit the first model that's before the observation.
+        for model in models:
+            if l0_file.observatory != model.observatory:
+                continue
+            if target_type != model.file_type:
+                continue
+            if model.date_obs > l0_file.date_obs:
+                continue
+            results.append(model.filename())
+            break
+        else:
+            results.append(None)
+    return results
+
+
 def get_psf_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None) -> str:
-    corresponding_psf_model_type = {"PM": "RM",
-                                    "PZ": "RZ",
-                                    "PP": "RP",
-                                    "CR": "RC",
-                                    "XM": "RM",
-                                    "XZ": "RZ",
-                                    "XP": "RP",
-                                    "XR": "RC"}
-    psf_model_type = corresponding_psf_model_type[level0_file.file_type]
+    psf_model_type = PSF_MODEL_CORRESPONDING_TYPES[level0_file.file_type]
     # TODO - Turn this back on once fine tuned for NFI
     if level0_file.observatory == "4":
         return ""
@@ -162,6 +255,28 @@ def get_two_best_stray_light(level0_file, session=None):
     return None, None
 
 
+def get_quartic_model_paths(level0_files, pipeline_config: dict, session=None):
+    # Get all models, in reverse-chronological order
+    models = (session.query(File)
+              .filter(File.file_type == 'FQ')
+              .where(File.file_version.not_like("v%")) #filters out "v0a".
+              .order_by(File.file_version.desc(), File.date_obs.desc()).all())
+    results = []
+    for l0_file in level0_files:
+        # We want to pick the latest model that's before the observation, so we go backwards in time, past any
+        # later-in-time models, until we hit the first model that's before the observation.
+        for model in models:
+            if l0_file.observatory != model.observatory:
+                continue
+            if model.date_obs > l0_file.date_obs:
+                continue
+            results.append(model)
+            break
+        else:
+            results.append(None)
+    return results
+
+
 def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None):
     best_model = (session.query(File)
                   .filter(File.file_type == 'FQ')
@@ -170,6 +285,28 @@ def get_quartic_model_path(level0_file, pipeline_config: dict, session=None, ref
                   .where(File.file_version.not_like("v%")) #filters out "v0a".
                   .order_by(File.file_version.desc(), File.date_obs.desc()).first())
     return best_model
+
+
+def get_mask_files(level0_files, pipeline_config: dict, session=None):
+    # Get all models, in reverse-chronological order
+    models = (session.query(File)
+              .filter(File.file_type == 'MS')
+              .where(File.file_version.not_like("v%")) #filters out "v0a".
+              .order_by(File.file_version.desc(), File.date_obs.desc()).all())
+    results = []
+    for l0_file in level0_files:
+        # We want to pick the latest model that's before the observation, so we go backwards in time, past any
+        # later-in-time models, until we hit the first model that's before the observation.
+        for model in models:
+            if l0_file.observatory != model.observatory:
+                continue
+            if model.date_obs > l0_file.date_obs:
+                continue
+            results.append(model)
+            break
+        else:
+            results.append(None)
+    return results
 
 
 def get_mask_file(level0_file, pipeline_config: dict, session=None, reference_time=None):
@@ -194,10 +331,10 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: lis
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
-    best_vignetting_function = get_vignetting_function_path(level0_files[0], pipeline_config, session=session)
-    best_quartic_model = get_quartic_model_path(level0_files[0], pipeline_config, session=session)
+    best_vignetting_function = level0_files[0].vignetting_function
+    best_quartic_model = level0_files[0].quartic_model
     ccd_parameters = get_ccd_parameters(level0_files[0], pipeline_config, session=session)
-    mask_function = get_mask_file(level0_files[0], pipeline_config, session=session)
+    mask_function = level0_files[0].mask_file
 
     call_data = json.dumps(
         {
@@ -285,20 +422,30 @@ def level1_late_query_ready_files(session, pipeline_config: dict, reference_time
              .filter(~child_exists_subquery)
              .order_by(File.date_obs.desc()).all())
 
+    distortion_paths = get_distortion_paths(ready, pipeline_config, session)
+    psf_paths = get_psf_model_paths(ready, pipeline_config, session)
     actually_ready = []
-    for f in ready:
-        if list(get_two_best_stray_light(f, session=session)) == [None, None]:
+    for f, distortion_path, psf_path in zip(ready, distortion_paths, psf_paths):
+        best_stray_light = list(get_two_best_stray_light(f, session=session))
+        if best_stray_light == [None, None]:
             logger.info(f"Waiting for stray light models for {f.filename()}")
             continue
-        if get_distortion_path(f, pipeline_config, session=session) is None:
+        if distortion_path is None:
             logger.info(f"Missing distortion function for {f.filename()}")
             continue
-        if get_psf_model_path(f, pipeline_config, session=session) is None:
+        if psf_path is None:
             logger.info(f"Missing PSF for {f.filename()}")
             continue
+        f.distortion_path = distortion_path
+        f.psf_path = psf_path
+        f.stray_light = best_stray_light
         actually_ready.append([f])
         if len(actually_ready) >= max_n:
             break
+    # It's easiest to batch-query here, where we have all the File objects in one list
+    masks = get_mask_files([f[0] for f in actually_ready], pipeline_config, session)
+    for f, mask in zip(actually_ready, masks):
+        f[0].mask_path = mask
     return actually_ready
 
 
@@ -309,10 +456,10 @@ def level1_late_construct_flow_info(input_files: list[File], output_files: list[
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
-    best_psf_model = get_psf_model_path(input_files[0], pipeline_config, session=session)
-    best_distortion = get_distortion_path(input_files[0], pipeline_config, session=session)
-    stray_light_before, stray_light_after = get_two_best_stray_light(input_files[0], session=session)
-    mask_function = get_mask_file(input_files[0], pipeline_config, session=session)
+    best_psf_model = input_files[0].psf_path
+    best_distortion = input_files[0].distortion_path
+    stray_light_before, stray_light_after = input_files[0].stray_light
+    mask_function = input_files[0].mask_path
 
     call_data = json.dumps(
         {
@@ -406,19 +553,29 @@ def level1_quick_query_ready_files(session, pipeline_config: dict, reference_tim
              .order_by(File.date_obs.desc()).all())
 
     actually_ready = []
-    for f in ready:
-        if list(get_two_closest_stray_light(f, session=session)) == [None, None]:
+    distortion_paths = get_distortion_paths(ready, pipeline_config, session)
+    psf_paths = get_psf_model_paths(ready, pipeline_config, session)
+    for f, distortion_path, psf_path in zip(ready, distortion_paths, psf_paths):
+        closest_stray_light = list(get_two_closest_stray_light(f, session=session))
+        if closest_stray_light == [None, None]:
             logger.info(f"Waiting for stray light models for {f.filename()}")
             continue
-        if get_distortion_path(f, pipeline_config, session=session) is None:
+        if distortion_path is None:
             logger.info(f"Missing distortion function for {f.filename()}")
             continue
-        if get_psf_model_path(f, pipeline_config, session=session) is None:
+        if psf_path is None:
             logger.info(f"Missing PSF for {f.filename()}")
             continue
+        f.distortion_path = distortion_path
+        f.psf_path = psf_path
+        f.stray_light = closest_stray_light
         actually_ready.append([f])
         if len(actually_ready) >= max_n:
             break
+    # It's easiest to batch-query here, where we have all the File objects in one list
+    masks = get_mask_files([f[0] for f in actually_ready], pipeline_config, session)
+    for f, mask in zip(actually_ready, masks):
+        f[0].mask_path = mask
     return actually_ready
 
 
@@ -429,10 +586,10 @@ def level1_quick_construct_flow_info(input_files: list[File], output_files: list
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
-    best_psf_model = get_psf_model_path(input_files[0], pipeline_config, session=session)
-    best_distortion = get_distortion_path(input_files[0], pipeline_config, session=session)
-    stray_light_before, stray_light_after = get_two_closest_stray_light(input_files[0], session=session)
-    mask_function = get_mask_file(input_files[0], pipeline_config, session=session)
+    best_psf_model = input_files[0].psf_path
+    best_distortion = input_files[0].distortion_path
+    stray_light_before, stray_light_after = input_files[0].stray_light
+    mask_function = input_files[0].mask_path
 
     call_data = json.dumps(
         {
