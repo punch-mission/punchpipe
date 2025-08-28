@@ -19,7 +19,8 @@ def cleaner(pipeline_config_path: str, session=None):
         session = get_database_session()
 
     reset_revivable_flows(logger, session, pipeline_config)
-    fail_flows_stuck_as_launched(logger, session, pipeline_config)
+    fail_stuck_flows(logger, session, pipeline_config, "launched")
+    fail_stuck_flows(logger, session, pipeline_config, "running")
 
 
 @task(cache_policy=NO_CACHE)
@@ -87,13 +88,13 @@ def reset_revivable_flows(logger, session, pipeline_config):
 
 
 @task(cache_policy=NO_CACHE)
-def fail_flows_stuck_as_launched(logger, session, pipeline_config):
-    amount_of_patience = pipeline_config['control']['cleaner'].get('fail_launched_flows_after_minutes', -1)
+def fail_stuck_flows(logger, session, pipeline_config, state):
+    amount_of_patience = pipeline_config['control']['cleaner'].get(f'fail_{state}_flows_after_minutes', -1)
     if amount_of_patience < 0:
         return
 
     stucks = (session.query(Flow)
-              .where(Flow.state == 'launched')
+              .where(Flow.state == state)
               .where(Flow.launch_time < datetime.now() - timedelta(minutes=amount_of_patience))
               ).all()
 
@@ -102,4 +103,4 @@ def fail_flows_stuck_as_launched(logger, session, pipeline_config):
             stuck.state = 'failed'
         session.commit()
 
-        logger.info(f"Failed {len(stucks)} flows that have been in a 'launched' state for {amount_of_patience} minutes")
+        logger.info(f"Failed {len(stucks)} flows that have been in a '{state}' state for {amount_of_patience} minutes")
