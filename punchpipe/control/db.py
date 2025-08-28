@@ -90,6 +90,9 @@ class FileRelationship(Base):
     parent = Column(Integer, nullable=False)
     child = Column(Integer, nullable=False)
 
+Index("relationship_parent_index", FileRelationship.parent, mysql_using="hash", mariadb_using="hash")
+Index("relationship_child_index", FileRelationship.child, mysql_using="hash", mariadb_using="hash")
+
 class TLMFiles(Base):
     __tablename__ = "tlm_files"
     tlm_id = Column(Integer, primary_key=True)
