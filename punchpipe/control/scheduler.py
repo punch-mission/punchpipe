@@ -88,39 +88,48 @@ def generic_scheduler_flow_logic(
     ready_files = query_ready_files_func(
         session, pipeline_config, reference_time=reference_time, **extra_args, **args_dictionary)[:max_start]
     logger.info(f"Got {len(ready_files)} groups of ready files")
-    if ready_files:
-        for parent_files in ready_files:
-            if not parent_files:
-                continue
-            if isinstance(parent_files[0], int):
-                parent_files = session.query(File).where(File.file_id.in_(parent_files)).all()
-            if update_input_file_state:
-                # mark the file as progressed so that there aren't duplicate processing flows
-                for file in parent_files:
-                    file.state = new_input_file_state
 
-            # prepare the new level flow and file
-            with session.no_autoflush:
-                children_files = construct_child_file_info(parent_files, pipeline_config, reference_time=reference_time,
-                                                           **args_dictionary)
-                database_flow_info = construct_child_flow_info(parent_files, children_files,
-                                                               pipeline_config, session=session,
-                                                               reference_time=reference_time, **args_dictionary)
-            for child_file in children_files:
-                session.add(child_file)
-            session.add(database_flow_info)
-            session.commit()
+    all_children_files = []
+    all_flows = []
+    for parent_files in ready_files:
+        if not parent_files:
+            continue
+        if isinstance(parent_files[0], int):
+            # Update the list in-place for the second "half" of this loop, down below
+            parent_files[:] = session.query(File).where(File.file_id.in_(parent_files)).all()
+        if update_input_file_state:
+            # mark the file as progressed so that there aren't duplicate processing flows
+            for file in parent_files:
+                file.state = new_input_file_state
 
-            # set the processing flow now that we know the flow_id after committing the flow info
-            for child_file in children_files:
-                child_file.processing_flow = database_flow_info.flow_id
+        # prepare the new level flow and file
+        with session.no_autoflush:
+            children_files = construct_child_file_info(parent_files, pipeline_config, reference_time=reference_time,
+                                                       **args_dictionary)
+            database_flow_info = construct_child_flow_info(parent_files, children_files,
+                                                           pipeline_config, session=session,
+                                                           reference_time=reference_time, **args_dictionary)
+        for child_file in children_files:
+            session.add(child_file)
+        session.add(database_flow_info)
 
-            # create a file relationship between the prior and next levels
-            if children_are_one_to_one:
-                iterable = zip(parent_files, children_files)
-            else:
-                iterable = itertools.product(parent_files, children_files)
-            for parent_file, child_file in iterable:
-                session.add(FileRelationship(parent=parent_file.file_id, child=child_file.file_id))
-        session.commit()
+        all_children_files.append(children_files)
+        all_flows.append(database_flow_info)
+
+    session.commit()
+
+    for parent_files, children_files, database_flow_info in zip(ready_files, all_children_files, all_flows):
+        # set the processing flow now that we know the flow_id after committing the flow info
+        for child_file in children_files:
+            child_file.processing_flow = database_flow_info.flow_id
+
+        # create a file relationship between the prior and next levels
+        if children_are_one_to_one:
+            iterable = zip(parent_files, children_files)
+        else:
+            iterable = itertools.product(parent_files, children_files)
+        for parent_file, child_file in iterable:
+            session.add(FileRelationship(parent=parent_file.file_id, child=child_file.file_id))
+
+    session.commit()
     return len(ready_files)
