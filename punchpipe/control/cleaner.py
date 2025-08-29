@@ -20,7 +20,7 @@ from punchpipe.control.util import get_database_session, load_pipeline_configura
 
 
 @flow
-def cleaner(pipeline_config_path: str, session=None):
+async def cleaner(pipeline_config_path: str, session=None):
     logger = get_run_logger()
 
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
