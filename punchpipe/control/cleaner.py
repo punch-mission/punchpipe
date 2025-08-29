@@ -33,7 +33,7 @@ async def cleaner(pipeline_config_path: str, session=None):
     fail_stuck_flows(logger, session, pipeline_config, "launched", update_prefect=False)
 
     # running flows are both in Prefect and in our punchpipe database, so we have to cancel them both places
-    fail_stuck_flows(logger, session, pipeline_config, "running", update_prefect=True)
+    await fail_stuck_flows(logger, session, pipeline_config, "running", update_prefect=True)
 
 @task(cache_policy=NO_CACHE)
 def reset_revivable_flows(logger, session, pipeline_config):
@@ -159,7 +159,7 @@ async def cancel_running_prefect_flows_before_cutoff(
         logger.info(f"Prefect deletion complete. Total deleted: {deleted_total}")
 
 @task(cache_policy=NO_CACHE)
-def fail_stuck_flows(logger, session, pipeline_config, state, update_prefect=False):
+async def fail_stuck_flows(logger, session, pipeline_config, state, update_prefect=False):
     amount_of_patience = pipeline_config['control']['cleaner'].get(f'fail_{state}_flows_after_minutes', -1)
     if amount_of_patience < 0:
         return
@@ -181,4 +181,4 @@ def fail_stuck_flows(logger, session, pipeline_config, state, update_prefect=Fal
     # we clean the prefect database even if our database returned no stucks because they might have somehow gotten
     # out of sync. we want to clean that up too
     if update_prefect:
-        cancel_running_prefect_flows_before_cutoff(cutoff)
+        await cancel_running_prefect_flows_before_cutoff(cutoff)
