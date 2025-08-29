@@ -1,18 +1,17 @@
 import os
 import sys
-import multiprocessing
-from collections import defaultdict
-from datetime import datetime
-from glob import glob
 import hashlib
+import multiprocessing
+from glob import glob
+from datetime import datetime
+from collections import defaultdict
 
-from prefect_sqlalchemy import SqlAlchemyConnector
-from sqlalchemy.orm import Session
-from tqdm import tqdm
 from astropy.io import fits
 from dateutil.parser import parse as parse_datetime_str
-
+from prefect_sqlalchemy import SqlAlchemyConnector
 from punchbowl.limits import LimitSet
+from sqlalchemy.orm import Session
+from tqdm import tqdm
 
 from punchpipe.control.db import File
 

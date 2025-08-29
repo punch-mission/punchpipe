@@ -1,15 +1,15 @@
-import argparse
 import os
-from dataclasses import dataclass
 import pickle
-from collections import defaultdict
+import argparse
 from datetime import datetime
+from collections import defaultdict
+from dataclasses import dataclass
 
-from tqdm import tqdm
-from sqlalchemy.orm import aliased
 from dateutil.parser import parse as parse_datetime_str
+from sqlalchemy.orm import aliased
+from tqdm import tqdm
 
-from punchpipe.control.db import File, Flow, FileRelationship
+from punchpipe.control.db import File, FileRelationship, Flow
 from punchpipe.control.util import get_database_session
 
 
