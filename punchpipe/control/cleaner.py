@@ -1,9 +1,18 @@
 import os
+import asyncio
 from pathlib import Path
 from datetime import datetime, timedelta
 
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
+from prefect.client.orchestration import get_client
+from prefect.client.schemas.filters import (
+    FlowRunFilter,
+    FlowRunFilterStartTime,
+    FlowRunFilterState,
+    FlowRunFilterStateType,
+)
+from prefect.client.schemas.objects import StateType
 from sqlalchemy.orm import aliased
 
 from punchpipe.control.db import File, FileRelationship, Flow
@@ -19,9 +28,12 @@ def cleaner(pipeline_config_path: str, session=None):
         session = get_database_session()
 
     reset_revivable_flows(logger, session, pipeline_config)
-    fail_stuck_flows(logger, session, pipeline_config, "launched")
-    fail_stuck_flows(logger, session, pipeline_config, "running")
 
+    # because flows in the launched state aren't running in Prefect yet, we don't update them there
+    fail_stuck_flows(logger, session, pipeline_config, "launched", update_prefect=False)
+
+    # running flows are both in Prefect and in our punchpipe database, so we have to cancel them both places
+    fail_stuck_flows(logger, session, pipeline_config, "running", update_prefect=True)
 
 @task(cache_policy=NO_CACHE)
 def reset_revivable_flows(logger, session, pipeline_config):
@@ -88,19 +100,81 @@ def reset_revivable_flows(logger, session, pipeline_config):
 
 
 @task(cache_policy=NO_CACHE)
-def fail_stuck_flows(logger, session, pipeline_config, state):
+async def cancel_running_prefect_flows_before_cutoff(
+        cutoff: datetime,
+        batch_size: int = 100
+):
+    """Cancels flows that started running before a cutoff time."""
+    logger = get_run_logger()
+
+    async with get_client() as client:
+        flow_run_filter = FlowRunFilter(
+            start_time=FlowRunFilterStartTime(before_=cutoff),
+            state=FlowRunFilterState(
+                type=FlowRunFilterStateType(
+                    any_=[StateType.RUNNING]
+                )
+            )
+        )
+
+        # Get flow runs to delete
+        flow_runs = await client.read_flow_runs(
+            flow_run_filter=flow_run_filter,
+            limit=batch_size
+        )
+
+        deleted_total = 0
+
+        while flow_runs:
+            batch_deleted = 0
+            failed_deletes = []
+
+            # Delete each flow run through the API
+            for flow_run in flow_runs:
+                try:
+                    await client.delete_flow_run(flow_run.id)
+                    deleted_total += 1
+                    batch_deleted += 1
+                except Exception as e:
+                    logger.warning(f"Failed to delete flow run {flow_run.id}: {e}")
+                    failed_deletes.append(flow_run.id)
+
+                # Rate limiting - adjust based on your API capacity
+                if batch_deleted % 10 == 0:
+                    await asyncio.sleep(0.5)
+
+            logger.info(f"Deleted {batch_deleted}/{len(flow_runs)} flow runs (total: {deleted_total})")
+            if failed_deletes:
+                logger.warning(f"Failed to delete {len(failed_deletes)} flow runs")
+
+            # Get next batch
+            flow_runs = await client.read_flow_runs(
+                flow_run_filter=flow_run_filter,
+                limit=batch_size
+            )
+
+            # Delay between batches to avoid overwhelming the API
+            await asyncio.sleep(1.0)
+
+        logger.info(f"Prefect deletion complete. Total deleted: {deleted_total}")
+
+@task(cache_policy=NO_CACHE)
+def fail_stuck_flows(logger, session, pipeline_config, state, update_prefect=False):
     amount_of_patience = pipeline_config['control']['cleaner'].get(f'fail_{state}_flows_after_minutes', -1)
     if amount_of_patience < 0:
         return
 
+    cutoff = datetime.now() - timedelta(minutes=amount_of_patience)
     stucks = (session.query(Flow)
               .where(Flow.state == state)
-              .where(Flow.launch_time < datetime.now() - timedelta(minutes=amount_of_patience))
+              .where(Flow.launch_time < cutoff)
               ).all()
 
     if len(stucks):
         for stuck in stucks:
             stuck.state = 'failed'
         session.commit()
+        if update_prefect:
+            cancel_running_prefect_flows_before_cutoff(cutoff)
 
         logger.info(f"Failed {len(stucks)} flows that have been in a '{state}' state for {amount_of_patience} minutes")
