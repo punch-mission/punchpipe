@@ -90,6 +90,8 @@ def generic_scheduler_flow_logic(
     logger.info(f"Got {len(ready_files)} groups of ready files")
     if ready_files:
         for parent_files in ready_files:
+            if not parent_files:
+                continue
             if isinstance(parent_files[0], int):
                 parent_files = session.query(File).where(File.file_id.in_(parent_files)).all()
             if update_input_file_state:
@@ -98,10 +100,12 @@ def generic_scheduler_flow_logic(
                     file.state = new_input_file_state
 
             # prepare the new level flow and file
-            children_files = construct_child_file_info(parent_files, pipeline_config, reference_time=reference_time, **args_dictionary)
-            database_flow_info = construct_child_flow_info(parent_files, children_files,
-                                                           pipeline_config, session=session,
-                                                           reference_time=reference_time, **args_dictionary)
+            with session.no_autoflush:
+                children_files = construct_child_file_info(parent_files, pipeline_config, reference_time=reference_time,
+                                                           **args_dictionary)
+                database_flow_info = construct_child_flow_info(parent_files, children_files,
+                                                               pipeline_config, session=session,
+                                                               reference_time=reference_time, **args_dictionary)
             for child_file in children_files:
                 session.add(child_file)
             session.add(database_flow_info)

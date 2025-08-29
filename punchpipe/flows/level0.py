@@ -855,7 +855,8 @@ def form_single_image_caller(args):
     return form_single_image(*args)
 
 
-def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, spacecraft_secrets, outlier_limits):
+def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, spacecraft_secrets, outlier_limits,
+                      processing_flow_id):
     session = Session(engine)
 
     replay_needs = []
@@ -1019,7 +1020,8 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                                date_obs=parse_datetime_str(fits_info['DATE-OBS']),
                                date_beg=parse_datetime_str(fits_info['DATE-BEG']),
                                date_end=parse_datetime_str(fits_info['DATE-END']),
-                               state="created")
+                               state="created",
+                               processing_flow=processing_flow_id)
 
             # finally, time to write to file
             out_path = os.path.join(l0_db_entry.directory(pipeline_config['root']),
@@ -1053,7 +1055,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
     return replay_needs, not skip_image
 
 @flow
-def level0_form_images(pipeline_config, defs, apid_name2num, outlier_limits, session, logger):
+def level0_form_images(pipeline_config, defs, apid_name2num, outlier_limits, session, logger, processing_flow_id):
     spacecraft_secrets = SpacecraftMapping.load("spacecraft-ids").mapping.get_secret_value()
 
     now = datetime.now(UTC)
@@ -1077,7 +1079,8 @@ def level0_form_images(pipeline_config, defs, apid_name2num, outlier_limits, ses
                           .distinct()
                           .all())
         for t in distinct_times:
-            image_inputs.append((spacecraft[0], t[0], defs, apid_name2num, pipeline_config, spacecraft_secrets, outlier_limits))
+            image_inputs.append((spacecraft[0], t[0], defs, apid_name2num, pipeline_config, spacecraft_secrets,
+                                 outlier_limits, processing_flow_id))
     logger.info(f"Got {len(image_inputs)} images to try forming")
 
     try:
@@ -1134,7 +1137,8 @@ def level0_form_images(pipeline_config, defs, apid_name2num, outlier_limits, ses
     session.close()
 
 @flow(log_prints=True)
-def level0_core_flow(pipeline_config: dict, skip_if_no_new_tlm: bool = True, limit_files: list[str] = None):
+def level0_core_flow(pipeline_config: dict, skip_if_no_new_tlm: bool = True, limit_files: list[str] = None,
+                     processing_flow_id=None):
     logger = get_run_logger()
     session = Session(engine)
 
@@ -1173,7 +1177,7 @@ def level0_core_flow(pipeline_config: dict, skip_if_no_new_tlm: bool = True, lim
         with multiprocessing.get_context('spawn').Pool(num_workers, initializer=initializer) as pool:
             pool.starmap(ingest_tlm_file, tlm_ingest_inputs)
 
-        level0_form_images(pipeline_config, defs, apid_name2num, outlier_limits, session, logger)
+        level0_form_images(pipeline_config, defs, apid_name2num, outlier_limits, session, logger, processing_flow_id)
     session.close()
 
 def get_outlier_limits_paths(session, reference_time):
@@ -1269,7 +1273,7 @@ def level0_process_flow(flow_id: int, pipeline_config_path=None , session=None):
     flow_call_data["limit_files"] = file_name_to_full_path(flow_call_data["limit_files"], pipeline_config['root'])
 
     try:
-        level0_core_flow(**flow_call_data)
+        level0_core_flow(**flow_call_data, processing_flow_id=flow_db_entry.flow_id)
     except Exception as e:
         flow_db_entry.state = "failed"
         flow_db_entry.end_time = datetime.now(UTC)
