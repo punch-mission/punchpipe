@@ -174,7 +174,11 @@ def fail_stuck_flows(logger, session, pipeline_config, state, update_prefect=Fal
         for stuck in stucks:
             stuck.state = 'failed'
         session.commit()
-        if update_prefect:
-            cancel_running_prefect_flows_before_cutoff(cutoff)
+        logger.info(f"Failed {len(stucks)} flows that have been "
+                    f"in a '{state}' state for {amount_of_patience} minutes from punchpipe database")
 
-        logger.info(f"Failed {len(stucks)} flows that have been in a '{state}' state for {amount_of_patience} minutes")
+
+    # we clean the prefect database even if our database returned no stucks because they might have somehow gotten
+    # out of sync. we want to clean that up too
+    if update_prefect:
+        cancel_running_prefect_flows_before_cutoff(cutoff)
