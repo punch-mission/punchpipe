@@ -1,4 +1,5 @@
 import os
+import asyncio
 from datetime import datetime, timedelta
 
 import pytest
@@ -10,6 +11,8 @@ from pytest_mock_resources import create_mysql_fixture
 from punchpipe.control.cleaner import cleaner
 from punchpipe.control.db import Base, File, FileRelationship, Flow
 from punchpipe.control.util import load_pipeline_configuration
+
+loop: asyncio.AbstractEventLoop
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -185,8 +188,9 @@ def populated_tmpdir_config(tmpdir, db):
         yaml.dump(config, f)
     return new_config
 
-
-def test_reset_L1(db, tmpdir, populated_tmpdir_config):
+@pytest.mark.asyncio(loop_scope="module")
+async def test_reset_L1(db, tmpdir, populated_tmpdir_config):
+    global loop
     l1s = db.query(File).filter(File.level == "1").all()
     reset_file = l1s[1]
     reset_file_path = os.path.join(reset_file.directory(tmpdir), reset_file.filename())
@@ -206,7 +210,7 @@ def test_reset_L1(db, tmpdir, populated_tmpdir_config):
     other_file_paths = [os.path.join(f.directory(tmpdir), f.filename()) for f in other_files]
 
     with disable_run_logger():
-        cleaner.fn(populated_tmpdir_config, session=db)
+        await cleaner.fn(populated_tmpdir_config, session=db)
 
     remaining_files = db.query(File).filter(File.file_id != reset_file.file_id).all()
     remaining_flows = db.query(Flow).filter(Flow.flow_id != reset_flow.flow_id).all()
@@ -228,8 +232,10 @@ def test_reset_L1(db, tmpdir, populated_tmpdir_config):
     relationships = db.query(FileRelationship).filter(FileRelationship.child == reset_file.file_id).all()
     assert len(relationships) == 0
 
+@pytest.mark.asyncio(loop_scope="module")
+async def test_reset_LQ(db, tmpdir, populated_tmpdir_config):
+    global loop
 
-def test_reset_LQ(db, tmpdir, populated_tmpdir_config):
     lqs = db.query(File).filter(File.level == "Q").all()
     reset_file = lqs[0]
     reset_file_path = os.path.join(reset_file.directory(tmpdir), reset_file.filename())
@@ -251,7 +257,7 @@ def test_reset_LQ(db, tmpdir, populated_tmpdir_config):
     other_file_paths = [os.path.join(f.directory(tmpdir), f.filename()) for f in other_files]
 
     with disable_run_logger():
-        cleaner.fn(populated_tmpdir_config, session=db)
+        await cleaner.fn(populated_tmpdir_config, session=db)
 
     remaining_files = db.query(File).filter(File.file_id != reset_file.file_id).all()
     remaining_flows = db.query(Flow).filter(Flow.flow_id != reset_flow.flow_id).all()
@@ -273,8 +279,8 @@ def test_reset_LQ(db, tmpdir, populated_tmpdir_config):
     relationships = db.query(FileRelationship).filter(FileRelationship.child == reset_file.file_id).all()
     assert len(relationships) == 0
 
-
-def test_reset_L2(db, tmpdir, populated_tmpdir_config):
+@pytest.mark.asyncio(loop_scope="module")
+async def test_reset_L2(db, tmpdir, populated_tmpdir_config):
     l2s = db.query(File).filter(File.level == "2").all()
     reset_file = l2s[0]
     reset_file_path = os.path.join(reset_file.directory(tmpdir), reset_file.filename())
@@ -296,7 +302,7 @@ def test_reset_L2(db, tmpdir, populated_tmpdir_config):
     other_file_paths = [os.path.join(f.directory(tmpdir), f.filename()) for f in other_files]
 
     with disable_run_logger():
-        cleaner.fn(populated_tmpdir_config, session=db)
+        await cleaner.fn(populated_tmpdir_config, session=db)
 
     remaining_files = db.query(File).filter(File.file_id != reset_file.file_id).all()
     remaining_flows = db.query(Flow).filter(Flow.flow_id != reset_flow.flow_id).all()
