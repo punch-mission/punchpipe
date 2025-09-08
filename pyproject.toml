@@ -29,7 +29,7 @@ dependencies = [
     "numpy-quaternion",
     "hypothesis==6.131.18",
     "coverage==7.8.0",
-    "pytest-cov==6.1.1",
+    "pytest-cov==6.3.0",
     "dash-player==1.1.0",
     "astrometry==4.3.0",
 ]
