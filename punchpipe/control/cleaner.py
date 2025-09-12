@@ -173,7 +173,7 @@ async def fail_stuck_flows(logger, session, pipeline_config, state, update_prefe
 
     if len(stucks):
         for stuck in stucks:
-            stuck.state = 'failed'
+            stuck.state = 'timed_out'
             logger.info(f"Timing out flow {stuck.flow_id} {stuck.flow_run_name}")
         session.commit()
         logger.info(f"Failed {len(stucks)} flows that have been "
