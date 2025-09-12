@@ -1,5 +1,6 @@
 import os
 import asyncio
+import subprocess
 from pathlib import Path
 from datetime import datetime, timedelta
 
@@ -123,30 +124,31 @@ async def cancel_running_prefect_flows_before_cutoff(
             limit=batch_size
         )
 
-        deleted_total = 0
+        if not flow_runs:
+            logger.info("No flows to delete")
+            return
 
+        flow_runs_to_delete = []
         while flow_runs:
-            batch_deleted = 0
-            failed_deletes = []
-
             # Delete each flow run through the API
-            for flow_run in flow_runs:
-                try:
-                    logger.info(f"Deleting {flow_run.name} from Prefect")
-                    await client.delete_flow_run(flow_run.id)
-                    deleted_total += 1
-                    batch_deleted += 1
-                except Exception as e:
-                    logger.warning(f"Failed to delete flow run {flow_run.id}: {e}")
-                    failed_deletes.append(flow_run.id)
+            for i, flow_run in enumerate(flow_runs):
+                # First we send a cancel signal. If the underlying is process actually is still running, we don't
+                # want to leave it running unmonitored. (Ideally we wouldn't be cancelling it at all, but failing
+                # that, this is the next best thing.) There doesn't appear to be a way to cancel flows from the
+                # python client, so we have to roll up our sleeves. There also doesn't appear to be a way to get the
+                # PID of the underlying flow so we can kill it ourselves.
 
+                logger.info(f"Cancelling flow {flow_run.name}")
+                subprocess.run(["prefect", "flow-run", "cancel", str(flow_run.id)])
+                flow_runs_to_delete.append(flow_run)
                 # Rate limiting - adjust based on your API capacity
-                if batch_deleted % 10 == 0:
+                if i % 10 == 0:
                     await asyncio.sleep(0.5)
 
-            logger.info(f"Deleted {batch_deleted}/{len(flow_runs)} flow runs (total: {deleted_total})")
-            if failed_deletes:
-                logger.warning(f"Failed to delete {len(failed_deletes)} flow runs")
+            logger.info(f"Cancelled a batch of {len(flow_runs)} flow runs (total: {len(flow_runs_to_delete)})")
+
+            # Delay between batches to avoid overwhelming the API
+            await asyncio.sleep(1.0)
 
             # Get next batch
             flow_runs = await client.read_flow_runs(
@@ -154,10 +156,33 @@ async def cancel_running_prefect_flows_before_cutoff(
                 limit=batch_size
             )
 
-            # Delay between batches to avoid overwhelming the API
-            await asyncio.sleep(1.0)
+        # Give time for Prefect to kill the processes
+        logger.info("Giving time for cancellations to happen...")
+        await asyncio.sleep(30)
 
-        logger.info(f"Prefect deletion complete. Total deleted: {deleted_total}")
+        # *Now* we can delete them. If they cancelled properly there's probably no need, but anecdotally if you try
+        # to cancel a flow when the underlying process isn't there (e.g. if you restarted the pipeline, and this
+        # flow is from before the restart), the cancellation never completes, and we need to make sure concurrency slots
+        # get freed.
+        deleted_total = 0
+        failed_deletes = []
+        for i, flow_run in enumerate(flow_runs_to_delete):
+            try:
+                logger.info(f"Deleting {flow_run.name} from Prefect")
+                await client.delete_flow_run(flow_run.id)
+                deleted_total += 1
+            except Exception as e:
+                logger.warning(f"Failed to delete flow run {flow_run.id}: {e}")
+                failed_deletes.append(flow_run.id)
+
+            # Rate limiting - adjust based on your API capacity
+            if i % 10 == 0:
+                await asyncio.sleep(0.5)
+
+        logger.info(f"Deleted {deleted_total}/{len(flow_runs_to_delete)} flow runs")
+        if failed_deletes:
+            logger.warning(f"Failed to delete {len(failed_deletes)} flow runs")
+
 
 @task(cache_policy=NO_CACHE)
 async def fail_stuck_flows(logger, session, pipeline_config, state, update_prefect=False):
