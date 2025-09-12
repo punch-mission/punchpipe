@@ -175,6 +175,9 @@ async def fail_stuck_flows(logger, session, pipeline_config, state, update_prefe
         for stuck in stucks:
             stuck.state = 'timed_out'
             logger.info(f"Timing out flow {stuck.flow_id} {stuck.flow_run_name}")
+        # Mark the output files as timed_out
+        session.query(File).where(File.processing_flow.in_([s.flow_id for s in stucks])).update({'state': 'timed_out'})
+
         session.commit()
         logger.info(f"Failed {len(stucks)} flows that have been "
                     f"in a '{state}' state for {amount_of_patience} minutes from punchpipe database")
