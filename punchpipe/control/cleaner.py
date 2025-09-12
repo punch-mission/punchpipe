@@ -132,6 +132,7 @@ async def cancel_running_prefect_flows_before_cutoff(
             # Delete each flow run through the API
             for flow_run in flow_runs:
                 try:
+                    logger.info(f"Deleting {flow_run.name} from Prefect")
                     await client.delete_flow_run(flow_run.id)
                     deleted_total += 1
                     batch_deleted += 1
@@ -173,6 +174,7 @@ async def fail_stuck_flows(logger, session, pipeline_config, state, update_prefe
     if len(stucks):
         for stuck in stucks:
             stuck.state = 'failed'
+            logger.info(f"Timing out flow {stuck.flow_id} {stuck.flow_run_name}")
         session.commit()
         logger.info(f"Failed {len(stucks)} flows that have been "
                     f"in a '{state}' state for {amount_of_patience} minutes from punchpipe database")
