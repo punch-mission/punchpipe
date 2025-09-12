@@ -337,6 +337,10 @@ def test_level1_early_construct_flow_info(db, prefect_test_fixture):
                        file_version='none',
                        software_version='none',
                        date_obs=datetime.now(UTC))]
+    level0_file[0].quartic_model = level0_file[0]
+    level0_file[0].vignetting_function = level0_file[0]
+    level0_file[0].mask_file = level0_file[0]
+
     level1_file = level1_early_construct_file_info(level0_file, pipeline_config)
     flow_info = level1_early_construct_flow_info(level0_file, level1_file, pipeline_config, session=db)
 
@@ -344,11 +348,6 @@ def test_level1_early_construct_flow_info(db, prefect_test_fixture):
     assert flow_info.state == "planned"
     assert flow_info.flow_level == "1"
     assert flow_info.priority == 6
-
-    call_data = json.loads(flow_info.call_data)
-    assert call_data["quartic_coefficient_path"][-7:] == 'v1.fits'
-    assert call_data["vignetting_function_path"][-7:] == 'v1.fits'
-    assert call_data["mask_path"][-6:] == 'v1.bin'
 
 
 def test_level1_late_construct_flow_info(db, prefect_test_fixture):
@@ -362,9 +361,13 @@ def test_level1_late_construct_flow_info(db, prefect_test_fixture):
                        file_version='none',
                        software_version='none',
                        date_obs=datetime.now(UTC))]
+
+    level0_file[0].psf_path = ""
+    level0_file[0].distortion_path = level0_file[0]
+    level0_file[0].stray_light = level0_file[0], level0_file[0]
+    level0_file[0].mask_path = level0_file[0]
+
     level1_file = level1_late_construct_file_info(level0_file, pipeline_config)
-    print(pipeline_config)
-    print(pipeline_config['flows'])
     flow_info = level1_late_construct_flow_info(level0_file, level1_file, pipeline_config, session=db)
 
     assert flow_info.flow_type == 'level1_late'
@@ -372,12 +375,6 @@ def test_level1_late_construct_flow_info(db, prefect_test_fixture):
     assert flow_info.flow_level == "1"
     assert flow_info.priority == 6
 
-    call_data = json.loads(flow_info.call_data)
-    assert call_data["psf_model_path"][-7:] == 'v1.fits'
-    assert call_data["stray_light_before_path"][-7:] == 'v1.fits'
-    assert call_data["stray_light_after_path"][-7:] == 'v1.fits'
-    assert call_data["distortion_path"][-7:] == 'v1.fits'
-    assert call_data["mask_path"][-6:] == 'v1.bin'
 
 
 def test_level1_early_scheduler_flow(db):
@@ -387,6 +384,12 @@ def test_level1_early_scheduler_flow(db):
     results = db.query(Flow).where(Flow.state == 'planned').all()
     assert len(results) == 1
 
+    call_data = json.loads(results[0].call_data)
+    assert call_data["quartic_coefficient_path"][-7:] == 'v1.fits'
+    assert call_data["vignetting_function_path"][-7:] == 'v1.fits'
+    assert call_data["mask_path"][-6:] == 'v1.bin'
+
+
 
 def test_level1_late_scheduler_flow(db):
     pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
@@ -394,6 +397,13 @@ def test_level1_late_scheduler_flow(db):
         level1_late_scheduler_flow(pipeline_config_path, db)
     results = db.query(Flow).where(Flow.state == 'planned').all()
     assert len(results) == 1
+
+    call_data = json.loads(results[0].call_data)
+    assert call_data["psf_model_path"][-7:] == 'v1.fits'
+    assert call_data["stray_light_before_path"][-7:] == 'v1.fits'
+    assert call_data["stray_light_after_path"][-7:] == 'v1.fits'
+    assert call_data["distortion_path"][-7:] == 'v1.fits'
+    assert call_data["mask_path"][-6:] == 'v1.bin'
 
 
 def test_level1_process_flow(db):
