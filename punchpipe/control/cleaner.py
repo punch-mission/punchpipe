@@ -181,4 +181,7 @@ async def fail_stuck_flows(logger, session, pipeline_config, state, update_prefe
     # we clean the prefect database even if our database returned no stucks because they might have somehow gotten
     # out of sync. we want to clean that up too
     if update_prefect:
+        # The postgres database has timezone-aware timestamps
+        local_timezone = datetime.now().astimezone().tzinfo
+        cutoff = cutoff.replace(tzinfo=local_timezone)
         await cancel_running_prefect_flows_before_cutoff(cutoff)
