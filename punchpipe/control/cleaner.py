@@ -31,7 +31,7 @@ async def cleaner(pipeline_config_path: str, session=None):
     reset_revivable_flows(logger, session, pipeline_config)
 
     # because flows in the launched state aren't running in Prefect yet, we don't update them there
-    fail_stuck_flows(logger, session, pipeline_config, "launched", update_prefect=False)
+    await fail_stuck_flows(logger, session, pipeline_config, "launched", update_prefect=False)
 
     # running flows are both in Prefect and in our punchpipe database, so we have to cancel them both places
     await fail_stuck_flows(logger, session, pipeline_config, "running", update_prefect=True)
