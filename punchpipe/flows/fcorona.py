@@ -14,7 +14,7 @@ from punchpipe.flows.util import file_name_to_full_path
 
 
 @task
-def f_corona_background_query_ready_files(session, pipeline_config: dict, reference_time: datetime, use_n: int = 50):
+def f_corona_background_query_ready_files(session, pipeline_config: dict, reference_time: datetime, use_n: int = 250):
     before = reference_time - timedelta(weeks=2)
     after = reference_time + timedelta(weeks=2)
 
@@ -24,9 +24,9 @@ def f_corona_background_query_ready_files(session, pipeline_config: dict, refere
                        .filter(File.date_obs >= before)
                        .filter(File.date_obs <= after)
                        .filter(File.level == "2")
-                       .filter(File.file_type == "PT")
+                       .filter(File.file_type == "CT")
                        .filter(File.observatory == "M").all())
-    logger.info(f"{len(all_ready_files)} Level 2 PTM files will be used for F corona background modeling.")
+    logger.info(f"{len(all_ready_files)} Level 2 CTM files will be used for F corona background modeling.")
     if len(all_ready_files) > 30:  #  need at least 30 images
         random.shuffle(all_ready_files)
         return [[f.file_id for f in all_ready_files[:use_n]]]
@@ -65,7 +65,7 @@ def construct_f_corona_background_file_info(level2_files: t.List[File], pipeline
                                             reference_time: datetime) -> t.List[File]:
     return [File(
                 level="3",
-                file_type="PF",
+                file_type="CF",
                 observatory="M",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
