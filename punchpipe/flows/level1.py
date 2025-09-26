@@ -200,7 +200,7 @@ def get_two_closest_stray_light(level0_file, session=None, max_distance: timedel
                   .filter(File.file_version.not_like("v%"))) #filters out "v0a".
     if max_distance:
         best_models = best_models.filter(dt < max_distance.total_seconds())
-    highest_version = best_models.order_by(File.file_version).first().file_version
+    highest_version = best_models.order_by(File.file_version).first()[0].file_version
     best_models = best_models.filter(File.file_version == highest_version).order_by(dt.asc()).limit(2).all()
     if len(best_models) < 2:
         return None, None
@@ -539,6 +539,7 @@ def level1_quick_query_ready_files(session, pipeline_config: dict, reference_tim
     logger = get_run_logger()
     parent = aliased(File)
     child = aliased(File)
+    no_earlier_than = pipeline_config["flows"]["level1_quick"].get("no-earlier-than", "1970-01-01")
     child_exists_subquery = (session.query(parent)
                              .join(FileRelationship, FileRelationship.parent == parent.file_id)
                              .join(child, FileRelationship.child == child.file_id)
@@ -549,6 +550,7 @@ def level1_quick_query_ready_files(session, pipeline_config: dict, reference_tim
              .filter(File.file_type.in_(SCIENCE_LEVEL1_QUICK_INPUT_TYPE_CODES))
              .filter(File.level == "1")
              .filter(File.state.in_(["created", "progressed"]))
+             .filter(File.date_obs >= no_earlier_than)
              .filter(~child_exists_subquery)
              .order_by(File.date_obs.desc()).all())
 
