@@ -200,7 +200,7 @@ def get_two_closest_stray_light(level0_file, session=None, max_distance: timedel
                   .filter(File.file_version.not_like("v%"))) #filters out "v0a".
     if max_distance:
         best_models = best_models.filter(dt < max_distance.total_seconds())
-    highest_version = best_models.order_by(File.file_version).first().file_version
+    highest_version = best_models.order_by(File.file_version).first()[0].file_version
     best_models = best_models.filter(File.file_version == highest_version).order_by(dt.asc()).limit(2).all()
     if len(best_models) < 2:
         return None, None
