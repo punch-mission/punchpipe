@@ -62,6 +62,8 @@ def construct_f_corona_background_flow_info(level3_files: list[File],
                                             level3_f_model_file: File,
                                             pipeline_config: dict,
                                             reference_time: datetime,
+                                            file_type: str,
+                                            spacecraft: str,
                                             session=None
                                             ):
     flow_type = "construct_f_corona_background"
@@ -86,7 +88,8 @@ def construct_f_corona_background_flow_info(level3_files: list[File],
 
 @task
 def construct_f_corona_background_file_info(level2_files: t.List[File], pipeline_config: dict,
-                                            reference_time: datetime) -> t.List[File]:
+                                            reference_time: datetime, file_type: str,
+                                    spacecraft: str,) -> t.List[File]:
     date_obses = [f.date_obs for f in level2_files]
 
     return [File(

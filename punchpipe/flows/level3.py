@@ -435,7 +435,7 @@ def level3_CTM_construct_flow_info(level2_files: list[File], level3_file: File,
 
 
 @task
-def level3_CTM_construct_file_info(level2_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
+def level3_CTM_construct_file_info(level2_files: t.List[File], pipeline_config: dict, reference_time=None, ) -> t.List[File]:
     return [File(
                 level="3",
                 file_type="CT",
