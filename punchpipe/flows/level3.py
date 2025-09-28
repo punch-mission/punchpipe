@@ -357,7 +357,7 @@ def level3_CIM_process_flow(flow_id: int, pipeline_config_path=None, session=Non
 @task
 def level3_CTM_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
-    all_ready_files = session.query(File).where(and_(and_(File.state.in_(["progressed", "created"]),
+    all_ready_files = session.query(File).where(and_(and_(File.state.in_(["created"]),
                                                           File.level == "2"),
                                                      File.file_type == "CT")).order_by(File.date_obs.asc()).all()
     logger.info(f"{len(all_ready_files)} Level 2 CTM files need to be processed.")
