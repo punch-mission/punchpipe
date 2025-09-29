@@ -253,17 +253,17 @@ def level3_CIM_query_ready_files(session, pipeline_config: dict, reference_time=
     all_ready_files = session.query(File).where(and_(and_(File.state == "created",
                                                           File.level == "2"),
                                                      File.file_type == "CT")).order_by(File.date_obs.asc()).all()
-    logger.info(f"{len(all_ready_files)} Level 3 CTM files need to be processed.")
+    logger.info(f"{len(all_ready_files)} Level 2 CTM files need to be processed.")
 
     actually_ready_files = []
     for f in all_ready_files:
         valid_before_fcorona_models = get_valid_fcorona_models(session, f,
-                                                               before_timedelta=timedelta(days=90),
+                                                               before_timedelta=timedelta(days=14),
                                                                after_timedelta=timedelta(days=0),
                                                                file_type="CF")
         valid_after_fcorona_models = get_valid_fcorona_models(session, f,
                                                               before_timedelta=timedelta(days=0),
-                                                              after_timedelta=timedelta(days=90),
+                                                              after_timedelta=timedelta(days=14),
                                                               file_type="CF")
         logger.info(f"valid before f corona: {valid_before_fcorona_models}")
         logger.info(f"valid after f corona: {valid_after_fcorona_models}")
