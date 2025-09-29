@@ -51,7 +51,7 @@ def f_corona_background_query_ready_files(session, pipeline_config: dict, refere
     if enough_L2s:
         all_ready_files = first_half_inputs + second_half_inputs
 
-        logger.info(f"{len(all_ready_files)} Level 1 {target_file_type}{reference_file.observatory} files will be used "
+        logger.info(f"{len(all_ready_files)} Level 2 {target_file_type}{reference_file.observatory} files will be used "
                      "for F corona estimation.")
         return [f.file_id for f in all_ready_files]
     else:
