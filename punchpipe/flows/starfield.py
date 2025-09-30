@@ -24,7 +24,7 @@ def starfield_background_query_ready_files(session, pipeline_config: dict,
     t_start = reference_time - timedelta(hours=max_hours_per_half)
     t_end = reference_time + timedelta(hours=max_hours_per_half)
 
-    target_mapping = {"PT": "PI", "CT": "CI"}
+    target_mapping = {"PS": "PI", "CS": "CI"}
     target_file_type = target_mapping[reference_file.file_type]
 
     base_query = (session.query(File)
