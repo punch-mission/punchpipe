@@ -119,7 +119,7 @@ def level3_PTM_call_data_processor(call_data: dict, pipeline_config, session=Non
 
 
 @flow
-def level3_PTM_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+def level3_PTM_process_flow(flow_id: int | list[int], pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, level3_core_flow, pipeline_config_path, session=session,
                                call_data_processor=level3_PTM_call_data_processor)
 
@@ -226,7 +226,7 @@ def level3_PIM_call_data_processor(call_data: dict, pipeline_config, session=Non
 
 
 @flow
-def level3_PIM_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+def level3_PIM_process_flow(flow_id: int | list[int], pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, level3_PIM_flow, pipeline_config_path, session=session,
                                call_data_processor=level3_PIM_call_data_processor)
 
@@ -336,7 +336,7 @@ def level3_CIM_call_data_processor(call_data: dict, pipeline_config, session=Non
 
 
 @flow
-def level3_CIM_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+def level3_CIM_process_flow(flow_id: int | list[int], pipeline_config_path=None, session=None):
     # NOTE: this is not a typo... we're using the PIM core flow for this because it's flexible
     generic_process_flow_logic(flow_id, level3_PIM_flow, pipeline_config_path, session=session,
                                call_data_processor=level3_CIM_call_data_processor)
@@ -431,6 +431,6 @@ def level3_CTM_call_data_processor(call_data: dict, pipeline_config, session=Non
 
 
 @flow
-def level3_CTM_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+def level3_CTM_process_flow(flow_id: int | list[int], pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, level3_core_flow, pipeline_config_path, session=session,
                                call_data_processor=level3_CTM_call_data_processor)

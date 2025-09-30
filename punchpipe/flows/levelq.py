@@ -147,7 +147,7 @@ def levelq_CNN_call_data_processor(call_data: dict, pipeline_config, session) ->
 
 
 @flow
-def levelq_CNN_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+def levelq_CNN_process_flow(flow_id: int | list[int], pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, levelq_CNN_core_flow, pipeline_config_path, session=session,
                                call_data_processor=levelq_CNN_call_data_processor)
 
@@ -275,7 +275,7 @@ def levelq_CTM_call_data_processor(call_data: dict, pipeline_config, session=Non
 
 
 @flow
-def levelq_CTM_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+def levelq_CTM_process_flow(flow_id: int | list[int], pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, levelq_CTM_core_flow, pipeline_config_path, session=session,
                                call_data_processor=levelq_CTM_call_data_processor)
 
@@ -470,7 +470,7 @@ def levelq_CFM_call_data_processor(call_data: dict, pipeline_config, session=Non
     return call_data
 
 @flow
-def levelq_CFM_process_flow(flow_id, pipeline_config_path=None, session=None):
+def levelq_CFM_process_flow(flow_id: int | list[int], pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, partial(construct_qp_f_corona_model, product_code="CFM"),
                                pipeline_config_path, session=session,
                                call_data_processor=levelq_CFM_call_data_processor)
@@ -555,7 +555,7 @@ def levelq_CFN_call_data_processor(call_data: dict, pipeline_config, session=Non
     return call_data
 
 @flow
-def levelq_CFN_process_flow(flow_id, pipeline_config_path=None, session=None):
+def levelq_CFN_process_flow(flow_id: int | list[int], pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, partial(construct_qp_f_corona_model, product_code="CFN"),
                                pipeline_config_path, session=session,
                                call_data_processor=levelq_CFN_call_data_processor)
