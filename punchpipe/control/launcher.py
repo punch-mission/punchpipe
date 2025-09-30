@@ -17,7 +17,7 @@ from punchpipe.control.util import batched, get_database_session, load_pipeline_
 
 
 @task(cache_policy=NO_CACHE)
-def gather_planned_flows(session, weight_to_launch, max_flows_to_launch, flow_weights, flow_enabled):
+def gather_planned_flows(session, weight_to_launch, max_flows_to_launch, flow_weights, flow_enabled, flow_batch_sizes):
     # We'll have to grab a bunch of possible flows to launch from the DB, and then on our end apply the weights and the
     # maximum-weight limit. But we can use the smallest weight to set an upper bound on how many launchable flows to
     # retrieve.
@@ -30,13 +30,15 @@ def gather_planned_flows(session, weight_to_launch, max_flows_to_launch, flow_we
                    .limit(max_to_select).all())
     selected_flows = []
     selected_weight = 0
+    selected_number = 0
     count_per_type = defaultdict(lambda: 0)
-    while selected_weight < weight_to_launch and len(selected_flows) < max_flows_to_launch and len(flows):
+    while selected_weight < weight_to_launch and selected_number < max_flows_to_launch and len(flows):
         flow = flows.pop(0)
         if not flow_enabled[flow.flow_type]:
             continue
         selected_flows.append(flow)
         selected_weight += flow_weights[flow.flow_type]
+        selected_number += 1 / flow_batch_sizes[flow.flow_type]
         count_per_type[flow.flow_type] += 1
 
     select_flow_ids = [flow.flow_id for flow in selected_flows]
@@ -49,7 +51,22 @@ def gather_planned_flows(session, weight_to_launch, max_flows_to_launch, flow_we
                 tags.add(output_file.file_type + output_file.observatory)
         tags_by_flow[flow.flow_id] = sorted(tags)
 
-    return [f.flow_id for f in selected_flows], tags_by_flow, selected_weight, count_per_type
+    number_of_flows = len(selected_flows)
+    batched_flows = []
+    for flow_type, batch_size in flow_batch_sizes.items():
+        if batch_size <= 1:
+            continue
+        these_flows, other_flows = [], []
+        for flow in selected_flows:
+            if flow.flow_type == flow_type:
+                these_flows.append(flow)
+            else:
+                other_flows.append(flow)
+        batched_flows.extend(batched(these_flows, batch_size))
+        selected_flows = other_flows
+    selected_flows = [[f] for f in selected_flows] + batched_flows
+
+    return selected_flows, tags_by_flow, selected_weight, number_of_flows, count_per_type
 
 
 @task(cache_policy=NO_CACHE)
@@ -104,7 +121,7 @@ def determine_launchable_flow_count(weight_planned, weight_running, max_weight_r
 
 
 @task(cache_policy=NO_CACHE)
-async def launch_ready_flows(session: Session, flow_ids: List[int], tags_by_flow: List[List[str]], pipeline_config: dict) -> None:
+async def launch_ready_flows(session: Session, flow_info: List[List[Flow]], tags_by_flow: dict[int, str], pipeline_config: dict) -> None:
     """Given a list of ready-to-launch flow_ids, this task creates flow runs in Prefect for them.
     These flow runs are automatically marked as scheduled in Prefect and will be picked up by a work queue and
     agent as soon as possible.
@@ -113,18 +130,17 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], tags_by_flow
     ----------
     session : sqlalchemy.orm.session.Session
         A SQLAlchemy session for database interactions
-    flow_ids : List[int]
+    flow_info : List[int]
         A list of flow IDs from the punchpipe database identifying which flows to launch
 
     Returns
     -------
     A list of responses from Prefect about the flow runs that were created
     """
-    if not len(flow_ids):
+    if not len(flow_info):
         return
     logger = get_run_logger()
     # gather the flow information for launching
-    flow_info = session.query(Flow).where(Flow.flow_id.in_(flow_ids)).all()
 
     # If we don't shuffle, flows will be sorted by priority which may implicitly be a sort by flow type. This could
     # mean we launch all the quick flows at once and then later all the slow flows at once, but we'll get better
@@ -145,37 +161,50 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], tags_by_flow
         total_delay_time = 35 - datetime.now().second
         total_delay_time = max(0, total_delay_time)
         total_delay_time += (pipeline_config['control']['launcher']['launch_time_window_minutes'] - 1) * 60
-        # Launch a batch every 10 seconds through this window
-        n_batches = total_delay_time // 10
-        n_batches = max(n_batches, 1)
-        batch_size = ceil(len(flow_info) / n_batches)
+        # Launch a chunk every 10 seconds through this window
+        n_chunks = total_delay_time // 10
+        n_chunks = max(n_chunks, 1)
+        chunk_size = ceil(len(flow_info) / n_chunks)
         logger.info(f"Total delay time: {total_delay_time}")
-        if batch_size >= len(flow_info):
+        if chunk_size >= len(flow_info):
             delay_time = 0
         else:
-            delay_time = total_delay_time / (n_batches - 1)
+            delay_time = total_delay_time / (n_chunks - 1)
         awaitables = []
         responses = []
-        all_batches = list(batched(flow_info, batch_size))
-        for batch_number, batch in enumerate(all_batches):
+        all_chunks = list(batched(flow_info, chunk_size))
+        for chunk_number, chunk in enumerate(all_chunks):
             start = datetime.now().timestamp()
 
-            for flow in batch:
-                flow.state = "launched"
-                flow.launch_time = datetime.now()
+            for batch in chunk:
+                for flow in batch:
+                    flow.state = "launched"
+                    flow.launch_time = datetime.now()
             session.commit()
 
-            # Launch the batch
-            for this_flow in batch:
-                this_deployment_id = deployment_ids[this_flow.flow_type + "_process_flow"]
+            # Launch the chunk
+            n_actual_flows = 0
+            for batch in chunk:
+                flow_ids = [flow.flow_id for flow in batch]
+                flow_types = set(flow.flow_type for flow in batch)
+                assert len(flow_types) == 1
+                unique_tags = set()
+                for flow in batch:
+                    unique_tags.update(tags_by_flow[flow.flow_id])
+                unique_tags = list(unique_tags)
+                if len(flow_ids) > 1:
+                    unique_tags.append("batch")
+                this_deployment_id = deployment_ids[batch[0].flow_type + "_process_flow"]
+                parameters = {"flow_id": flow_ids[0] if len(flow_ids) == 1 else flow_ids}
                 awaitables.append(client.create_flow_run_from_deployment(
-                    this_deployment_id, parameters={"flow_id": this_flow.flow_id},
-                    tags=tags_by_flow[this_flow.flow_id])
+                    this_deployment_id, parameters=parameters, tags=unique_tags)
                 )
+                n_actual_flows += len(flow_ids)
 
             responses.extend(await asyncio.gather(*awaitables))
             awaitables = []
-            logger.info(f"Batch {batch_number}/{len(all_batches)} sent, containing {len(batch)} flows")
+            logger.info(f"Chunk {chunk_number}/{len(all_chunks)} sent, containing {n_actual_flows} flows "
+                        f"in {len(chunk)} batches")
             if delay_time:
                 # Stagger the launches
                 await asyncio.sleep(delay_time - (datetime.now().timestamp() - start))
@@ -185,10 +214,17 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], tags_by_flow
         bad_responses = [r for r in responses if r not in ok_responses]
 
         if len(bad_responses):
+            bad_flow_ids = []
+            for r in bad_responses:
+                flow_id = r.parameters['flow_id']
+                if isinstance(flow_id, list):
+                    bad_flow_ids.extend(flow_id)
+                else:
+                    bad_flow_ids.append(flow_id)
             session.execute(
                 update(Flow)
                 .where(Flow.state == 'launched')
-                .where(Flow.flow_id.in_([r.parameters['flow_id'] for r in bad_responses]))
+                .where(Flow.flow_id.in_(bad_flow_ids))
                 .values(state='planned')
             )
             session.commit()
@@ -196,13 +232,15 @@ async def launch_ready_flows(session: Session, flow_ids: List[int], tags_by_flow
                 logger.warning(f"Got bad response {repr(r)}")
 
 
-def load_flow_weights(pipeline_config):
+def load_flow_data(pipeline_config):
     flow_weights = dict()
     flow_enabled = dict()
+    flow_batch_size = dict()
     for flow_type in pipeline_config["flows"]:
         flow_enabled[flow_type] = pipeline_config["flows"][flow_type].get("enabled", True)
         flow_weights[flow_type] = pipeline_config["flows"][flow_type].get("launch_weight", 1)
-    return flow_weights, flow_enabled
+        flow_batch_size[flow_type] = pipeline_config["flows"][flow_type].get("batch_size", 1)
+    return flow_weights, flow_enabled, flow_batch_size
 
 
 @flow
@@ -221,7 +259,7 @@ async def launcher(pipeline_config_path=None):
     if pipeline_config_path is None:
         pipeline_config_path = await Variable.get("punchpipe_config", "punchpipe_config.yaml")
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
-    flow_weights, flow_enabled = load_flow_weights(pipeline_config)
+    flow_weights, flow_enabled, flow_batch_sizes = load_flow_data(pipeline_config)
     logger.info(f"Enabled flows: {', '.join([flow for flow, enabled in flow_enabled.items() if enabled])}")
 
     logger.info("Establishing database connection")
@@ -239,9 +277,10 @@ async def launcher(pipeline_config_path=None):
     weight_to_launch, max_flows_to_launch = determine_launchable_flow_count(
         weight_planned, weight_running, max_weight_running, max_weight_to_launch, max_flows_to_launch)
 
-    flows_to_launch, tags_by_flow, selected_weight, counts_per_type = gather_planned_flows(
-        session, weight_to_launch, max_flows_to_launch, flow_weights, flow_enabled)
-    logger.info(f"{len(flows_to_launch)} flows (weight {selected_weight:.2f}) with IDs of {flows_to_launch} will be launched.")
+    flows_to_launch, tags_by_flow, selected_weight, number_of_flows, counts_per_type = gather_planned_flows(
+        session, weight_to_launch, max_flows_to_launch, flow_weights, flow_enabled, flow_batch_sizes)
+    ids = [[flow.flow_id for flow in batch] for batch in flows_to_launch]
+    logger.info(f"{number_of_flows} flows (weight {selected_weight:.2f}) with IDs of {ids} will be launched.")
     counts = [f"{counts_per_type[type]} {type}" for type in sorted(counts_per_type.keys())]
     if len(counts):
         logger.info("This consists of " + ", ".join(counts))

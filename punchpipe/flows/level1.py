@@ -399,7 +399,7 @@ def level1_early_call_data_processor(call_data: dict, pipeline_config, session=N
 
 
 @flow
-def level1_early_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+def level1_early_process_flow(flow_id: int | list[int], pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, level1_early_core_flow, pipeline_config_path, session=session,
                                call_data_processor=level1_early_call_data_processor)
 
@@ -529,7 +529,7 @@ def level1_late_call_data_processor(call_data: dict, pipeline_config, session=No
 
 
 @flow
-def level1_late_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+def level1_late_process_flow(flow_id: int | list[int], pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, level1_late_core_flow, pipeline_config_path, session=session,
                                call_data_processor=level1_late_call_data_processor)
 
@@ -660,6 +660,6 @@ def level1_quick_call_data_processor(call_data: dict, pipeline_config, session=N
 
 
 @flow
-def level1_quick_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+def level1_quick_process_flow(flow_id: int | list[int], pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, level1_late_core_flow, pipeline_config_path, session=session,
                                call_data_processor=level1_quick_call_data_processor)

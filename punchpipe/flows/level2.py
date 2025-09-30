@@ -290,12 +290,12 @@ def level2_call_data_processor(call_data: dict, pipeline_config, session=None) -
     return call_data
 
 @flow
-def level2_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+def level2_process_flow(flow_id: int | list[int], pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, level2_core_flow, pipeline_config_path, session=session,
                                call_data_processor=level2_call_data_processor)
 
 
 @flow
-def level2_clear_process_flow(flow_id: int, pipeline_config_path=None, session=None):
+def level2_clear_process_flow(flow_id: int | list[int], pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, level2_core_flow, pipeline_config_path, session=session,
                                call_data_processor=level2_call_data_processor)
