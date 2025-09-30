@@ -30,6 +30,9 @@ def generic_process_flow_logic(flow_id: int | list[int], core_flow_to_launch, pi
         pipeline_config = load_pipeline_configuration(pipeline_config_path)
 
         flow_db_entries = session.query(Flow).where(Flow.flow_id.in_(flow_ids)).all()
+        if len(flow_db_entries) != len(flow_ids):
+            raise RuntimeError("Did not find the right number of flows")
+
         file_db_entry_lists = []
 
         for flow_db_entry in flow_db_entries:
@@ -102,6 +105,7 @@ def generic_process_flow_logic(flow_id: int | list[int], core_flow_to_launch, pi
         session.query(Flow).filter(Flow.flow_id.in_(flow_ids)).update(
             {"state": "failed",
              "end_time": datetime.now()})
+        session.commit()
         session.query(File).filter(File.processing_flow.in_(flow_ids)).update(
             {"state": "failed"})
         session.commit()
