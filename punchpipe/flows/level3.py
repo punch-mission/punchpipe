@@ -42,19 +42,9 @@ def level3_PTM_query_ready_files(session, pipeline_config: dict, reference_time=
     actually_ready_files = []
     for f in all_ready_files:
         # TODO put magic numbers in config
-        valid_starfields = get_valid_starfields(session, f, timedelta_window=timedelta(days=90))
+        valid_starfields = get_valid_starfields(session, f, timedelta_window=timedelta(days=14))
 
-        # TODO put magic numbers in config
-        valid_before_fcorona_models = get_valid_fcorona_models(session, f,
-                                                               before_timedelta=timedelta(days=90),
-                                                               after_timedelta=timedelta(days=0))
-        valid_after_fcorona_models = get_valid_fcorona_models(session, f,
-                                                               before_timedelta=timedelta(days=0),
-                                                               after_timedelta=timedelta(days=90))
-
-        if (len(valid_before_fcorona_models) >= 1
-                and len(valid_after_fcorona_models) >= 1
-                and len(valid_starfields) >= 1):
+        if len(valid_starfields) >= 1:
             actually_ready_files.append(f)
             if len(actually_ready_files) >= max_n:
                 break
@@ -73,27 +63,13 @@ def level3_PTM_construct_flow_info(level2_files: list[File], level3_file: File,
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
-    f_corona_before = get_closest_before_file(level2_files[0],
-                                              get_valid_fcorona_models(session,
-                                                                       level2_files[0],
-                                                                       before_timedelta=timedelta(days=90),
-                                                                       after_timedelta=timedelta(days=0)))
-    f_corona_after = get_closest_after_file(level2_files[0],
-                                            get_valid_fcorona_models(session,
-                                                                     level2_files[0],
-                                                                     before_timedelta=timedelta(days=0),
-                                                                     after_timedelta=timedelta(days=90)))
     starfield = get_closest_file(level2_files[0],
                                  get_valid_starfields(session,
                                                       level2_files[0],
-                                                      timedelta_window=timedelta(days=90)))
+                                                      timedelta_window=timedelta(days=14)))
     call_data = json.dumps(
         {
             "data_list": [level2_file.filename() for level2_file in level2_files],
-            # TODO put magic numbers in config
-            "before_f_corona_model_path": f_corona_before.filename(),
-            "after_f_corona_model_path": f_corona_after.filename(),
-            # TODO put magic numbers in config
             "starfield_background_path": starfield.filename(),
         }
     )
@@ -109,6 +85,8 @@ def level3_PTM_construct_flow_info(level2_files: list[File], level3_file: File,
 
 @task
 def level3_PTM_construct_file_info(level2_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
+    date_obses = [f.date_obs for f in level2_files]
+
     return [File(
                 level="3",
                 file_type="PT",
@@ -117,6 +95,8 @@ def level3_PTM_construct_file_info(level2_files: t.List[File], pipeline_config: 
                 software_version=__version__,
                 date_obs=level2_files[0].date_obs,
                 state="planned",
+                date_beg=min(date_obses),
+                date_end=max(date_obses),
             )]
 
 
@@ -155,11 +135,11 @@ def level3_PIM_query_ready_files(session, pipeline_config: dict, reference_time=
     actually_ready_files = []
     for f in all_ready_files:
         valid_before_fcorona_models = get_valid_fcorona_models(session, f,
-                                                               before_timedelta=timedelta(days=90),
+                                                               before_timedelta=timedelta(days=14),
                                                                after_timedelta=timedelta(days=0))
         valid_after_fcorona_models = get_valid_fcorona_models(session, f,
                                                                before_timedelta=timedelta(days=0),
-                                                               after_timedelta=timedelta(days=90))
+                                                               after_timedelta=timedelta(days=14))
         logger.info(f"valid before f corona: {valid_before_fcorona_models}")
         logger.info(f"valid after f corona: {valid_after_fcorona_models}")
         if len(valid_before_fcorona_models) >= 1 and len(valid_after_fcorona_models) >= 1:
@@ -210,6 +190,8 @@ def level3_PIM_construct_flow_info(level2_files: list[File], level3_file: File, 
 
 @task
 def level3_PIM_construct_file_info(level2_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
+    date_obses = [f.date_obs for f in level2_files]
+
     return [File(
                 level="3",
                 file_type="PI",
@@ -218,6 +200,8 @@ def level3_PIM_construct_file_info(level2_files: t.List[File], pipeline_config: 
                 software_version=__version__,
                 date_obs=level2_files[0].date_obs,
                 state="planned",
+                date_beg=min(date_obses),
+                date_end=max(date_obses),
             )]
 
 
@@ -253,17 +237,17 @@ def level3_CIM_query_ready_files(session, pipeline_config: dict, reference_time=
     all_ready_files = session.query(File).where(and_(and_(File.state == "created",
                                                           File.level == "2"),
                                                      File.file_type == "CT")).order_by(File.date_obs.asc()).all()
-    logger.info(f"{len(all_ready_files)} Level 3 CTM files need to be processed.")
+    logger.info(f"{len(all_ready_files)} Level 2 CTM files need to be processed.")
 
     actually_ready_files = []
     for f in all_ready_files:
         valid_before_fcorona_models = get_valid_fcorona_models(session, f,
-                                                               before_timedelta=timedelta(days=90),
+                                                               before_timedelta=timedelta(days=14),
                                                                after_timedelta=timedelta(days=0),
                                                                file_type="CF")
         valid_after_fcorona_models = get_valid_fcorona_models(session, f,
                                                               before_timedelta=timedelta(days=0),
-                                                              after_timedelta=timedelta(days=90),
+                                                              after_timedelta=timedelta(days=14),
                                                               file_type="CF")
         logger.info(f"valid before f corona: {valid_before_fcorona_models}")
         logger.info(f"valid after f corona: {valid_after_fcorona_models}")
@@ -316,6 +300,8 @@ def level3_CIM_construct_flow_info(level2_files: list[File], level3_file: File, 
 
 @task
 def level3_CIM_construct_file_info(level2_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
+    date_obses = [f.date_obs for f in level2_files]
+
     return [File(
                 level="3",
                 file_type="CI",
@@ -324,6 +310,8 @@ def level3_CIM_construct_file_info(level2_files: t.List[File], pipeline_config: 
                 software_version=__version__,
                 date_obs=level2_files[0].date_obs,
                 state="planned",
+                date_beg=min(date_obses),
+                date_end=max(date_obses),
             )]
 
 
@@ -357,33 +345,21 @@ def level3_CIM_process_flow(flow_id: int, pipeline_config_path=None, session=Non
 @task
 def level3_CTM_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
-    all_ready_files = session.query(File).where(and_(and_(File.state.in_(["progressed", "created"]),
-                                                          File.level == "2"),
-                                                     File.file_type == "CT")).order_by(File.date_obs.asc()).all()
-    logger.info(f"{len(all_ready_files)} Level 2 CTM files need to be processed.")
+    all_ready_files = session.query(File).where(and_(and_(File.state.in_(["created"]),
+                                                          File.level == "3"),
+                                                     File.file_type == "CI")).order_by(File.date_obs.asc()).all()
+    logger.info(f"{len(all_ready_files)} Level 3 CIM files need to be processed.")
 
     actually_ready_files = []
     for f in all_ready_files:
-        # TODO put magic numbers in config
-        valid_starfields = get_valid_starfields(session, f, timedelta_window=timedelta(days=90), file_type="CS")
+        # # TODO put magic numbers in config
+        valid_starfields = get_valid_starfields(session, f, timedelta_window=timedelta(days=14), file_type="CS")
 
-        # TODO put magic numbers in config
-        valid_before_fcorona_models = get_valid_fcorona_models(session, f,
-                                                               before_timedelta=timedelta(days=90),
-                                                               after_timedelta=timedelta(days=0),
-                                                               file_type="CF")
-        valid_after_fcorona_models = get_valid_fcorona_models(session, f,
-                                                               before_timedelta=timedelta(days=0),
-                                                               after_timedelta=timedelta(days=90),
-                                                               file_type="CF")
-
-        if (len(valid_before_fcorona_models) >= 1
-                and len(valid_after_fcorona_models) >= 1
-                and len(valid_starfields) >= 1):
+        if len(valid_starfields) >= 1:
             actually_ready_files.append(f)
             if len(actually_ready_files) >= max_n:
                 break
-    logger.info(f"{len(actually_ready_files)} Level 2 CTM files selected with necessary calibration data.")
+    logger.info(f"{len(actually_ready_files)} Level 3 CIM files selected with necessary calibration data.")
 
     return [[f.file_id] for f in actually_ready_files]
 
@@ -398,18 +374,6 @@ def level3_CTM_construct_flow_info(level2_files: list[File], level3_file: File,
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
-    f_corona_before = get_closest_before_file(level2_files[0],
-                                              get_valid_fcorona_models(session,
-                                                                       level2_files[0],
-                                                                       before_timedelta=timedelta(days=90),
-                                                                       after_timedelta=timedelta(days=0),
-                                                                       file_type="CF"))
-    f_corona_after = get_closest_after_file(level2_files[0],
-                                            get_valid_fcorona_models(session,
-                                                                     level2_files[0],
-                                                                     before_timedelta=timedelta(days=0),
-                                                                     after_timedelta=timedelta(days=90),
-                                                                     file_type="CF"))
     starfield = get_closest_file(level2_files[0],
                                  get_valid_starfields(session,
                                                       level2_files[0],
@@ -418,10 +382,6 @@ def level3_CTM_construct_flow_info(level2_files: list[File], level3_file: File,
     call_data = json.dumps(
         {
             "data_list": [level2_file.filename() for level2_file in level2_files],
-            # TODO put magic numbers in config
-            "before_f_corona_model_path": f_corona_before.filename(),
-            "after_f_corona_model_path": f_corona_after.filename(),
-            # TODO put magic numbers in config
             "starfield_background_path": starfield.filename(),
         }
     )
@@ -436,7 +396,9 @@ def level3_CTM_construct_flow_info(level2_files: list[File], level3_file: File,
 
 
 @task
-def level3_CTM_construct_file_info(level2_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
+def level3_CTM_construct_file_info(level2_files: t.List[File], pipeline_config: dict, reference_time=None, ) -> t.List[File]:
+    date_obses = [f.date_obs for f in level2_files]
+
     return [File(
                 level="3",
                 file_type="CT",
@@ -445,6 +407,8 @@ def level3_CTM_construct_file_info(level2_files: t.List[File], pipeline_config: 
                 software_version=__version__,
                 date_obs=level2_files[0].date_obs,
                 state="planned",
+                date_beg=min(date_obses),
+                date_end=max(date_obses),
             )]
 
 
@@ -461,7 +425,7 @@ def level3_CTM_scheduler_flow(pipeline_config_path=None, session=None, reference
 
 
 def level3_CTM_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
-    for key in ['data_list', 'before_f_corona_model_path', 'after_f_corona_model_path', 'starfield_background_path']:
+    for key in ['data_list' , 'starfield_background_path']:
         call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
     return call_data
 
