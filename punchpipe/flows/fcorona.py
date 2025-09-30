@@ -24,7 +24,7 @@ def f_corona_background_query_ready_files(session, pipeline_config: dict, refere
     t_start = reference_time - timedelta(hours=max_hours_per_half)
     t_end = reference_time + timedelta(hours=max_hours_per_half)
 
-    target_file_type = "CT"
+    target_file_type = reference_file.file_type
 
     base_query = (session.query(File)
                   .filter(File.state.in_(["created", "progressed"]))
@@ -94,7 +94,7 @@ def construct_f_corona_background_file_info(level2_files: t.List[File], pipeline
 
     return [File(
                 level="3",
-                file_type="CF",
+                file_type=file_type,
                 observatory="M",
                 polarization=level2_files[0].polarization,
                 file_version=pipeline_config["file_version"],
@@ -128,7 +128,7 @@ def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, sess
 
     existing_models = (session.query(File)
                        .filter(File.level == "3")
-                       .filter(File.file_type == 'CF')
+                       .filter(File.file_type.in_(['CF', "PF"]))
                        .all())
     logger.info(f"There are {len(existing_models)} model records in the DB")
 
@@ -144,24 +144,24 @@ def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, sess
 
     for i in range(n, -1, -1):
         t = t0 + i * increment
-        model_type = "CF"
-        observatory = "M"
-        key = (model_type, observatory, t)
-        model = existing_models.get(key, None)
-        if model is None:
-            new_model = File(state='waiting',
-                             level='3',
-                             file_type=model_type,
-                             observatory=observatory,
-                             polarization='C',
-                             date_obs=t,
-                             date_created=datetime.now(),
-                             file_version=pipeline_config["file_version"],
-                             software_version=__version__)
-            session.add(new_model)
-            models_to_try_creating.append(new_model)
-        elif model.state == 'waiting':
-            models_to_try_creating.append(model)
+        for model_type in ["CF", "PF"]:
+            observatory = "M"
+            key = (model_type, observatory, t)
+            model = existing_models.get(key, None)
+            if model is None:
+                new_model = File(state='waiting',
+                                 level='3',
+                                 file_type=model_type,
+                                 observatory=observatory,
+                                 polarization=model_type[0],
+                                 date_obs=t,
+                                 date_created=datetime.now(),
+                                 file_version=pipeline_config["file_version"],
+                                 software_version=__version__)
+                session.add(new_model)
+                models_to_try_creating.append(new_model)
+            elif model.state == 'waiting':
+                models_to_try_creating.append(model)
 
     logger.info(f"There are {len(models_to_try_creating)} waiting models")
 

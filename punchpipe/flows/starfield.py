@@ -24,7 +24,8 @@ def starfield_background_query_ready_files(session, pipeline_config: dict,
     t_start = reference_time - timedelta(hours=max_hours_per_half)
     t_end = reference_time + timedelta(hours=max_hours_per_half)
 
-    target_file_type = "CI"
+    target_mapping = {"PT": "PI", "CT": "CI"}
+    target_file_type = target_mapping[reference_file.file_type]
 
     base_query = (session.query(File)
                   .filter(File.state.in_(["created", "progressed"]))
@@ -94,7 +95,7 @@ def construct_starfield_background_file_info(level3_files: t.List[File], pipelin
 
     return [File(
                 level="3",
-                file_type="CS",
+                file_type=file_type,
                 observatory="M",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
@@ -129,7 +130,7 @@ def construct_starfield_background_scheduler_flow(pipeline_config_path=None, ses
 
     existing_models = (session.query(File)
                        .filter(File.level == "3")
-                       .filter(File.file_type == 'CS')
+                       .filter(File.file_type.in_(['CS', 'PS']))
                        .all())
     logger.info(f"There are {len(existing_models)} model records in the DB")
 
@@ -145,24 +146,24 @@ def construct_starfield_background_scheduler_flow(pipeline_config_path=None, ses
 
     for i in range(n, -1, -1):
         t = t0 + i * increment
-        model_type = "CS"
-        observatory = "M"
-        key = (model_type, observatory, t)
-        model = existing_models.get(key, None)
-        if model is None:
-            new_model = File(state='waiting',
-                             level='3',
-                             file_type=model_type,
-                             observatory=observatory,
-                             polarization='C',
-                             date_obs=t,
-                             date_created=datetime.now(),
-                             file_version=pipeline_config["file_version"],
-                             software_version=__version__)
-            session.add(new_model)
-            models_to_try_creating.append(new_model)
-        elif model.state == 'waiting':
-            models_to_try_creating.append(model)
+        for model_type in ["CS", "PS"]:
+            observatory = "M"
+            key = (model_type, observatory, t)
+            model = existing_models.get(key, None)
+            if model is None:
+                new_model = File(state='waiting',
+                                 level='3',
+                                 file_type=model_type,
+                                 observatory=observatory,
+                                 polarization=model_type[0],
+                                 date_obs=t,
+                                 date_created=datetime.now(),
+                                 file_version=pipeline_config["file_version"],
+                                 software_version=__version__)
+                session.add(new_model)
+                models_to_try_creating.append(new_model)
+            elif model.state == 'waiting':
+                models_to_try_creating.append(model)
 
     logger.info(f"There are {len(models_to_try_creating)} waiting models")
 
