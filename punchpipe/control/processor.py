@@ -105,7 +105,6 @@ def generic_process_flow_logic(flow_id: int | list[int], core_flow_to_launch, pi
         session.query(Flow).filter(Flow.flow_id.in_(flow_ids)).update(
             {"state": "failed",
              "end_time": datetime.now()})
-        session.commit()
         session.query(File).filter(File.processing_flow.in_(flow_ids)).update(
             {"state": "failed"})
         session.commit()
