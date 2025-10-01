@@ -1,7 +1,9 @@
-from punchpipe.control.db import File, Flow, FileRelationship
-from punchpipe.control.util import get_database_session
-from sqlalchemy.orm import aliased
 from collections import defaultdict
+
+from sqlalchemy.orm import aliased
+
+from punchpipe.control.db import File, FileRelationship, Flow
+from punchpipe.control.util import get_database_session
 
 
 def mkrecord(f, fate, flow):
