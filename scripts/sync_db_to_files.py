@@ -7,6 +7,7 @@ from glob import glob
 from datetime import datetime
 
 from astropy.io import fits
+from sqlalchemy.orm import load_only
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 
@@ -53,7 +54,19 @@ if __name__ == "__main__":
 
     print(f"Found {len(files)} files on disk")
 
-    existing_files = session.query(File).all()
+    observed_levels = set()
+    for path in files:
+        base_path = os.path.basename(path)
+        level = base_path.split("_")[1][1]
+        observed_levels.add(level)
+
+    existing_files = (
+            session.query(File)
+            .options(load_only(
+            File.date_obs, File.file_type, File.observatory, File.file_version, File.level,
+                 raiseload=True))
+            .where(File.level.in_(observed_levels))
+            .all())
 
     existing_files = {f.filename() for f in existing_files}
 
