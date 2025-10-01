@@ -1,0 +1,1 @@
+Adds DB index, which seems to avoid some locking timeouts
