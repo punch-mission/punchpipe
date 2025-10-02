@@ -14,7 +14,7 @@ def mkrecord(f, fate, flow):
 
 session = get_database_session()
 
-L0s = session.query(File).filter(File.level == '0').all()
+L0s = session.query(File).filter(File.level == '0').where(File.file_type.in_(['CR', 'PZ', 'PM', 'PZ'])).all()
 
 l0_groups = defaultdict(list)
 
