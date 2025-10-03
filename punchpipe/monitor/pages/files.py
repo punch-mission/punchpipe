@@ -366,7 +366,7 @@ def make_y_axis_labels(dff):
 
     keys = joinables[0].copy()
     for col in joinables[1:]:
-        keys += ' ' + col
+        keys += ' ' + col.astype('string')
     return keys
 
 

@@ -3,6 +3,7 @@ import typing as t
 from datetime import datetime, timedelta
 
 from prefect import flow, get_run_logger, task
+from prefect.cache_policies import NO_CACHE
 from punchbowl.level3.f_corona_model import construct_f_corona_model
 
 from punchpipe import __version__
@@ -13,7 +14,7 @@ from punchpipe.control.util import get_database_session, load_pipeline_configura
 from punchpipe.flows.util import file_name_to_full_path
 
 
-@task
+@task(cache_policy=NO_CACHE)
 def f_corona_background_query_ready_files(session, pipeline_config: dict, reference_time: datetime,
                                           reference_file: File):
     logger = get_run_logger()
@@ -24,7 +25,7 @@ def f_corona_background_query_ready_files(session, pipeline_config: dict, refere
     t_start = reference_time - timedelta(hours=max_hours_per_half)
     t_end = reference_time + timedelta(hours=max_hours_per_half)
 
-    target_file_type = reference_file.file_type
+    target_file_type = reference_file.file_type[0] + 'T'
 
     base_query = (session.query(File)
                   .filter(File.state.in_(["created", "progressed"]))
@@ -57,9 +58,10 @@ def f_corona_background_query_ready_files(session, pipeline_config: dict, refere
     else:
         return []
 
-@task
+
+@task(cache_policy=NO_CACHE)
 def construct_f_corona_background_flow_info(level3_files: list[File],
-                                            level3_f_model_file: File,
+                                            level3_f_model_file: [File],
                                             pipeline_config: dict,
                                             reference_time: datetime,
                                             file_type: str,
@@ -73,7 +75,8 @@ def construct_f_corona_background_flow_info(level3_files: list[File],
     call_data = json.dumps(
         {
             "filenames": [level3_file.filename() for level3_file in level3_files],
-            "reference_time": str(reference_time)
+            "reference_time": str(reference_time),
+            "polarized": level3_f_model_file[0].file_type[0] == "P"
         }
     )
     return Flow(
@@ -86,7 +89,7 @@ def construct_f_corona_background_flow_info(level3_files: list[File],
     )
 
 
-@task
+@task(cache_policy=NO_CACHE)
 def construct_f_corona_background_file_info(level2_files: t.List[File], pipeline_config: dict,
                                             reference_time: datetime, file_type: str,
                                     spacecraft: str,) -> t.List[File]:
@@ -104,6 +107,7 @@ def construct_f_corona_background_file_info(level2_files: t.List[File], pipeline
                 date_end=max(date_obses),
                 state="planned",
             ),]
+
 
 @flow
 def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, session=None, reference_time: datetime | None = None):
@@ -163,6 +167,7 @@ def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, sess
             elif model.state == 'waiting':
                 models_to_try_creating.append(model)
 
+    session.commit()
     logger.info(f"There are {len(models_to_try_creating)} waiting models")
 
     to_schedule = []
@@ -199,7 +204,7 @@ def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, sess
 
 def construct_f_corona_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
     call_data['filenames'] = file_name_to_full_path(call_data['filenames'], pipeline_config['root'])
-    call_data['num_workers'] = 32
+    call_data['num_workers'] = 10
     return call_data
 
 @flow
