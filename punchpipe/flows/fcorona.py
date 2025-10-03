@@ -167,6 +167,7 @@ def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, sess
             elif model.state == 'waiting':
                 models_to_try_creating.append(model)
 
+    session.commit()
     logger.info(f"There are {len(models_to_try_creating)} waiting models")
 
     to_schedule = []

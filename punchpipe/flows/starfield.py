@@ -62,7 +62,7 @@ def starfield_background_query_ready_files(session, pipeline_config: dict,
 
 @task(cache_policy=NO_CACHE)
 def construct_starfield_background_flow_info(level3_fcorona_subtracted_files: list[File],
-                                             level3_starfield_model_file: File,
+                                             level3_starfield_model_file: [File],
                                              pipeline_config: dict,
                                              reference_time: datetime,
                                              file_type: str,
@@ -167,6 +167,7 @@ def construct_starfield_background_scheduler_flow(pipeline_config_path=None, ses
             elif model.state == 'waiting':
                 models_to_try_creating.append(model)
 
+    session.commit()
     logger.info(f"There are {len(models_to_try_creating)} waiting models")
 
     to_schedule = []
