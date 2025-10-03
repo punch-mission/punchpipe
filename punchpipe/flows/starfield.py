@@ -202,7 +202,7 @@ def construct_starfield_background_scheduler_flow(pipeline_config_path=None, ses
 
 def construct_starfield_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
     call_data['filenames'] = file_name_to_full_path(call_data['filenames'], pipeline_config['root'])
-    call_data['n_procs'] = 32
+    call_data['n_procs'] = 10
     return call_data
 
 
