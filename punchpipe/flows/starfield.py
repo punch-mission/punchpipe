@@ -3,6 +3,7 @@ import typing as t
 from datetime import datetime, timedelta
 
 from prefect import flow, get_run_logger, task
+from prefect.cache_policies import NO_CACHE
 from punchbowl.level3.stellar import generate_starfield_background
 
 from punchpipe import __version__
@@ -13,7 +14,7 @@ from punchpipe.control.util import get_database_session, load_pipeline_configura
 from punchpipe.flows.util import file_name_to_full_path
 
 
-@task
+@task(cache_policy=NO_CACHE)
 def starfield_background_query_ready_files(session, pipeline_config: dict,
                                            reference_time: datetime, reference_file: File):
     logger = get_run_logger()
@@ -59,7 +60,7 @@ def starfield_background_query_ready_files(session, pipeline_config: dict,
         return []
 
 
-@task
+@task(cache_policy=NO_CACHE)
 def construct_starfield_background_flow_info(level3_fcorona_subtracted_files: list[File],
                                              level3_starfield_model_file: File,
                                              pipeline_config: dict,
@@ -88,7 +89,7 @@ def construct_starfield_background_flow_info(level3_fcorona_subtracted_files: li
     )
 
 
-@task
+@task(cache_policy=NO_CACHE)
 def construct_starfield_background_file_info(level3_files: t.List[File], pipeline_config: dict,
                                              reference_time: datetime, file_type: str,
                                     spacecraft: str,) -> t.List[File]:
