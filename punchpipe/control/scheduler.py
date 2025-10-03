@@ -74,6 +74,7 @@ def generic_scheduler_flow_logic(
                                           .count())
             if n_already_scheduled >= max_start:
                 logger.info(f"This flow already has {n_already_scheduled} flows scheduled; stopping.")
+                return 0
             max_start -= n_already_scheduled
 
     # Not every level*_query_ready_files function needs this max_n parameter---some instead have a use_n that's similar
