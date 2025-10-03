@@ -74,7 +74,8 @@ def construct_starfield_background_flow_info(level3_fcorona_subtracted_files: li
     call_data = json.dumps(
         {
             "filenames": list(set([level3_file.filename() for level3_file in level3_fcorona_subtracted_files])),
-            "reference_time": str(reference_time)
+            "reference_time": str(reference_time),
+            "is_polarized": level3_starfield_model_file[0].file_type[0] == "P"
         }
     )
     return Flow(

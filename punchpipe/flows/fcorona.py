@@ -24,7 +24,7 @@ def f_corona_background_query_ready_files(session, pipeline_config: dict, refere
     t_start = reference_time - timedelta(hours=max_hours_per_half)
     t_end = reference_time + timedelta(hours=max_hours_per_half)
 
-    target_file_type = reference_file.file_type
+    target_file_type = reference_file.file_type[0] + 'T'
 
     base_query = (session.query(File)
                   .filter(File.state.in_(["created", "progressed"]))
@@ -73,7 +73,8 @@ def construct_f_corona_background_flow_info(level3_files: list[File],
     call_data = json.dumps(
         {
             "filenames": [level3_file.filename() for level3_file in level3_files],
-            "reference_time": str(reference_time)
+            "reference_time": str(reference_time),
+            "polarized": level3_f_model_file[0].file_type[0] == "P"
         }
     )
     return Flow(
