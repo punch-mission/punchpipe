@@ -27,7 +27,7 @@ dependencies = [
     "psutil",
     "gunicorn",
     "numpy-quaternion",
-    "hypothesis==6.131.18",
+    "hypothesis==6.140.3",
     "coverage==7.8.0",
     "pytest-cov==6.1.1",
     "dash-player==1.1.0",
