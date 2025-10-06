@@ -32,6 +32,7 @@ dependencies = [
     "pytest-cov==6.1.1",
     "dash-player==1.1.0",
     "astrometry==4.3.0",
+    "pytest-asyncio==1.1.0",
 ]
 requires-python = ">=3.11"
 authors = [
@@ -53,6 +54,7 @@ classifiers = [
 test = ["pre-commit",
         "hypothesis",
         "pytest",
+        "pytest-asyncio",
         "coverage",
         "pytest-cov",
         "pytest-mock-resources[mysql]",
