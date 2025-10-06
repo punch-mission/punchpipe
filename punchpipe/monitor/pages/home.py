@@ -179,7 +179,8 @@ def update_cards(n):
     with get_database_session() as session:
         reference_time = datetime.now() - timedelta(hours=24)
         query = (f"SELECT flow_level AS level, flow_type, SUM(state = 'completed') AS n_good, "
-                  "SUM(state = 'failed') AS n_bad, SUM(state = 'running') AS n_running "
+                  "SUM(state = 'failed') AS n_bad, SUM(state = 'running') AS n_running,"
+                 f"SUM(state = 'timed_out') AS n_timed_out "
                  f"FROM flows WHERE start_time > '{reference_time}' "
                   "GROUP BY level, flow_type;")
         df = pd.read_sql_query(query, session.connection())
@@ -205,10 +206,11 @@ def update_cards(n):
             continue
 
         n_good, n_bad, n_running = sub_df['n_good'].sum(), sub_df['n_bad'].sum(), sub_df['n_running'].sum()
-        n_launched, n_planned = sub_df['n_launched'].sum(), sub_df['n_planned'].sum()
+        n_launched, n_planned, n_timed_out = sub_df['n_launched'].sum(), sub_df['n_planned'].sum(), sub_df['n_timed_out'].sum()
+        n_timed_out = sub_df['n_timed_out'].sum()
 
         n_planned = sub_df['n_planned'].sum()
-        message = (f"{n_good:.0f} ✅     {n_bad:.0f} ⛔     {n_launched:.0f} 🚀     {n_running:.0f} ⏳     "
+        message = (f"{n_good:.0f} ✅     {n_bad + n_timed_out:.0f} ⛔     {n_launched:.0f} 🚀     {n_running:.0f} ⏳     "
                    f"{n_planned:.0f} 💭")
         if n_good == 0 and n_bad == 0 and n_planned == 0 and n_launched == 0 and n_running == 0:
             color = "light"
@@ -254,6 +256,7 @@ def update_file_cards(n):
     query = ("SELECT level, file_type, SUM(state = 'created') AS n_created, "
              "SUM(state = 'failed') AS n_failed, SUM(state = 'planned') AS n_planned, "
              "SUM(state = 'creating') AS n_creating, SUM(state = 'progressed') AS n_progressed, "
+             "SUM(state = 'timed_out') AS n_timed_out, "
              "SUM(state = 'quickpunched') AS n_quickpunched FROM files GROUP BY level, file_type;")
     with get_database_session() as session:
         df = pd.read_sql_query(query, session.connection())
@@ -270,6 +273,7 @@ def update_file_cards(n):
             continue
 
         n_created, n_failed = sub_df['n_created'].sum(), sub_df['n_failed'].sum()
+        n_timed_out = sub_df['n_timed_out'].sum()
         n_creating, n_progressed = sub_df['n_creating'].sum(), sub_df['n_progressed'].sum()
         n_quickpunched, n_planned = sub_df['n_quickpunched'].sum(), sub_df['n_planned'].sum()
 
@@ -279,7 +283,7 @@ def update_file_cards(n):
             sub_status = f"({n_created:.0f} 🏁 + {n_quickpunched:.0f} ⚡ + {n_progressed:.0f} ➡️)"
         else:
             sub_status = f"({n_created:.0f} 🏁 + {n_progressed:.0f} ➡️)"
-        message = (f"{n_good:.0f} ✅ {sub_status}\n{n_failed:.0f} ⛔     {n_creating:.0f} ⏳     "
+        message = (f"{n_good:.0f} ✅ {sub_status}\n{n_failed + n_timed_out:.0f} ⛔     {n_creating:.0f} ⏳     "
                    f"{n_planned:.0f} 💭️")
         if n_good == 0 and n_failed == 0:
             color = "light"
