@@ -1,7 +1,7 @@
 # punchpipe
 
 `punchpipe` is the data processing pipeline for [the PUNCH mission](https://punch.space.swri.edu/).
-All the science code and actual calibration functionality lives in [ppunchbowl](https://github.com/punch-mission/punchbowl).
+All the science code and actual calibration functionality lives in [punchbowl](https://github.com/punch-mission/punchbowl).
 This package automates the control segment for the Science Operations Center.
 
 > [!CAUTION]
