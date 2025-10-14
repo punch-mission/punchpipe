@@ -25,6 +25,7 @@ def generic_process_flow_logic(flow_id: int | list[int], core_flow_to_launch, pi
 
     try:
         logger = get_run_logger()
+        logger.info(f"Running under PID {os.getpid()}")
 
         # load pipeline configuration
         pipeline_config = load_pipeline_configuration(pipeline_config_path)
