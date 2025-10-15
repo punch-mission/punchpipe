@@ -1,6 +1,6 @@
 import os
 import json
-from datetime import datetime
+from datetime import datetime, UTC
 
 from prefect import get_run_logger, tags
 from prefect.context import get_run_context
@@ -83,6 +83,11 @@ def generic_process_flow_logic(flow_id: int | list[int], core_flow_to_launch, pi
                 logger.info(f"Preparing to write {file_db_entry.file_id}.")
                 output_file_ids.add(file_db_entry.file_id)
                 file_db_entry.date_obs = datetime.strptime(result.meta['DATE-OBS'].value, "%Y-%m-%dT%H:%M:%S.%f")
+                file_db_entry.state = "created"
+                date_created = datetime.strptime(result.meta['DATE'].value, "%Y-%m-%dT%H:%M:%S.%f")
+                # Converts to local time
+                date_created = date_created.replace(tzinfo=UTC).astimezone()
+                file_db_entry.date_created = date_created
                 result.meta['OUTLIER'] = int(file_db_entry.outlier)
                 filename = write_file(result, file_db_entry, pipeline_config)
                 logger.info(f"Wrote to {filename}")
