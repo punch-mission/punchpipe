@@ -367,6 +367,7 @@ def level1_early_construct_file_info(level0_files: t.List[File], pipeline_config
             date_obs=level0_files[0].date_obs,
             polarization=level0_files[0].polarization,
             outlier=level0_files[0].outlier,
+            bad_packets=level0_files[0].bad_packets,
             state="planned",
         ))
     return files
@@ -494,6 +495,7 @@ def level1_late_construct_file_info(input_files: t.List[File], pipeline_config: 
             date_obs=input_files[0].date_obs,
             polarization=input_files[0].polarization,
             outlier=input_files[0].outlier,
+            bad_packets=input_files[0].bad_packets,
             state="planned",
         )
     ]
@@ -625,6 +627,7 @@ def level1_quick_construct_file_info(input_files: t.List[File], pipeline_config:
             date_obs=input_files[0].date_obs,
             polarization=input_files[0].polarization,
             outlier=input_files[0].outlier,
+            bad_packets=input_files[0].bad_packets,
             state="planned",
         )
     ]

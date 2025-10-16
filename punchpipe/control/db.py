@@ -22,6 +22,7 @@ class File(Base):
     polarization = Column(String(2), nullable=True)
     state = Column(String(64), nullable=False)
     outlier = Column(Boolean, nullable=False, default=False)
+    bad_packets = Column(Boolean, nullable=False, default=False)
     processing_flow = Column(Integer, nullable=True)
 
     def summary(self):

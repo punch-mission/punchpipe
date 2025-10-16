@@ -83,6 +83,7 @@ def generic_process_flow_logic(flow_id: int | list[int], core_flow_to_launch, pi
                 logger.info(f"Preparing to write {file_db_entry.file_id}.")
                 output_file_ids.add(file_db_entry.file_id)
                 result.meta['OUTLIER'] = int(file_db_entry.outlier)
+                result.meta['BADPKTS'] = int(file_db_entry.bad_packets)
                 filename = write_file(result, file_db_entry, pipeline_config)
                 logger.info(f"Wrote to {filename}")
 
