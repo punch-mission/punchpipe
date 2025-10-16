@@ -205,6 +205,7 @@ def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, sess
 def construct_f_corona_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
     call_data['filenames'] = file_name_to_full_path(call_data['filenames'], pipeline_config['root'])
     call_data['num_workers'] = 10
+    call_data['num_loaders'] = 5
     return call_data
 
 @flow
