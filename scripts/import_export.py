@@ -56,6 +56,7 @@ class ExportedFile:
     polarization: str
     state: str
     outlier: bool
+    bad_packets: bool
     processing_flow: ExportedFlow
     parents: list[tuple]
     _directory: str
@@ -102,6 +103,7 @@ class ExportedFile:
             polarization=file.polarization,
             state=file.state,
             outlier=file.outlier,
+            bad_packets=file.bad_packets,
             processing_flow=ExportedFlow.from_Flow(processing_flow) if processing_flow is not None else None,
             parents=parents,
             _directory=file.directory(''),
@@ -134,6 +136,7 @@ class ExportedFile:
                 polarization=self.polarization,
                 state=self.state,
                 outlier=self.outlier,
+                bad_packets=self.bad_packets,
             )
             session.add(new_file)
             added_files = 1
