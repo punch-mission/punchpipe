@@ -5,6 +5,7 @@ import base64
 import hashlib
 import traceback
 import multiprocessing
+from collections import defaultdict
 from glob import glob
 from typing import Any, Dict, List, Tuple
 from datetime import UTC, datetime, timedelta
@@ -1003,7 +1004,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
             date_obs = parse_datetime_str(fits_info['DATE-OBS'])
 
             selected_limits = None
-            for limit_observatory, limit_type, limit_date, limits in outlier_limits:
+            for limit_observatory, limit_type, limit_date, limit_filename, limits in outlier_limits:
                 if limit_observatory != str(soc_spacecraft_id):
                     continue
                 if limit_type != file_type[1]:
@@ -1011,6 +1012,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                 if limit_date > date_obs:
                     continue
                 selected_limits = limits
+                cube.meta.history.add_now("form_single_image", f"Outlier detection with {limit_filename}")
                 break
             if selected_limits is None:
                 if len(outlier_limits) and file_type != 'PX':
@@ -1067,7 +1069,9 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
             session.rollback()
             skip_image = True
             skip_reason = f"Could not make metadata and write image, {e}"
-            traceback.print_exc()
+            trace = traceback.format_exc()
+            skip_reason += '\n' + trace
+            print(trace)
 
     # go back and do some cleanup if we skipped the image
     if skip_image:
@@ -1085,7 +1089,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
             packet.last_attempt = now
     session.commit()
     session.close()
-    return replay_needs, not skip_image
+    return replay_needs, not skip_image, skip_reason
 
 @flow
 def level0_form_images(pipeline_config, defs, apid_name2num, outlier_limits, masks, session, logger,
@@ -1124,12 +1128,14 @@ def level0_form_images(pipeline_config, defs, apid_name2num, outlier_limits, mas
         logger.warning(f"No num_workers defined, using {num_workers} workers")
 
     with multiprocessing.get_context('spawn').Pool(num_workers, initializer=initializer) as pool:
-        for i, (new_replay_needs, successful_image) in enumerate(
+        skip_reasons = defaultdict(lambda: 0)
+        for i, (new_replay_needs, successful_image, skip_reason) in enumerate(
                 pool.imap(form_single_image_caller, image_inputs, chunksize=10)):
             replay_needs.extend(new_replay_needs)
             if successful_image:
                 success_count += 1
             else:
+                skip_reasons[skip_reason] += 1
                 skip_count += 1
             if i % 1000 == 0:
                 logger.info(f"Completed {i} / {len(image_inputs)} image formation attempts")
@@ -1141,6 +1147,9 @@ def level0_form_images(pipeline_config, defs, apid_name2num, outlier_limits, mas
     session.commit()
     logger.info(f"SUCCESS={success_count}")
     logger.info(f"FAILURE={skip_count}")
+
+    for reason in skip_reasons:
+        logger.info(f"Skipped {skip_reasons[reason]} images for reason {reason}")
 
     # Split into multiple files and append updates instead of making a new file each time
     # We label not with the spacecraft telemetry ID but with the spelled out name
@@ -1184,7 +1193,7 @@ def level0_core_flow(pipeline_config: dict, skip_if_no_new_tlm: bool = True, lim
             code = file_name.split("_")[2][1]
             obs = file_name.split("_")[2][2]
             date = datetime.strptime(file_name.split('_')[3], '%Y%m%d%H%M%S')
-            outlier_limits.append((obs, code, date, limits))
+            outlier_limits.append((obs, code, date, file_name, limits))
 
     masks = []
     if mask_files is not None:
