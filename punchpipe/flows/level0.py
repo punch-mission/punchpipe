@@ -1000,14 +1000,25 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
 
             punch_io._update_statistics(cube, modify_inplace=True)
 
-            limits = outlier_limits.get(cube.meta['TYPECODE'].value[1] + cube.meta['OBSCODE'].value, None)
-            if limits is None:
+            date_obs = parse_datetime_str(fits_info['DATE-OBS'])
+
+            selected_limits = None
+            for limit_observatory, limit_type, limit_date, limits in outlier_limits:
+                if limit_observatory != str(soc_spacecraft_id):
+                    continue
+                if limit_type != file_type[1]:
+                    continue
+                if limit_date > date_obs:
+                    continue
+                selected_limits = limits
+                break
+            if selected_limits is None:
+                if len(outlier_limits) and file_type != 'PX':
+                    raise RuntimeError(f"Could not find outlier limits for {get_base_file_name(cube)}")
                 is_outlier = False
             else:
                 # to_fits_header populates CROTA
-                is_outlier = not limits.is_good(cube.meta.to_fits_header(cube.wcs, False))
-
-            date_obs = parse_datetime_str(fits_info['DATE-OBS'])
+                is_outlier = not selected_limits.is_good(cube.meta.to_fits_header(cube.wcs, False))
 
             selected_mask = None
             for mask_observatory, mask_date, mask in masks:
@@ -1017,10 +1028,13 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                     continue
                 selected_mask = mask
                 break
-            if selected_mask is None and len(masks):
-                raise RuntimeError(f"Could not find mask for {get_base_file_name(cube)}")
+            if selected_mask is None:
+                if len(masks):
+                    raise RuntimeError(f"Could not find mask for {get_base_file_name(cube)}")
+                bad_packets = False
+            else:
+                bad_packets = np.any(cube.data[~selected_mask])
 
-            bad_packets = np.any(cube.data[~selected_mask])
             is_outlier = is_outlier or bad_packets
 
             meta['OUTLIER'] = int(is_outlier)
@@ -1162,24 +1176,24 @@ def level0_core_flow(pipeline_config: dict, skip_if_no_new_tlm: bool = True, lim
     logger = get_run_logger()
     session = Session(engine)
 
-    outlier_limits = {}
+    outlier_limits = []
     if limit_files is not None:
         for limit_file in limit_files:
-            if limit_file is None:
-                continue
             limits = LimitSet.from_file(limit_file)
             file_name = os.path.basename(limit_file)
-            code = file_name.split("_")[2][:2]
-            obs = file_name.split("_")[2][-1]
-            outlier_limits[code[1] + obs] = limits
+            code = file_name.split("_")[2][1]
+            obs = file_name.split("_")[2][2]
+            date = datetime.strptime(file_name.split('_')[3], '%Y%m%d%H%M%S')
+            outlier_limits.append((obs, code, date, limits))
 
     masks = []
-    for mask_file in mask_files:
-        mask = load_mask_file(mask_file)
-        filename = os.path.basename(mask_file)
-        observatory = filename.split('_')[2][2]
-        date = datetime.strptime(filename.split('_')[3], '%Y%m%d%H%M%S')
-        masks.append((observatory, date, mask))
+    if mask_files is not None:
+        for mask_file in mask_files:
+            mask = load_mask_file(mask_file)
+            filename = os.path.basename(mask_file)
+            observatory = filename.split('_')[2][2]
+            date = datetime.strptime(filename.split('_')[3], '%Y%m%d%H%M%S')
+            masks.append((observatory, date, mask))
 
     tlm_xls_path = pipeline_config['tlm_xls_path']
     logger.info(f"Using {tlm_xls_path}")
@@ -1210,19 +1224,12 @@ def level0_core_flow(pipeline_config: dict, skip_if_no_new_tlm: bool = True, lim
     session.close()
 
 def get_outlier_limits_paths(session, reference_time):
-    limit_files = []
-    for pol in ['M', 'Z', 'P', 'R']:
-        for obs in ['1', '2', '3', '4']:
-            best_limits = (session.query(File)
-                             .filter(File.file_type == 'L' + pol)
-                             .filter(File.level == '0')
-                             .filter(File.observatory == obs)
-                             .where(File.date_obs <= reference_time)
-                             .order_by(File.date_obs.desc(), File.file_version.desc()).first())
-            if best_limits is None:
-                limit_files.append(None)
-            else:
-                limit_files.append(best_limits.filename().replace('.fits', '.npz'))
+    limit_files = (session.query(File)
+                     .filter(File.file_type.like('L%'))
+                     .filter(File.level == '0')
+                     .where(File.date_obs <= reference_time)
+                     .order_by(File.file_version.desc(), File.date_obs.desc()).all())
+    limit_files = [l.filename().replace('.fits', '.npz') for l in limit_files]
     return limit_files
 
 def get_mask_paths(session, reference_time):
