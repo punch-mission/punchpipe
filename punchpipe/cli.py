@@ -65,11 +65,16 @@ def construct_flows_to_serve(configuration_path, include_data=True, include_cont
             specific_tags = config["flows"][flow_name].get("tags", [])
             specific_description = config["flows"][flow_name].get("description", "")
             flow_function = find_flow(specific_name)
+            if interval := config['flows'][flow_name].get("interval_minutes", None):
+                schedule = dict(interval=timedelta(minutes=interval))
+            else:
+                schedule = dict(cron=config['flows'][flow_name].get("schedule", None))
+
             flow_deployment = flow_function.to_deployment(
                 name=specific_name,
                 description="Scheduler: " + specific_description,
                 tags = ["scheduler"] + specific_tags,
-                cron=config['flows'][flow_name].get("schedule", None),
+                **schedule,
                 concurrency_limit=ConcurrencyLimitConfig(
                     limit=1,
                     collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW
@@ -104,11 +109,15 @@ def construct_flows_to_serve(configuration_path, include_data=True, include_cont
                     limit=1,
                     collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW
                 )
+            if interval := config['control'][flow_name].get("interval_minutes", None):
+                schedule = dict(interval=timedelta(minutes=interval))
+            else:
+                schedule = dict(cron=config['control'][flow_name].get("schedule", "* * * * *"))
             flow_deployment = flow_function.to_deployment(
                 name=flow_name,
                 description=config["control"][flow_name].get("description", ""),
                 tags=["control"],
-                cron=config['control'][flow_name].get("schedule", "* * * * *"),
+                **schedule,
                 parameters={"pipeline_config_path": configuration_path},
                 concurrency_limit=concurrency_config
             )
