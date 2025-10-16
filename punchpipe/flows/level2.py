@@ -178,7 +178,8 @@ def group_l2_inputs(files: list[File]) -> list[tuple[File]]:
 
 
 def group_l2_inputs_single_observatory(
-        files: list[File], expected_sequence: list[str], max_separation: float=80) -> list[tuple[File]]:
+        files: list[File], expected_sequence: list[str] | str, max_separation: float=80,
+        only_complete=False) -> list[tuple[File]]:
     """
     For a single observatory, groups up L1 inputs into MZP clusters that match in time (i.e. occur sequentially in one
     image cluster).
@@ -217,6 +218,8 @@ def group_l2_inputs_single_observatory(
         previous_time_stamp = this_tstamp
         previous_code_index = this_code_index
     grouped_files.append(tuple(files[group_start:]))
+    if only_complete:
+        grouped_files = [group for group in grouped_files if len(group) == len(expected_sequence)]
     return grouped_files
 
 
