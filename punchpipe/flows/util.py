@@ -19,3 +19,14 @@ def file_name_to_full_path(file_name: str | None | list[str | None], root_dir: s
                 state='')
 
     return os.path.join(file.directory(root_dir), file_name)
+
+
+def summarize_files_missing_cal_files(files: list[File]):
+    if len(files) < 1000:
+        summary = ', '.join([f.filename() for f in files])
+    else:
+        dates = [f.date_obs for f in files]
+        types = {f.file_type + f.observatory for f in files}
+        summary = (f"{len(files)} files, of types {sorted(types)}, with date-obs ranging from "
+                   f"{min(dates).isoformat()} to {max(dates).isoformat()}")
+    return summary
