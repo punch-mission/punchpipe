@@ -2,6 +2,7 @@ import os
 import json
 from datetime import datetime, UTC
 
+from dateutil.parser import parse as parse_datetime_str
 from prefect import get_run_logger, tags
 from prefect.context import get_run_context
 
@@ -82,9 +83,9 @@ def generic_process_flow_logic(flow_id: int | list[int], core_flow_to_launch, pi
                 file_db_entry = match_data_with_file_db_entry(result, file_db_entry_list)
                 logger.info(f"Preparing to write {file_db_entry.file_id}.")
                 output_file_ids.add(file_db_entry.file_id)
-                file_db_entry.date_obs = datetime.strptime(result.meta['DATE-OBS'].value, "%Y-%m-%dT%H:%M:%S.%f")
+                file_db_entry.date_obs = parse_datetime_str(result.meta['DATE-OBS'].value)
                 file_db_entry.state = "created"
-                date_created = datetime.strptime(result.meta['DATE'].value, "%Y-%m-%dT%H:%M:%S.%f")
+                date_created = parse_datetime_str(result.meta['DATE'].value)
                 # Converts to local time
                 date_created = date_created.replace(tzinfo=UTC).astimezone()
                 file_db_entry.date_created = date_created
