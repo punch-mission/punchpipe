@@ -1,7 +1,7 @@
 import os
 
 from sqlalchemy import TEXT, Boolean, Column, Float, Index, Integer, String
-from sqlalchemy.dialects.mysql import DATETIME
+from sqlalchemy.dialects.mysql import DATETIME, MEDIUMTEXT
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -79,7 +79,7 @@ class Flow(Base):
     start_time = Column(DATETIME(fsp=6), nullable=True)
     end_time = Column(DATETIME(fsp=6), nullable=True)
     priority = Column(Integer, nullable=False)
-    call_data = Column(TEXT, nullable=True)
+    call_data = Column(MEDIUMTEXT, nullable=True)
 
     def __repr__(self):
         return f"Flow(id={self.flow_id!r})"
