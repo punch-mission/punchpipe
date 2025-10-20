@@ -1,6 +1,6 @@
 import os
 import json
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
 from dateutil.parser import parse as parse_datetime_str
 from prefect import get_run_logger, tags
