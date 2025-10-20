@@ -1,6 +1,6 @@
 import inspect
 import itertools
-from datetime import datetime, UTC, timedelta
+from datetime import UTC, datetime, timedelta
 
 from prefect import get_run_logger
 
