@@ -1051,7 +1051,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                                software_version=__version__,
                                outlier=is_outlier,
                                bad_packets=bad_packets,
-                               date_created=datetime.now(UTC),
+                               date_created=parse_datetime_str(fits_info['DATE']).replace(tzinfo=UTC).astimezone(),
                                date_obs=date_obs,
                                date_beg=parse_datetime_str(fits_info['DATE-BEG']),
                                date_end=parse_datetime_str(fits_info['DATE-END']),

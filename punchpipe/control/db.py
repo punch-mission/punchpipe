@@ -81,6 +81,7 @@ class Flow(Base):
     end_time = Column(DATETIME(fsp=6), nullable=True)
     priority = Column(Integer, nullable=False)
     call_data = Column(TEXT, nullable=True)
+    is_backprocessing = Column(Boolean, nullable=False, default=False)
 
     def __repr__(self):
         return f"Flow(id={self.flow_id!r})"
