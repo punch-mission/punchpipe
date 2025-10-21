@@ -1,0 +1,1 @@
+When an L1 scheduler defers more than 1000 files for the same reason, only a summary of those files is logged.

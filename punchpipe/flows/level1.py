@@ -13,7 +13,7 @@ from punchpipe.control import cache_layer
 from punchpipe.control.db import File, FileRelationship, Flow
 from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
-from punchpipe.flows.util import file_name_to_full_path
+from punchpipe.flows.util import file_name_to_full_path, summarize_files_missing_cal_files
 
 SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
 SCIENCE_LEVEL1_LATE_INPUT_TYPE_CODES = ["XM", "XZ", "XP", "XR"]
@@ -33,15 +33,21 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
     vignetting_functions = get_vignetting_function_paths(ready, pipeline_config, session)
     mask_files = get_mask_files(ready, pipeline_config, session)
     actually_ready = []
+    missing_quartic = []
+    missing_vignetting = []
+    missing_mask = []
     for f, quartic_model, vignetting_function, mask_file in zip(
             ready, quartic_models, vignetting_functions, mask_files):
         if quartic_model is None:
+            missing_quartic.append(f)
             logger.info(f"Missing quartic model for {f.filename()}")
             continue
         if vignetting_function is None:
+            missing_vignetting.append(f)
             logger.info(f"Missing vignetting function for {f.filename()}")
             continue
         if mask_file is None:
+            missing_mask.append(f)
             logger.info(f"Missing mask file for {f.filename()}")
             continue
         # Smuggle the identified models out of this function
@@ -51,6 +57,12 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
         actually_ready.append([f])
         if len(actually_ready) >= max_n:
             break
+    if missing_quartic:
+        logger.info("Missing quartic files for " + summarize_files_missing_cal_files(missing_quartic))
+    if missing_vignetting:
+        logger.info("Missing vignetting for " + summarize_files_missing_cal_files(missing_vignetting))
+    if missing_mask:
+        logger.info("Missing mask for " + summarize_files_missing_cal_files(missing_mask))
     return actually_ready
 
 
@@ -200,7 +212,10 @@ def get_two_closest_stray_light(level0_file, session=None, max_distance: timedel
                   .filter(File.file_version.not_like("v%"))) #filters out "v0a".
     if max_distance:
         best_models = best_models.filter(dt < max_distance.total_seconds())
-    highest_version = best_models.order_by(File.file_version).first()[0].file_version
+    highest_version = best_models.order_by(File.file_version).first()
+    if highest_version is None:
+        return None, None
+    highest_version = highest_version[0].file_version
     best_models = best_models.filter(File.file_version == highest_version).order_by(dt.asc()).limit(2).all()
     if len(best_models) < 2:
         return None, None
@@ -425,16 +440,20 @@ def level1_late_query_ready_files(session, pipeline_config: dict, reference_time
     distortion_paths = get_distortion_paths(ready, pipeline_config, session)
     psf_paths = get_psf_model_paths(ready, pipeline_config, session)
     actually_ready = []
+    missing_stray_light = []
+    missing_distortion = []
+    missing_psf = []
+
     for f, distortion_path, psf_path in zip(ready, distortion_paths, psf_paths):
         best_stray_light = list(get_two_best_stray_light(f, session=session))
         if best_stray_light == [None, None]:
-            logger.info(f"Waiting for stray light models for {f.filename()}")
+            missing_stray_light.append(f)
             continue
         if distortion_path is None:
-            logger.info(f"Missing distortion function for {f.filename()}")
+            missing_distortion.append(f)
             continue
         if psf_path is None:
-            logger.info(f"Missing PSF for {f.filename()}")
+            missing_psf.append(f)
             continue
         f.distortion_path = distortion_path
         f.psf_path = psf_path
@@ -442,6 +461,12 @@ def level1_late_query_ready_files(session, pipeline_config: dict, reference_time
         actually_ready.append([f])
         if len(actually_ready) >= max_n:
             break
+    if missing_stray_light:
+        logger.info("Waiting for stray light models for " + summarize_files_missing_cal_files(missing_stray_light))
+    if missing_distortion:
+        logger.info("Missing distortion for " + summarize_files_missing_cal_files(missing_distortion))
+    if missing_psf:
+        logger.info("Missing PSF for " + summarize_files_missing_cal_files(missing_psf))
     # It's easiest to batch-query here, where we have all the File objects in one list
     masks = get_mask_files([f[0] for f in actually_ready], pipeline_config, session)
     for f, mask in zip(actually_ready, masks):
@@ -555,18 +580,21 @@ def level1_quick_query_ready_files(session, pipeline_config: dict, reference_tim
              .order_by(File.date_obs.desc()).all())
 
     actually_ready = []
+    missing_stray_light = []
+    missing_distortion = []
+    missing_psf = []
     distortion_paths = get_distortion_paths(ready, pipeline_config, session)
     psf_paths = get_psf_model_paths(ready, pipeline_config, session)
     for f, distortion_path, psf_path in zip(ready, distortion_paths, psf_paths):
         closest_stray_light = list(get_two_closest_stray_light(f, session=session))
         if closest_stray_light == [None, None]:
-            logger.info(f"Waiting for stray light models for {f.filename()}")
+            missing_stray_light.append(f)
             continue
         if distortion_path is None:
-            logger.info(f"Missing distortion function for {f.filename()}")
+            missing_distortion.append(f)
             continue
         if psf_path is None:
-            logger.info(f"Missing PSF for {f.filename()}")
+            missing_psf.append(f)
             continue
         f.distortion_path = distortion_path
         f.psf_path = psf_path
@@ -574,6 +602,12 @@ def level1_quick_query_ready_files(session, pipeline_config: dict, reference_tim
         actually_ready.append([f])
         if len(actually_ready) >= max_n:
             break
+    if missing_stray_light:
+        logger.info("Waiting for stray light models for " + summarize_files_missing_cal_files(missing_stray_light))
+    if missing_distortion:
+        logger.info("Missing distortion for " + summarize_files_missing_cal_files(missing_distortion))
+    if missing_psf:
+        logger.info("Missing PSF for " + summarize_files_missing_cal_files(missing_psf))
     # It's easiest to batch-query here, where we have all the File objects in one list
     masks = get_mask_files([f[0] for f in actually_ready], pipeline_config, session)
     for f, mask in zip(actually_ready, masks):
