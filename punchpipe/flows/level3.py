@@ -140,8 +140,6 @@ def level3_PIM_query_ready_files(session, pipeline_config: dict, reference_time=
         valid_after_fcorona_models = get_valid_fcorona_models(session, f,
                                                                before_timedelta=timedelta(days=0),
                                                                after_timedelta=timedelta(days=14))
-        logger.info(f"valid before f corona: {valid_before_fcorona_models}")
-        logger.info(f"valid after f corona: {valid_after_fcorona_models}")
         if len(valid_before_fcorona_models) >= 1 and len(valid_after_fcorona_models) >= 1:
             actually_ready_files.append(f)
             if len(actually_ready_files) >= max_n:
@@ -249,8 +247,6 @@ def level3_CIM_query_ready_files(session, pipeline_config: dict, reference_time=
                                                               before_timedelta=timedelta(days=0),
                                                               after_timedelta=timedelta(days=14),
                                                               file_type="CF")
-        logger.info(f"valid before f corona: {valid_before_fcorona_models}")
-        logger.info(f"valid after f corona: {valid_after_fcorona_models}")
         if len(valid_before_fcorona_models) >= 1 and len(valid_after_fcorona_models) >= 1:
             actually_ready_files.append(f)
             if len(actually_ready_files) >= max_n:
