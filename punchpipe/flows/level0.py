@@ -5,10 +5,10 @@ import base64
 import hashlib
 import traceback
 import multiprocessing
-from collections import defaultdict
 from glob import glob
 from typing import Any, Dict, List, Tuple
 from datetime import UTC, datetime, timedelta
+from collections import defaultdict
 from collections.abc import Callable
 
 import astropy.units as u
