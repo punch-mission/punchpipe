@@ -84,8 +84,8 @@ def level3_PTM_construct_flow_info(level2_files: list[File], level3_file: File,
 
 
 @task(cache_policy=NO_CACHE)
-def level3_PTM_construct_file_info(level2_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
-    date_obses = [f.date_obs for f in level2_files]
+def level3_PTM_construct_file_info(input_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
+    date_obses = [f.date_obs for f in input_files]
 
     return [File(
                 level="3",
@@ -93,10 +93,12 @@ def level3_PTM_construct_file_info(level2_files: t.List[File], pipeline_config: 
                 observatory="M",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
-                date_obs=level2_files[0].date_obs,
+                date_obs=input_files[0].date_obs,
                 state="planned",
                 date_beg=min(date_obses),
                 date_end=max(date_obses),
+                outlier=any(file.outlier for file in input_files),
+                bad_packets=any(file.bad_packets for file in input_files),
             )]
 
 
@@ -200,6 +202,8 @@ def level3_PIM_construct_file_info(level2_files: t.List[File], pipeline_config: 
                 state="planned",
                 date_beg=min(date_obses),
                 date_end=max(date_obses),
+                outlier=any(file.outlier for file in level2_files),
+                bad_packets=any(file.bad_packets for file in level2_files),
             )]
 
 
@@ -308,6 +312,8 @@ def level3_CIM_construct_file_info(level2_files: t.List[File], pipeline_config: 
                 state="planned",
                 date_beg=min(date_obses),
                 date_end=max(date_obses),
+                outlier=any(file.outlier for file in level2_files),
+                bad_packets=any(file.bad_packets for file in level2_files),
             )]
 
 
@@ -392,8 +398,8 @@ def level3_CTM_construct_flow_info(level2_files: list[File], level3_file: File,
 
 
 @task(cache_policy=NO_CACHE)
-def level3_CTM_construct_file_info(level2_files: t.List[File], pipeline_config: dict, reference_time=None, ) -> t.List[File]:
-    date_obses = [f.date_obs for f in level2_files]
+def level3_CTM_construct_file_info(input_files: t.List[File], pipeline_config: dict, reference_time=None, ) -> t.List[File]:
+    date_obses = [f.date_obs for f in input_files]
 
     return [File(
                 level="3",
@@ -401,10 +407,12 @@ def level3_CTM_construct_file_info(level2_files: t.List[File], pipeline_config: 
                 observatory="M",
                 file_version=pipeline_config["file_version"],
                 software_version=__version__,
-                date_obs=level2_files[0].date_obs,
+                date_obs=input_files[0].date_obs,
                 state="planned",
                 date_beg=min(date_obses),
                 date_end=max(date_obses),
+                outlier=any(file.outlier for file in input_files),
+                bad_packets=any(file.bad_packets for file in input_files),
             )]
 
 

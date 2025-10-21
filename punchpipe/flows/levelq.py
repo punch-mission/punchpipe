@@ -94,6 +94,7 @@ def levelq_CNN_construct_file_info(level1_files: t.List[File], pipeline_config: 
                 date_obs=level1_file.date_obs,
                 state="planned",
                 outlier=level1_file.outlier,
+                bad_packets=level1_file.bad_packets,
             )
         for level1_file in level1_files
     ]
@@ -253,6 +254,7 @@ def levelq_CTM_construct_file_info(level1_files: t.List[File], pipeline_config: 
                 date_obs=average_datetime([f.date_obs for f in level1_files]),
                 state="planned",
                 outlier=any(file.outlier for file in level1_files),
+                bad_packets=any(file.bad_packets for file in level1_files),
             ),
     ]
 

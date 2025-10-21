@@ -91,6 +91,7 @@ def generic_process_flow_logic(flow_id: int | list[int], core_flow_to_launch, pi
                 date_created = date_created.replace(tzinfo=UTC).astimezone()
                 file_db_entry.date_created = date_created
                 result.meta['OUTLIER'] = int(file_db_entry.outlier)
+                result.meta['BADPKTS'] = int(file_db_entry.bad_packets)
                 filename = write_file(result, file_db_entry, pipeline_config)
                 logger.info(f"Wrote to {filename}")
 
