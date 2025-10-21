@@ -1238,7 +1238,7 @@ def get_outlier_limits_paths(session, reference_time):
                      .filter(File.level == '0')
                      .where(File.date_obs <= reference_time)
                      .order_by(File.file_version.desc(), File.date_obs.desc()).all())
-    limit_files = [l.filename().replace('.fits', '.npz') for l in limit_files]
+    limit_files = [limit_file.filename().replace('.fits', '.npz') for limit_file in limit_files]
     return limit_files
 
 def get_mask_paths(session, reference_time):
