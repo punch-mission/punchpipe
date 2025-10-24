@@ -21,26 +21,30 @@ def read_new_file_metadata(file, path):
         return None, None, None, None
 
     new_dateobs, new_date_created, new_outlier, new_bad_packets = None, None, None, None
-    with fits.open(path, disable_image_compression=True) as hdul:
-        if len(hdul) > 1 and 'DATE-OBS' in hdul[1].header:
-            p = hdul[1].header['DATE-OBS'].split('.')
-            if len(p) == 2:
-                ms = p[1]
-                ms = ms + '0' * (6 - len(ms))
-                new_dateobs = file.date_obs.replace(microsecond=int(ms))
-        if len(hdul) > 1 and 'DATE' in hdul[1].header:
-            date = hdul[1].header['DATE']
-            p = date.split('.')
-            if len(p) == 2:
-                new_date_created = datetime.strptime(date, "%Y-%m-%dT%H:%M:%S.%f")
-            elif date:
-                new_date_created = datetime.strptime(date, "%Y-%m-%dT%H:%M:%S")
+    try:
+        with fits.open(path, disable_image_compression=True) as hdul:
+            if len(hdul) > 1 and 'DATE-OBS' in hdul[1].header:
+                p = hdul[1].header['DATE-OBS'].split('.')
+                if len(p) == 2:
+                    ms = p[1]
+                    ms = ms + '0' * (6 - len(ms))
+                    new_dateobs = file.date_obs.replace(microsecond=int(ms))
+            if len(hdul) > 1 and 'DATE' in hdul[1].header:
+                date = hdul[1].header['DATE']
+                p = date.split('.')
+                if len(p) == 2:
+                    new_date_created = datetime.strptime(date, "%Y-%m-%dT%H:%M:%S.%f")
+                elif date:
+                    new_date_created = datetime.strptime(date, "%Y-%m-%dT%H:%M:%S")
 
-        if len(hdul) > 1 and 'OUTLIER' in hdul[1].header:
-            new_outlier = hdul[1].header['OUTLIER']
+            if len(hdul) > 1 and 'OUTLIER' in hdul[1].header:
+                new_outlier = hdul[1].header['OUTLIER']
 
-        if len(hdul) > 1 and 'BADPKTS' in hdul[1].header:
-            new_bad_packets = hdul[1].header['BADPKTS']
+            if len(hdul) > 1 and 'BADPKTS' in hdul[1].header:
+                new_bad_packets = hdul[1].header['BADPKTS']
+    except:
+        print(f"Error loading {path}")
+
     return new_dateobs, new_date_created, new_outlier, new_bad_packets
 
 if __name__ == "__main__":
