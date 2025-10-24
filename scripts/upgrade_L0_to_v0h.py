@@ -3,7 +3,7 @@ import sys
 import hashlib
 import multiprocessing
 from glob import glob
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from collections import defaultdict
 
 import numpy as np
