@@ -40,15 +40,12 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
             ready, quartic_models, vignetting_functions, mask_files):
         if quartic_model is None:
             missing_quartic.append(f)
-            logger.info(f"Missing quartic model for {f.filename()}")
             continue
         if vignetting_function[0] is None:
             missing_vignetting.append(f)
-            logger.info(f"Missing vignetting function for {f.filename()}")
             continue
         if mask_file is None:
             missing_mask.append(f)
-            logger.info(f"Missing mask file for {f.filename()}")
             continue
         # Smuggle the identified models out of this function
         f.quartic_model = quartic_model
