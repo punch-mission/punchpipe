@@ -363,6 +363,8 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: lis
 
     before_vignetting_function = level0_files[0].vignetting_functions[0]
     after_vignetting_function = level0_files[0].vignetting_functions[1]
+    if after_vignetting_function is not None:
+        after_vignetting_function = after_vignetting_function.filename()
     best_quartic_model = level0_files[0].quartic_model
     ccd_parameters = get_ccd_parameters(level0_files[0], pipeline_config, session=session)
     mask_function = level0_files[0].mask_file
@@ -371,7 +373,7 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: lis
         {
             "input_data": [level0_file.filename() for level0_file in level0_files],
             "vignetting_function_path": before_vignetting_function.filename(),
-            "second_vignetting_function_path": after_vignetting_function.filename(),
+            "second_vignetting_function_path": after_vignetting_function,
             "quartic_coefficient_path": best_quartic_model.filename(),
             "gain_bottom": ccd_parameters['gain_bottom'],
             "gain_top": ccd_parameters['gain_top'],

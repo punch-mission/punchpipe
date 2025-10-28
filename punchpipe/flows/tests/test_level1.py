@@ -338,7 +338,7 @@ def test_level1_early_construct_flow_info(db, prefect_test_fixture):
                        software_version='none',
                        date_obs=datetime.now(UTC))]
     level0_file[0].quartic_model = level0_file[0]
-    level0_file[0].vignetting_function = level0_file[0]
+    level0_file[0].vignetting_functions = level0_file[0], None
     level0_file[0].mask_file = level0_file[0]
 
     level1_file = level1_early_construct_file_info(level0_file, pipeline_config)
