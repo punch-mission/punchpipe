@@ -40,19 +40,16 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
             ready, quartic_models, vignetting_functions, mask_files):
         if quartic_model is None:
             missing_quartic.append(f)
-            logger.info(f"Missing quartic model for {f.filename()}")
             continue
-        if vignetting_function is None:
+        if vignetting_function[0] is None:
             missing_vignetting.append(f)
-            logger.info(f"Missing vignetting function for {f.filename()}")
             continue
         if mask_file is None:
             missing_mask.append(f)
-            logger.info(f"Missing mask file for {f.filename()}")
             continue
         # Smuggle the identified models out of this function
         f.quartic_model = quartic_model
-        f.vignetting_function = vignetting_function
+        f.vignetting_functions = vignetting_function
         f.mask_file = mask_file
         actually_ready.append([f])
         if len(actually_ready) >= max_n:
@@ -115,6 +112,7 @@ def get_vignetting_function_paths(level0_files, pipeline_config: dict, session=N
         target_type = VIGNETTING_CORRESPONDING_TYPES[l0_file.file_type]
         # We want to pick the latest model that's before the observation, so we go backwards in time, past any
         # later-in-time models, until we hit the first model that's before the observation.
+        before_model, after_model = None, None
         for model in models:
             if l0_file.observatory != model.observatory:
                 continue
@@ -122,10 +120,19 @@ def get_vignetting_function_paths(level0_files, pipeline_config: dict, session=N
                 continue
             if model.date_obs > l0_file.date_obs:
                 continue
-            results.append(model)
+            before_model = model
             break
-        else:
-            results.append(None)
+        if l0_file.observatory == '4':
+            for model in models[::-1]:
+                if l0_file.observatory != model.observatory:
+                    continue
+                if target_type != model.file_type:
+                    continue
+                if model.date_obs < l0_file.date_obs:
+                    continue
+                after_model = model
+                break
+        results.append((before_model, after_model))
     return results
 
 
@@ -137,6 +144,14 @@ def get_vignetting_function_path(level0_file, pipeline_config: dict, session=Non
                      .where(File.date_obs <= level0_file.date_obs)
                      .where(File.file_version.not_like("v%")) #filters out "v0a".
                      .order_by(File.file_version.desc(), File.date_obs.desc())).first()
+    if level0_file.observatory == '4':
+        other_best_function = (session.query(File)
+                               .filter(File.file_type == vignetting_function_type)
+                               .filter(File.observatory == level0_file.observatory)
+                               .where(File.date_obs >= level0_file.date_obs)
+                               .where(File.file_version.not_like("v%"))  # filters out "v0a".
+                               .order_by(File.file_version.desc(), File.date_obs.asc())).first()
+        return best_function, other_best_function
     return best_function
 
 
@@ -346,7 +361,10 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: lis
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
 
-    best_vignetting_function = level0_files[0].vignetting_function
+    before_vignetting_function = level0_files[0].vignetting_functions[0]
+    after_vignetting_function = level0_files[0].vignetting_functions[1]
+    if after_vignetting_function is not None:
+        after_vignetting_function = after_vignetting_function.filename()
     best_quartic_model = level0_files[0].quartic_model
     ccd_parameters = get_ccd_parameters(level0_files[0], pipeline_config, session=session)
     mask_function = level0_files[0].mask_file
@@ -354,7 +372,8 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: lis
     call_data = json.dumps(
         {
             "input_data": [level0_file.filename() for level0_file in level0_files],
-            "vignetting_function_path": best_vignetting_function.filename(),
+            "vignetting_function_path": before_vignetting_function.filename(),
+            "second_vignetting_function_path": after_vignetting_function,
             "quartic_coefficient_path": best_quartic_model.filename(),
             "gain_bottom": ccd_parameters['gain_bottom'],
             "gain_top": ccd_parameters['gain_top'],
@@ -401,13 +420,17 @@ def level1_early_scheduler_flow(pipeline_config_path=None, session=None, referen
 
 
 def level1_early_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
-    for key in ['input_data', 'quartic_coefficient_path', 'vignetting_function_path', 'mask_path']:
+    for key in ['input_data', 'quartic_coefficient_path', 'vignetting_function_path',
+                'second_vignetting_function_path', 'mask_path']:
         call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
 
     call_data['quartic_coefficient_path'] = cache_layer.quartic_coefficients.wrap_if_appropriate(
         call_data['quartic_coefficient_path'])
     call_data['vignetting_function_path'] = cache_layer.vignetting_function.wrap_if_appropriate(
         call_data['vignetting_function_path'])
+    if call_data['second_vignetting_function_path'] is not None:
+        call_data['second_vignetting_function_path'] = cache_layer.vignetting_function.wrap_if_appropriate(
+            call_data['second_vignetting_function_path'])
     # Anything more than 16 doesn't offer any real benefit, and the default of n_cpu on punch190 is actually slower than
     # 16! Here we choose less to have less spiky CPU usage to play better with other flows.
     call_data['max_workers'] = 2
