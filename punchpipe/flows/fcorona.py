@@ -14,7 +14,6 @@ from punchpipe.control.util import get_database_session, load_pipeline_configura
 from punchpipe.flows.util import file_name_to_full_path
 
 
-@task(cache_policy=NO_CACHE)
 def f_corona_background_query_ready_files(session, pipeline_config: dict, reference_time: datetime,
                                           reference_file: File):
     logger = get_run_logger()
