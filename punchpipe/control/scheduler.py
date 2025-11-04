@@ -76,6 +76,7 @@ def generic_scheduler_flow_logic(
                 logger.info(f"This flow already has {n_already_scheduled} flows scheduled; stopping.")
                 return 0
             max_start -= n_already_scheduled
+            logger.info(f"{n_already_scheduled} flows already scheduled; will schedule up to {max_start} more.")
 
     # Not every level*_query_ready_files function needs this max_n parameter---some instead have a use_n that's similar
     # at first glance, but fills a different role and needs to be tuned differently. To avoid confusion there, we don't

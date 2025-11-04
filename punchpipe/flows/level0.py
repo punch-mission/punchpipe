@@ -1280,6 +1280,7 @@ def level0_construct_flow_info(pipeline_config: dict, session, skip_if_no_new_tl
 @flow
 def level0_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None, skip_if_no_new_tlm: bool=True):
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
+    logger = get_run_logger()
 
     if session is None:
         session = Session(engine)
@@ -1293,6 +1294,7 @@ def level0_scheduler_flow(pipeline_config_path=None, session=None, reference_tim
              .where(Flow.flow_type == 'level0')
              .all())
     if len(flows):
+        logger.info("Not scheduling---there's already a pending/running flow in the DB")
         return
 
     new_flow = level0_construct_flow_info(pipeline_config, session, skip_if_no_new_tlm=skip_if_no_new_tlm)
