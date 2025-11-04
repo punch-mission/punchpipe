@@ -65,6 +65,7 @@ Index("date_obs_index", File.date_obs, mysql_using="btree", mariadb_using="btree
 Index("observatory_index", File.observatory, mysql_using="hash", mariadb_using="hash")
 Index("file_type_index", File.file_type, mysql_using="hash", mariadb_using="hash")
 Index("processing_flow_index", File.processing_flow, mysql_using="hash", mariadb_using="hash")
+Index("ready_files_index", File.file_type, File.level, File.state, File.observatory, File.outlier, File.date_obs)
 
 
 class Flow(Base):
