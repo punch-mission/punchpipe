@@ -29,6 +29,7 @@ def levelq_CNN_query_ready_files(session, pipeline_config: dict, reference_time=
     pending_flows = session.query(Flow).filter(Flow.flow_type == "levelq_CNN").filter(Flow.state == "planned").all()
     if pending_flows:
         logger.info("A pending flow already exists. Skipping scheduling to let the batch grow.")
+        return []
 
     all_fittable_files = (session.query(File).filter(File.state.in_(("created", "progressed")))
                           .filter(File.level == "1")
