@@ -393,34 +393,38 @@ def levelq_upload_process_flow(flow_id, pipeline_config_path=None, session=None)
         # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
         session.commit()
 
-@task
-def levelq_CFM_query_ready_files(session, pipeline_config: dict, reference_time: datetime, use_n: int = 50):
-    before = reference_time - timedelta(weeks=4)
-    after = reference_time + timedelta(weeks=0)
-
+@task(cache_policy=NO_CACHE)
+def levelq_CFM_query_ready_files(session, pipeline_config: dict, reference_time: datetime):
     logger = get_run_logger()
+
+    min_files_per_half = pipeline_config['flows']['construct_f_corona_background']['min_files_per_half']
+    max_files_per_half = pipeline_config['flows']['construct_f_corona_background']['max_files_per_half']
+    max_hours_per_half = pipeline_config['flows']['construct_f_corona_background']['max_hours_per_half']
+
+    before = reference_time - timedelta(hours=max_hours_per_half)
+    after = reference_time + timedelta(weeks=0)
     all_ready_files = (session.query(File)
                        .filter(File.state.in_(["created", "progressed"]))
                        .filter(File.date_obs >= before)
                        .filter(File.date_obs <= after)
                        .filter(File.level == "Q")
                        .filter(File.file_type == "CT")
-                       .filter(File.observatory == "M").all())
-    logger.info(f"{len(all_ready_files)} Level Q CTM files will be used for F corona background modeling.")
-    if len(all_ready_files) > 30:  #  need at least 30 images
-        random.shuffle(all_ready_files)
-        return [[f.file_id for f in all_ready_files[:use_n]]]
+                       .filter(File.observatory == "M")
+                       .limit(2 * max_files_per_half).all())
+    if len(all_ready_files) > 2 * min_files_per_half:  #  need at least 30 images
+        logger.info(f"{len(all_ready_files)} Level Q CTM files will be used for F corona background modeling.")
+        return all_ready_files
     else:
         return []
 
-@task
+@task(cache_policy=NO_CACHE)
 def construct_levelq_CFM_flow_info(levelq_CTM_files: list[File],
                                             levelq_CFM_model_file: File,
                                             pipeline_config: dict,
                                             reference_time: datetime,
                                             session=None
                                             ):
-    flow_type = "levelQ_CFM"
+    flow_type = "levelq_CFM"
     state = "planned"
     creation_time = datetime.now()
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
@@ -441,7 +445,7 @@ def construct_levelq_CFM_flow_info(levelq_CTM_files: list[File],
 
 
 @task
-def construct_levelq_CFM_background_file_info(levelq_files: t.List[File], pipeline_config: dict,
+def construct_levelq_CFM_file_info(levelq_files: t.List[File], pipeline_config: dict,
                                             reference_time: datetime) -> t.List[File]:
     return [File(
                 level="Q",
@@ -455,17 +459,93 @@ def construct_levelq_CFM_background_file_info(levelq_files: t.List[File], pipeli
 
 @flow
 def levelq_CFM_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
-    reference_time = reference_time or datetime.now(UTC)
+    session = get_database_session()
+    pipeline_config = load_pipeline_configuration(pipeline_config_path)
+    logger = get_run_logger()
 
-    generic_scheduler_flow_logic(
-        levelq_CFM_query_ready_files,
-        construct_levelq_CFM_background_file_info,
-        construct_levelq_CFM_flow_info,
-        pipeline_config_path,
-        update_input_file_state=False,
-        reference_time=reference_time,
-        session=session,
-    )
+    if not pipeline_config["flows"]['levelq_CFM'].get("enabled", True):
+        logger.info("Flow 'levelq_CFM' is not enabled---halting scheduler")
+        return 0
+
+    max_flows = 2 * pipeline_config['flows']['levelq_CFM'].get('concurrency_limit', 1000)
+    existing_flows = (session.query(Flow)
+                      .where(Flow.flow_type == 'levelq_CFM')
+                      .where(Flow.state.in_(["planned", "launched", "running"])).count())
+    flows_to_schedule = max_flows - existing_flows
+    if flows_to_schedule <= 0:
+        logger.info("Our maximum flow count has been reached; halting")
+        return
+    else:
+        logger.info(f"Will schedule up to {flows_to_schedule} flows")
+
+    existing_models = (session.query(File)
+                       .filter(File.level == "Q")
+                       .filter(File.file_type == 'CF')
+                       .all())
+    logger.info(f"There are {len(existing_models)} model records in the DB")
+
+    existing_models = {(model.file_type, model.observatory, model.date_obs): model for model in existing_models}
+    t0 = datetime.strptime(pipeline_config['flows']['levelq_CFM']['t0'], "%Y-%m-%d %H:%M:%S")
+    increment = timedelta(hours=float(pipeline_config['flows']['levelq_CFM']['model_spacing_hours']))
+    n = 0
+    models_to_try_creating = []
+    # I'm sure there's a better way to do this, but let's step forward by increments to the present, and then we'll work
+    # backwards back to t0, so that we prioritize the stray light models that QuickPUNCH uses
+    while t0 + n * increment < datetime.now():
+        n += 1
+
+    for i in range(n, -1, -1):
+        t = t0 + i * increment
+        model_type = "CF"
+        observatory = "M"
+        key = (model_type, observatory, t)
+        model = existing_models.get(key, None)
+        if model is None:
+            new_model = File(state='waiting',
+                             level='Q',
+                             file_type=model_type,
+                             observatory=observatory,
+                             polarization=model_type[0],
+                             date_obs=t,
+                             date_created=datetime.now(),
+                             file_version=pipeline_config["file_version"],
+                             software_version=__version__)
+            session.add(new_model)
+            models_to_try_creating.append(new_model)
+        elif model.state == 'waiting':
+            models_to_try_creating.append(model)
+
+    session.commit()
+    logger.info(f"There are {len(models_to_try_creating)} waiting models")
+
+    to_schedule = []
+    for model in models_to_try_creating:
+        ready_files = levelq_CFM_query_ready_files(
+            session, pipeline_config, model.date_obs)
+        if ready_files:
+            to_schedule.append((model, ready_files))
+            logger.info(f"Will schedule {model.file_type} at {model.date_obs}")
+            if len(to_schedule) == flows_to_schedule:
+                break
+
+    if len(to_schedule):
+        for model, input_files in to_schedule:
+            dateobs = model.date_obs
+            # Clear the placeholder model entry---it'll be regenerated in the scheduling flow
+            session.delete(model)
+            generic_scheduler_flow_logic(
+                lambda *args, **kwargs: [input_files],
+                construct_levelq_CFM_file_info,
+                construct_levelq_CFM_flow_info,
+                pipeline_config,
+                update_input_file_state=False,
+                session=session,
+                cap_planned_flows=False,
+                reference_time=dateobs,
+            )
+
+        logger.info(f"Scheduled {len(to_schedule)} models")
+    session.commit()
 
 
 def levelq_CFM_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
@@ -474,7 +554,7 @@ def levelq_CFM_call_data_processor(call_data: dict, pipeline_config, session=Non
 
 @flow
 def levelq_CFM_process_flow(flow_id: int | list[int], pipeline_config_path=None, session=None):
-    generic_process_flow_logic(flow_id, partial(construct_qp_f_corona_model, product_code="CFM"),
+    generic_process_flow_logic(flow_id, construct_qp_f_corona_model,
                                pipeline_config_path, session=session,
                                call_data_processor=levelq_CFM_call_data_processor)
 
