@@ -57,9 +57,10 @@ def reset_revivable_flows(logger, session, pipeline_config):
         # we set the L1's state to 'created', we don't want to later set it to 'quickpunched' when the L2 shows up.
         if processing_flow.flow_type not in ('construct_stray_light',
                                              'construct_f_corona_background',
-                                             'construct_starfield_background'):
+                                             'construct_starfield_background',
+                                             'levelq_CFM',):
             parent.state = "created"
-        unique_parents.add(parent.file_id)
+            unique_parents.add(parent.file_id)
     logger.info(f"Reset {len(unique_parents)} parent files")
 
     unique_children = {child for rel, parent, child, flow in results}
