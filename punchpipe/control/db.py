@@ -61,11 +61,11 @@ class File(Base):
         return os.path.join(root, self.level, self.file_type + self.observatory, self.date_obs.strftime("%Y/%m/%d"))
 
 
-Index("date_obs_index", File.date_obs, mysql_using="btree", mariadb_using="btree")
-Index("observatory_index", File.observatory, mysql_using="hash", mariadb_using="hash")
-Index("file_type_index", File.file_type, mysql_using="hash", mariadb_using="hash")
-Index("processing_flow_index", File.processing_flow, mysql_using="hash", mariadb_using="hash")
-Index("ready_files_index", File.file_type, File.level, File.state, File.observatory, File.outlier, File.date_obs)
+Index("get_ready_files", File.state, File.level, File.date_obs.desc(), File.file_type, File.observatory)
+Index("get_ready_files_alt", File.level, File.date_obs.desc(), File.file_type, File.state)
+Index("construct_background", File.level, File.observatory, File.outlier, File.date_obs, File.state, File.file_type)
+Index("get_cal_file", File.file_type, File.observatory, File.date_obs, File.state)
+Index("CNN", File.File_type, File.observatory, File.level, File.state, File.outlier)
 
 
 class Flow(Base):
@@ -86,6 +86,10 @@ class Flow(Base):
 
     def __repr__(self):
         return f"Flow(id={self.flow_id!r})"
+
+
+Index("flow_stats", Flow.end_time, Flow.flow_type, Flow.state)
+Index("flow_cards", Flow.start_time, Flow.flow_level, Flow.flow_type)
 
 
 class FileRelationship(Base):
