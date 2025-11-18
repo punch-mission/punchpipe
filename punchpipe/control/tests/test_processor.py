@@ -79,8 +79,69 @@ def session_fn(session):
     session.add(level1_planned_flow2)
     session.add(level2_planned_flow)
 
+def session_fn_out_file_already_exists(session):
+    level0_file = File(file_id=1,
+                       level=0,
+                       file_type='PM',
+                       observatory='1',
+                       state='created',
+                       file_version='1',
+                       software_version='none',
+                       date_obs=datetime(2023, 1, 1, 0, 0, 1),
+                       processing_flow=0)
+
+    level1_file = File(file_id=2,
+                       level=1,
+                       file_type="PM",
+                       observatory='1',
+                       state='created',
+                       file_version='1',
+                       software_version='none',
+                       date_obs=datetime(2023, 1, 1, 0, 0, 1),
+                       processing_flow=2)
+
+    level0_planned_flow = Flow(flow_id=1,
+                               flow_level=0,
+                              flow_type='level0_process_flow',
+                              state='launched',
+                              creation_time=datetime(2023, 2, 2, 0, 0, 0),
+                              priority=5,
+                              call_data=json.dumps({}))
+
+    level1_planned_flow = Flow(flow_id=2,
+                               flow_level=1,
+                              flow_type='level1_process_flow',
+                              state='launched',
+                              creation_time=datetime(2023, 2, 2, 0, 0, 0),
+                              priority=2,
+                              call_data=json.dumps({}))
+
+    level1_planned_flow2 = Flow(flow_id=3,
+                               flow_level=1,
+                              flow_type='level1_process_flow',
+                              state='planned',
+                              creation_time=datetime(2023, 2, 2, 0, 0, 0),
+                              priority=100,
+                              call_data=json.dumps({}))
+
+    level2_planned_flow = Flow(flow_id=4,
+                                flow_level=2,
+                              flow_type='level2_process_flow',
+                              state='planned',
+                              creation_time=datetime(2023, 2, 2, 0, 0, 0),
+                              priority=1,
+                              call_data=json.dumps({}))
+
+    session.add(level0_file)
+    session.add(level1_file)
+    session.add(level0_planned_flow)
+    session.add(level1_planned_flow)
+    session.add(level1_planned_flow2)
+    session.add(level2_planned_flow)
+
 
 db = create_mysql_fixture(Base, session_fn, session=True)
+db_out_exists = create_mysql_fixture(Base, session_fn_out_file_already_exists, session=True)
 db_empty = create_mysql_fixture(Base, session=True)
 
 @flow
@@ -98,6 +159,12 @@ def test_generic_process_flow_fails_on_empty_db(db_empty):
             empty_flow(1, session=db_empty)
 
 
+def test_generic_process_flow_fails_on_out_file_existence(db_out_exists):
+    with pytest.raises(Exception):
+        with prefect_test_harness():
+            normal_flow(2, session=db_out_exists)
+
+
 def test_simple_generic_process_flow_unreported(db):
     level1_file = db.query(File).where(File.file_id == 2).one()
     assert level1_file.state == "planned"
@@ -107,12 +174,8 @@ def test_simple_generic_process_flow_unreported(db):
     flow.state = 'launched'
     db.commit()
     del flow
-    with prefect_test_harness():
+    with prefect_test_harness(), pytest.raises(RuntimeError, match=".*We did not get an output cube.*"):
         empty_flow(1, session=db)
-
-    level1_file = db.query(File).where(File.file_id == 2).one()
-    assert level1_file.state == "unreported"
-    del level1_file
 
 
 @flow
@@ -129,6 +192,8 @@ def normal_core_flow():
 
     meta = NormalizedMetadata.load_template("PM1", "1")
     meta['DATE-OBS'] = str(datetime(2023, 1, 1, 0, 0, 1))
+    meta['DATE'] = datetime.now().strftime("%Y%m%dT%H%M%S")
+    meta['FILEVRSN'] = "1"
     output = NDCube(data=data, uncertainty=uncertainty, wcs=wcs, meta=meta)
 
     return [output]

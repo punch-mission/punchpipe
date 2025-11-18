@@ -1,0 +1,1 @@
+sync_db_to_files now retrieves a smaller mother lode of data from the DB

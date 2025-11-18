@@ -28,6 +28,9 @@ def main():
     try:
         while True:
             time.sleep(5)
+            if not os.path.exists(configuration_path):
+                # In case the file is being re-written right now. (This has happened and crashed this process!)
+                time.sleep(1)
             if (cur_mtime := os.path.getmtime(configuration_path)) != config_mtime:
                 config_mtime = cur_mtime
                 config = load_pipeline_configuration(configuration_path)

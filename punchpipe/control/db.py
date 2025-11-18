@@ -1,7 +1,7 @@
 import os
 
 from sqlalchemy import TEXT, Boolean, Column, Float, Index, Integer, String
-from sqlalchemy.dialects.mysql import DATETIME
+from sqlalchemy.dialects.mysql import DATETIME, MEDIUMTEXT
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -21,6 +21,8 @@ class File(Base):
     date_end = Column(DATETIME(fsp=6), nullable=True)
     polarization = Column(String(2), nullable=True)
     state = Column(String(64), nullable=False)
+    outlier = Column(Boolean, nullable=False, default=False)
+    bad_packets = Column(Boolean, nullable=False, default=False)
     processing_flow = Column(Integer, nullable=True)
 
     def summary(self):
@@ -62,6 +64,8 @@ class File(Base):
 Index("date_obs_index", File.date_obs, mysql_using="btree", mariadb_using="btree")
 Index("observatory_index", File.observatory, mysql_using="hash", mariadb_using="hash")
 Index("file_type_index", File.file_type, mysql_using="hash", mariadb_using="hash")
+Index("processing_flow_index", File.processing_flow, mysql_using="hash", mariadb_using="hash")
+Index("ready_files_index", File.file_type, File.level, File.state, File.observatory, File.outlier, File.date_obs)
 
 
 class Flow(Base):
@@ -77,7 +81,11 @@ class Flow(Base):
     start_time = Column(DATETIME(fsp=6), nullable=True)
     end_time = Column(DATETIME(fsp=6), nullable=True)
     priority = Column(Integer, nullable=False)
-    call_data = Column(TEXT, nullable=True)
+    call_data = Column(MEDIUMTEXT, nullable=True)
+    is_backprocessing = Column(Boolean, nullable=False, default=False)
+
+    def __repr__(self):
+        return f"Flow(id={self.flow_id!r})"
 
 
 class FileRelationship(Base):
@@ -85,6 +93,9 @@ class FileRelationship(Base):
     relationship_id = Column(Integer, primary_key=True)
     parent = Column(Integer, nullable=False)
     child = Column(Integer, nullable=False)
+
+Index("relationship_parent_index", FileRelationship.parent, mysql_using="hash", mariadb_using="hash")
+Index("relationship_child_index", FileRelationship.child, mysql_using="hash", mariadb_using="hash")
 
 class TLMFiles(Base):
     __tablename__ = "tlm_files"
@@ -113,6 +124,82 @@ class PacketHistory(Base):
     num_images_succeeded = Column(Integer, nullable=False)
     num_images_failed = Column(Integer, nullable=False)
 
+class SCI_XFI(Base):
+    __tablename__ = "sci_xfi"
+    id = Column(Integer, primary_key=True)
+    tlm_id = Column(Integer)
+    spacecraft_id = Column(Integer, nullable=False)
+    packet_index = Column(Integer, nullable=False)
+    ccsds_sequence_count = Column(Integer, nullable=False)
+    ccsds_packet_length = Column(Integer, nullable=False)
+    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
+    is_used = Column(Boolean, nullable=False)
+    num_attempts = Column(Integer, nullable=True)
+    last_attempt = Column(DATETIME(fsp=6), nullable=True)
+    last_skip_reason = Column(TEXT, nullable=True)
+    flash_block = Column(Integer, nullable=False)
+    compression_settings = Column(Integer, nullable=False)
+    acquisition_settings = Column(Integer, nullable=False)
+    packet_group = Column(Integer, nullable=False)
+
+class ENG_CEB(Base):
+    __tablename__ = "eng_ceb"
+    id = Column(Integer, primary_key=True)
+    tlm_id = Column(Integer)
+    spacecraft_id = Column(Integer, nullable=False)
+    packet_index = Column(Integer, nullable=False)
+    ccsds_sequence_count = Column(Integer, nullable=False)
+    ccsds_packet_length = Column(Integer, nullable=False)
+    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
+
+class ENG_PFW(Base):
+    __tablename__ = "eng_pfw"
+    id = Column(Integer, primary_key=True)
+    tlm_id = Column(Integer)
+    spacecraft_id = Column(Integer, nullable=False)
+    packet_index = Column(Integer, nullable=False)
+    ccsds_sequence_count = Column(Integer, nullable=False)
+    ccsds_packet_length = Column(Integer, nullable=False)
+    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
+
+class ENG_XACT(Base):
+    __tablename__ = "eng_xact"
+    id = Column(Integer, primary_key=True)
+    tlm_id = Column(Integer)
+    spacecraft_id = Column(Integer, nullable=False)
+    packet_index = Column(Integer, nullable=False)
+    ccsds_sequence_count = Column(Integer, nullable=False)
+    ccsds_packet_length = Column(Integer, nullable=False)
+    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
+
+class ENG_LZ(Base):
+    __tablename__ = "eng_lz"
+    id = Column(Integer, primary_key=True)
+    tlm_id = Column(Integer)
+    spacecraft_id = Column(Integer, nullable=False)
+    packet_index = Column(Integer, nullable=False)
+    ccsds_sequence_count = Column(Integer, nullable=False)
+    ccsds_packet_length = Column(Integer, nullable=False)
+    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
+
+class ENG_LED(Base):
+    __tablename__ = "eng_led"
+    id = Column(Integer, primary_key=True)
+    tlm_id = Column(Integer)
+    spacecraft_id = Column(Integer, nullable=False)
+    packet_index = Column(Integer, nullable=False)
+    ccsds_sequence_count = Column(Integer, nullable=False)
+    ccsds_packet_length = Column(Integer, nullable=False)
+    timestamp = Column(DATETIME(fsp=6), nullable=False, index=True)
+    led_start_time = Column(DATETIME(fsp=6), nullable=False, index=True)
+    led_end_time = Column(DATETIME(fsp=6), nullable=False, index=True)
+
+PACKETNAME2SQL = {'SCI_XFI': SCI_XFI,
+                  'ENG_CEB': ENG_CEB,
+                  'ENG_PFW': ENG_PFW,
+                  'ENG_XACT': ENG_XACT,
+                  'ENG_LED': ENG_LED,
+                  "ENG_LZ": ENG_LZ}
 
 def get_closest_file(f_target: File, f_others: list[File]) -> File:
     return min(f_others, key=lambda o: abs((f_target.date_obs - o.date_obs).total_seconds()))

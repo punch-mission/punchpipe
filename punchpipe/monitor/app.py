@@ -1,273 +1,41 @@
-from datetime import datetime, timedelta
+from contextlib import contextmanager
 
 import dash_bootstrap_components as dbc
-import pandas as pd
-import plotly.express as px
-from dash import Dash, Input, Output, callback, dash_table, dcc, html
-from sqlalchemy import select
+from dash import Dash, dcc, html, page_container, page_registry
+from sqlalchemy.orm import Session
 
-from punchpipe.control.db import Flow
-from punchpipe.control.util import get_database_session
+from punchpipe.control.util import get_database_session as _get_database_session
 
-REFRESH_RATE = 60  # seconds
+# We'll keep and engine to keep a DB connection pool for the monitor, instead of making a new connection in each
+# individual function every time the page loads or refreshes.
+session, engine = _get_database_session(get_engine=True, engine_kwargs=dict(pool_recycle=6*3600))
+session.close()
 
-column_names = [ "flow_level", "flow_type", "state", "priority",
-                 "creation_time", "start_time", "end_time",
-                 "flow_id", "flow_run_id",
-                 "flow_run_name", "call_data"]
-schedule_columns =[{'name': v.replace("_", " ").capitalize(), 'id': v} for v in column_names]
-PAGE_SIZE = 15
+
+@contextmanager
+def get_database_session():
+    session = Session(engine)
+    try:
+        yield session
+    finally:
+        session.close()
+
 
 def create_app():
-    app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
+    app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP], use_pages=True, pages_folder="pages")
+
     app.layout = html.Div([
-        dcc.Graph(id='machine-graph'),
-        dcc.Dropdown(
-            id="machine-stat",
-            options=["cpu_usage", "memory_usage", "memory_percentage", "disk_usage", "disk_percentage", "num_pids"],
-            value="cpu_usage",
-            clearable=False,
-        ),
-        html.Div(
-            id="status-cards"
-        ),
+        html.H1('PUNCHPipe dashboard'),
         html.Div([
-            html.Div(children=[dcc.Graph(id='flow-throughput')], style={'padding': 10, 'flex': 1}),
-
-            html.Div(children=[dcc.Graph(id='flow-duration')], style={'padding': 10, 'flex': 1})
-        ], style={'display': 'flex', 'flexDirection': 'row'}),
-        dash_table.DataTable(id='flows-table',
-                             data=pd.DataFrame({name: [] for name in column_names}).to_dict('records'),
-                             columns=schedule_columns,
-                             page_current=0,
-                             page_size=PAGE_SIZE,
-                             page_action='custom',
-
-                             filter_action='custom',
-                             filter_query='',
-
-                             sort_action='custom',
-                             sort_mode='multi',
-                             sort_by=[],
-                             style_table={'overflowX': 'auto',
-                                          'textAlign': 'left'},
-                             ),
-        dcc.Interval(
-            id='interval-component',
-            interval=REFRESH_RATE * 1000,  # in milliseconds
-            n_intervals=0)
+            dcc.Link(f"{page['name']}", href=page["relative_path"], style={"margin": "10px"})
+            for page in page_registry.values()
+        ]),
+        page_container
     ])
 
-    operators = [(['ge ', '>='], '__ge__'),
-                 (['le ', '<='], '__le__'),
-                 (['lt ', '<'], '__lt__'),
-                 (['gt ', '>'], '__gt__'),
-                 (['ne ', '!='], '__ne__'),
-                 (['eq ', '='], '__eq__'),
-                 (['contains '], 'contains'),
-                 (['datestartswith '], None),
-                ]
-
-    def split_filter_part(filter_part):
-        for operator_type, py_method in operators:
-            for operator in operator_type:
-                if operator in filter_part:
-                    name_part, value_part = filter_part.split(operator, 1)
-                    name = name_part[name_part.find('{') + 1: name_part.rfind('}')]
-
-                    value_part = value_part.strip()
-                    v0 = value_part[0]
-                    if (v0 == value_part[-1] and v0 in ("'", '"', '`')):
-                        value = value_part[1: -1].replace('\\' + v0, v0)
-                    else:
-                        try:
-                            value = float(value_part)
-                        except ValueError:
-                            value = value_part
-
-                    # word operators need spaces after them in the filter string,
-                    # but we don't want these later
-                    return name, operator_type[0].strip(), value, py_method
-
-        return [None] * 4
-
-    @callback(
-        Output('flows-table', 'data'),
-        Input('interval-component', 'n_intervals'),
-        Input('flows-table', "page_current"),
-        Input('flows-table', "page_size"),
-        Input('flows-table', 'sort_by'),
-        Input('flows-table', 'filter_query'))
-    def update_flows(n, page_current, page_size, sort_by, filter):
-        with get_database_session() as session:
-            query = select(Flow)
-            for filter_part in filter.split(' && '):
-                col_name, operator, filter_value, py_method = split_filter_part(filter_part)
-                if col_name is not None:
-                    query = query.where(getattr(getattr(Flow, col_name), py_method)(filter_value))
-            for col in sort_by:
-                sort_column = getattr(Flow, col['column_id'])
-                if col['direction'] == 'asc':
-                    sort_column = sort_column.asc()
-                else:
-                    sort_column = sort_column.desc()
-                query = query.order_by(sort_column)
-            query = query.offset(page_current * page_size).limit(page_size)
-            dff = pd.read_sql_query(query, session.connection())
-
-        return dff.to_dict('records')
-
-
-    def create_card_content(level: int | str, status: str, message: str):
-        return [
-            dbc.CardBody(
-                [
-                    html.H5(f"Level {level} Status: {status}", className="card-title"),
-                    html.P(
-                        message,
-                        className="card-text",
-                    ),
-                ]
-            ),
-        ]
-
-    @callback(
-        Output('status-cards', 'children'),
-        Input('interval-component', 'n_intervals'),
-    )
-    def update_cards(n):
-        reference_time = datetime.now() - timedelta(hours=24)
-        with get_database_session() as session:
-            query = (f"SELECT SUM(num_images_succeeded), SUM(num_images_failed) "
-                     f"FROM packet_history WHERE datetime > '{reference_time}';")
-            l0_df = pd.read_sql_query(query, session.connection())
-            query = (f"SELECT flow_level AS level, SUM(state = 'completed') AS n_good, "
-                      "SUM(state = 'failed') AS n_bad, SUM(state = 'running') AS n_running "
-                     f"FROM flows WHERE start_time > '{reference_time}' "
-                      "GROUP BY level;")
-            l1plus_df = pd.read_sql_query(query, session.connection())
-            # These states don't have a start_time set
-            query = ("SELECT flow_level AS level, "
-                     "SUM(state = 'launched') AS n_launched, SUM(state = 'planned') AS n_planned "
-                     "FROM flows GROUP BY level;")
-            l1plus_second_df = pd.read_sql_query(query, session.connection())
-            l1plus_df = l1plus_df.join(l1plus_second_df.set_index('level'), on='level')
-            l1plus_df.fillna(0, inplace=True)
-        num_l0_success = l0_df['SUM(num_images_succeeded)'].sum()
-        num_l0_fails = l0_df['SUM(num_images_failed)'].sum()
-        l0_fraction = num_l0_success / (1 + num_l0_success + num_l0_fails)  # add one to avoid div by 0 errors
-        message = f"{num_l0_success} ✅     {num_l0_fails} ⛔"
-        if (num_l0_success + num_l0_fails) == 0:
-            status = ""
-            message = "No activity"
-            color = "light"
-        elif l0_fraction > 0.95:
-            status = "Good"
-            color = "success"
-        else:
-            status = "Bad"
-            color = "danger"
-        cards = [dbc.Col(dbc.Card(create_card_content(0, status, message), color=color, inverse=color != 'light'))]
-
-        for level in ['1', '2', '3', 'S']:
-            if level not in l1plus_df['level'].values:
-                cards.append(dbc.Col(dbc.Card(create_card_content(level, "", "No activity"),
-                                              color="light", inverse=False)))
-                continue
-
-            df = l1plus_df.loc[(l1plus_df['level'] == level)]
-            n_good, n_bad, n_running = df['n_good'].iloc[0], df['n_bad'].iloc[0], df['n_running'].iloc[0]
-            n_launched, n_planned = df['n_launched'].iloc[0], df['n_planned'].iloc[0]
-
-            n_planned = df['n_planned'].iloc[0]
-            message = (f"{n_good:.0f} ✅     {n_bad:.0f} ⛔     {n_launched:.0f} 🚀     {n_running:.0f} ⏳     "
-                       f"{n_planned:.0f} 💭")
-            if n_good == 0 and n_bad == 0:
-                color = "light"
-                status = ""
-                message = "No activity"
-            elif n_bad / n_good > 0.95:
-                color = "danger"
-                status = "Bad"
-            else:
-                color = "success"
-                status = "Good "
-            cards.append(dbc.Col(dbc.Card(create_card_content(level, status, message),
-                                          color=color, inverse=color != 'light',
-                                          # This preserves the multiple spaces separating the status count indicators
-                                          style={'white-space': 'pre'})))
-
-        return html.Div([dbc.Row(cards, className="mb-4")])
-
-    @callback(
-        Output('machine-graph', 'figure'),
-        Input('interval-component', 'n_intervals'),
-        Input('machine-stat', 'value'),
-    )
-    def update_machine_stats(n, machine_stat):
-        axis_labels = {"cpu_usage": "CPU Usage %",
-                       "memory_usage": "Memory Usage[GB]",
-                       "memory_percentage": "Memory Usage %",
-                       "disk_usage": "Disk Usage[GB]",
-                       "disk_percentage": "Disk Usage %",
-                       "num_pids": "Process Count"}
-        now = datetime.now()
-        with get_database_session() as session:
-            reference_time = now - timedelta(hours=24)
-            query = f"SELECT datetime, {machine_stat} FROM health WHERE datetime > '{reference_time}';"
-            df = pd.read_sql_query(query, session.connection())
-        fig = px.line(df, x='datetime', y=machine_stat, title="Machine stats")
-        fig.update_xaxes(title_text="Time")
-        fig.update_yaxes(title_text=axis_labels[machine_stat])
-
-        return fig
-
-    @callback(
-        Output('flow-throughput', 'figure'),
-        Output('flow-duration', 'figure'),
-        Input('interval-component', 'n_intervals'),
-    )
-    def update_flow_stats(n):
-        now = datetime.now()
-        with get_database_session() as session:
-            reference_time = now - timedelta(hours=72)
-            query = ("SELECT flow_type, end_time AS hour, AVG(TIMEDIFF(end_time, start_time)) AS duration, "
-                     "COUNT(*) AS count, state "
-                     f"FROM flows WHERE end_time > '{reference_time}' "
-                     "GROUP BY HOUR(end_time), DAY(end_time), MONTH(end_time), YEAR(end_time), flow_type, state;")
-            df = pd.read_sql_query(query, session.connection())
-        # Fill missing entries (for hours where nothing ran)
-        df.hour = [ts.floor('h') for ts in df.hour]
-        dates = pd.date_range(reference_time, now, freq=timedelta(hours=1)).floor('h')
-        additions = []
-        for flow_type in df.flow_type.unique():
-            for date in dates:
-                for state in ['failed', 'completed']:
-                    if len(df.query('hour == @date and state == @state and flow_type == @flow_type')) == 0:
-                        additions.append([flow_type, date, None, 0, state])
-        df = pd.concat([df, pd.DataFrame(additions, columns=df.columns)], ignore_index=True)
-        df.sort_values(['state', 'hour'], inplace=True)
-
-        # Extrapolate the last hourly window
-        now_index = pd.Timestamp(now).floor('h')
-        seconds_into_hour = (now - now_index).total_seconds()
-        # But don't do it if it's really a lot of extrapolation
-        if seconds_into_hour > 120:
-            df = df.astype({"count": "float"})
-            df.loc[df['hour'] == now_index, 'count'] *= 3600 / (now - now_index).total_seconds()
-        else:
-            # Don't show 0 or an un-extrapolable small number, instead just hide the current hour for the first few
-            # minutes
-            df.loc[df['hour'] == now_index, 'count'] = None
-
-        fig_throughput = px.line(df, x='hour', y="count", color="flow_type", line_dash="state",
-                                 title="Flow throughput (current hour's throughput is extrapolated)")
-        fig_throughput.update_xaxes(title_text="Time")
-        fig_throughput.update_yaxes(title_text="Flow runs per hour")
-        fig_duration = px.line(df[df['state'] == 'completed'], x='hour', y="duration", color="flow_type",
-                               title="Flow duration")
-        fig_duration.update_xaxes(title_text="Time")
-        fig_duration.update_yaxes(title_text="Average flow duration (s)")
-
-        return fig_throughput, fig_duration
     return app
+
+
+if __name__ == "app":
+    app = create_app()
+    server = app.server

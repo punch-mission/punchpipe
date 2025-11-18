@@ -3,11 +3,10 @@ from glob import glob
 from multiprocessing.shared_memory import SharedMemory
 
 from prefect import get_run_logger
+from prefect.exceptions import MissingContextError
 from prefect.variables import Variable
 
-
 CACHE_KEY_PREFIX = "punchpipe-cache-"
-
 
 def caching_is_enabled() -> bool:
     return Variable.get("use_shm_cache", False)
@@ -48,9 +47,12 @@ def try_write_to_key(key, data):
         # buf[0] will be a sentinel value to indicate that the rest of the data is in place, in case another process
         # opens this shared memory while we're still copying
         shm.buf[0] = 0
-        shm.buf[1:] = data
+        shm.buf[1:len(data)+1] = data
         shm.buf[0] = 1
-        get_run_logger().info(f"Saved to cache key {key}")
+        try:
+            get_run_logger().info(f"Saved to cache key {key}")
+        except MissingContextError:
+            pass  # we're not in a flow so we don't log
     except FileExistsError:
         pass
     finally:

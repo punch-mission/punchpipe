@@ -1,10 +1,11 @@
-from collections.abc import Callable
 import os
 
+from punchbowl.util import DataLoader
 from regularizepsf import ArrayPSFTransform
 
 from punchpipe.control.cache_layer import manager
 from punchpipe.control.cache_layer.loader_base_class import LoaderABC
+
 
 class PSFLoader(LoaderABC[ArrayPSFTransform]):
     def __init__(self, path: str):
@@ -23,7 +24,7 @@ class PSFLoader(LoaderABC[ArrayPSFTransform]):
         return f"PSFLoader({self.path})"
 
 
-def wrap_if_appropriate(psf_path: str) -> str | Callable:
+def wrap_if_appropriate(psf_path: str) -> str | DataLoader:
     if manager.caching_is_enabled():
-        return PSFLoader(psf_path).load
+        return PSFLoader(psf_path)
     return psf_path

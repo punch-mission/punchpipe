@@ -1,6 +1,6 @@
 root: "/Users/mhughes/data/punch_simulation/"
 tlm_directory: "/Users/mhughes/data/punch_simulation/RAW_CCSDS_DATA/"
-file_version: "1"
+file_version: "0"
 bucket_name: "output_bucket_name"
 
 plate_scale:
@@ -9,12 +9,57 @@ plate_scale:
   3: 0.02444444444
   4: 0.008333333333
 
-# CCD gain for [left, right] sides of chip
+# CCD gain for [bottom, top] sides of chip
 ccd_gain:
   1: [4.93, 4.92]
   2: [4.90, 5.04]
   3: [4.94, 4.89]
   4: [4.98, 4.92]
+
+replay:
+  science_blocks: [2048, 24575]
+  window_in_days: 5
+
+# Scaling vmin/vmax factors for [WFI, NFI]
+quicklook_scaling:
+  '0':
+    default: [[100, 800], [300, 1100]]
+    DK: [[0,40], [0,40]]
+    CR: [[100, 800], [300, 1100]]
+    PM: [[100, 650], [300, 1100]]
+    PZ: [[100, 650], [300, 1100]]
+    PP: [[100, 650], [300, 1100]]
+  'H':
+    default: [[100, 800], [300, 1100]]
+    CR: [[100, 800], [300, 1100]]
+    PM: [[100, 650], [300, 1100]]
+    PZ: [[100, 650], [300, 1100]]
+    PP: [[100, 650], [300, 1100]]
+  '1':
+    default: [[5e-13, 5e-11], [5e-11, 1e-9]]
+    CR: [[5e-13, 5e-11], [5e-11, 1e-9]]
+    PM: [[2.5e-13, 2.5e-11], [2.5e-11, 5e-10]]
+    PZ: [[2.5e-13, 2.5e-11], [2.5e-11, 5e-10]]
+    PP: [[2.5e-13, 2.5e-11], [2.5e-11, 5e-10]]
+  '2':
+    default: [[5e-13, 5e-11], [5e-11, 1e-9]]
+    PT: [[5e-13, 5e-11], [5e-11, 1e-9]]
+    PN: [[5e-13, 5e-11], [5e-11, 1e-9]]
+    CT: [[5e-13, 5e-11], [5e-11, 1e-9]]
+    CN: [[5e-13, 5e-11], [5e-11, 1e-9]]
+  '3':
+    default: [[5e-13, 5e-11], [5e-11, 1e-9]]
+    PF: [[5e-13, 5e-11], [5e-11, 1e-9]]
+    CF: [[5e-13, 5e-11], [5e-11, 1e-9]]
+    CT: [[5e-13, 5e-11], [5e-11, 1e-9]]
+    PT: [[5e-13, 5e-11], [5e-11, 1e-9]]
+    CA: [[5e-13, 5e-11], [5e-11, 1e-9]]
+    PA: [[5e-13, 5e-11], [5e-11, 1e-9]]
+  'Q':
+    default: [[5e-13, 5e-11], [5e-11, 1e-9]]
+    CF: [[5e-13, 5e-11], [5e-11, 1e-9]]
+    CT: [[5e-13, 5e-11], [5e-11, 1e-9]]
+    CN: [[5e-13, 5e-11], [5e-11, 1e-9]]
 
 quality_check:
   mean_low: 0
@@ -59,6 +104,20 @@ flows:
     schedule: "*/30 * * * *"
     options:
         retry_days: 5.0
+        num_workers: 8
+        pfw_recency_requirement: 3.0  # seconds
+        xact_recency_requirement: 3.0  # seconds
+
+  construct_stray_light:
+    description: "Creates Level 1 stray light model files."
+    tags: [ "L1" ]
+    priority:
+      initial: 10000
+      seconds: [1]
+      escalation: [10000]
+    schedule: "* * * * *"
+    launch_weight: 0.6
+    options:
 
   level1:
     description: "Creates Level 1 files."
@@ -68,6 +127,7 @@ flows:
       seconds: [ 30, 120, 600 ]
       escalation: [ 11, 21, 31 ]
     schedule: "* * * * *"
+    launch_weight: 0.6
     options:
 
   level2:
@@ -88,6 +148,7 @@ flows:
       seconds: [ 3000, 12000, 60000 ]
       escalation: [ 1000, 1000, 1000 ]
     schedule: "* * * * *"
+    launch_weight: 1
     options:
 
   levelq:
@@ -228,6 +289,7 @@ flows:
       seconds: [1]
       escalation: [1]
     schedule: "0 */8 * * *"
+    launch_weight: 1.5
     options:
       gamera_files_dir: "/Users/mhughes/data/punch_simulation/synthetic_cme/"
       out_dir: "/Users/mhughes/data/punch_simulation/outputs/"

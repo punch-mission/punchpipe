@@ -26,7 +26,13 @@ dependencies = [
     "pylibjpeg[libjpeg]",
     "psutil",
     "gunicorn",
-    "numpy-quaternion"
+    "numpy-quaternion",
+    "hypothesis==6.131.18",
+    "coverage==7.8.0",
+    "pytest-cov==6.1.1",
+    "dash-player==1.1.0",
+    "astrometry==4.3.0",
+    "pytest-asyncio==1.1.0",
 ]
 requires-python = ">=3.11"
 authors = [
@@ -48,6 +54,7 @@ classifiers = [
 test = ["pre-commit",
         "hypothesis",
         "pytest",
+        "pytest-asyncio",
         "coverage",
         "pytest-cov",
         "pytest-mock-resources[mysql]",
@@ -108,3 +115,55 @@ markers = [
     "prefect_test: a test that integrates with Prefect",
     "regression: a regression test, likely slow",
 ]
+
+[tool.gilesbot]
+[tool.gilesbot.pull_requests]
+enabled = true
+
+[tool.gilesbot.towncrier_changelog]
+enabled = true
+changelog_skip_label = "no-changelog-entry-needed" # default is none
+changelog_noop_label = "skip-changelog-checks"
+whatsnew_label = "whatsnew-needed"
+
+[tool.towncrier]
+package = "punchpipe"
+filename = "CHANGELOG.rst"
+directory = "changelog/"
+issue_format = "`#{issue} <https://github.com/punch-mission/punchpipe/pull/{issue}>`__"
+title_format = "{version} ({project_date})"
+
+[[tool.towncrier.type]]
+directory = "breaking"
+name = "Breaking Changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "deprecation"
+name = "Deprecations"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removal"
+name = "Removals"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "New Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Bug Fixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "doc"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "trivial"
+name = "Internal Changes"
+showcontent = true

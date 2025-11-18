@@ -10,7 +10,8 @@ from punchbowl.data.meta import construct_all_product_codes
 from punchbowl.data.punch_io import load_ndcube_from_fits, write_ndcube_to_quicklook, write_quicklook_to_mp4
 
 from punchpipe.control.db import File, Flow
-from punchpipe.control.util import get_database_session, load_pipeline_configuration
+from punchpipe.control.util import get_database_session, load_pipeline_configuration, load_quicklook_scaling
+from punchpipe.flows.util import file_name_to_full_path
 
 
 @task
@@ -24,7 +25,7 @@ def visualize_query_ready_files(session, pipeline_config: dict, reference_time: 
         product_codes = construct_all_product_codes(level=level)
         for product_code in product_codes:
             product_ready_files = (session.query(File)
-                                    .filter(File.state.in_(["created", "progressed"]))
+                                    .filter(File.state.in_(["created", "progressed", "quickpunched"]))
                                     .filter(File.date_obs >= (reference_time - timedelta(hours=lookback_hours)))
                                     .filter(File.date_obs <= reference_time)
                                     .filter(File.level == level)
@@ -50,17 +51,16 @@ def visualize_flow_info(input_files: list[File],
                         ):
     flow_type = "movie"
     state = "planned"
+
     creation_time = datetime.now()
-    out_path = input_files[-1].date_obs.strftime("%Y/%m/%d")
+    out_path = creation_time.strftime("%Y/%m/%d")
+
     priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
     call_data = json.dumps(
         {
-            "file_list": [
-                os.path.join(input_file.directory(pipeline_config["root"]), input_file.filename())
-                for input_file in input_files
-            ],
+            "file_list": [input_file.filename() for input_file in input_files],
             "product_code": product_code,
-            "output_movie_dir": os.path.join(pipeline_config["root"], "movies", out_path),
+            "output_movie_dir": os.path.join("movies", out_path),
             "framerate": framerate,
             "resolution": resolution,
             'ffmpeg_cmd': pipeline_config["flows"]["movie"]["options"].get("ffmpeg_cmd", "ffmpeg")
@@ -100,7 +100,7 @@ def generate_flow_run_name():
     parameters = flow_run.parameters
     code = parameters["product_code"]
     files = parameters["file_list"]
-    return f"movie-{code}-{len(files)}-{datetime.now()}"
+    return f"movie-{code}-len={len(files)}-{datetime.now()}"
 
 
 @flow(flow_run_name=generate_flow_run_name)
@@ -125,8 +125,13 @@ def movie_core_flow(file_list: list, product_code: str, output_movie_dir: str,
 
             written_list.append(img_file)
 
-            write_ndcube_to_quicklook(cube, filename=img_file, annotation=annotation, vmin=400, vmax=10_000)
+            vmin, vmax = load_quicklook_scaling(level=cube.meta["LEVEL"].value, product=cube.meta["TYPECODE"].value, obscode=cube.meta["OBSCODE"].value)
 
+            if cube.meta["LEVEL"].value == 0 and cube.meta["ISSQRT"].value == 0:
+                vmin = vmin**2
+                vmax = vmax**2
+
+            write_ndcube_to_quicklook(cube, filename=img_file, annotation=annotation, vmin=vmin, vmax=vmax)
 
         out_filename = os.path.join(output_movie_dir,
                                     f"{product_code}_{obs_start.isoformat()}-{obs_end.isoformat()}.mp4")
@@ -142,6 +147,7 @@ def movie_core_flow(file_list: list, product_code: str, output_movie_dir: str,
 def movie_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     if session is None:
         session = get_database_session()
+    pipeline_config = load_pipeline_configuration(pipeline_config_path)
     logger = get_run_logger()
 
     # fetch the appropriate flow db entry
@@ -153,20 +159,24 @@ def movie_process_flow(flow_id: int, pipeline_config_path=None, session=None):
     flow_db_entry.flow_run_name = flow_run_context.flow_run.name
     flow_db_entry.flow_run_id = flow_run_context.flow_run.id
     flow_db_entry.state = "running"
-    flow_db_entry.start_time = datetime.now(UTC)
+    flow_db_entry.start_time = datetime.now()
     session.commit()
 
     # load the call data and launch the core flow
     flow_call_data = json.loads(flow_db_entry.call_data)
+
+    flow_call_data['file_list'] = file_name_to_full_path(flow_call_data['file_list'], pipeline_config['root'])
+    flow_call_data['output_movie_dir'] = os.path.join(pipeline_config['root'], flow_call_data['output_movie_dir'])
+
     try:
         movie_core_flow(**flow_call_data)
     except Exception as e:
         flow_db_entry.state = "failed"
-        flow_db_entry.end_time = datetime.now(UTC)
+        flow_db_entry.end_time = datetime.now()
         session.commit()
         raise e
     else:
         flow_db_entry.state = "completed"
-        flow_db_entry.end_time = datetime.now(UTC)
+        flow_db_entry.end_time = datetime.now()
         # Note: the file_db_entry gets updated above in the writing step because it could be created or blank
         session.commit()
