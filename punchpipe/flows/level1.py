@@ -48,8 +48,11 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
     missing_quartic = []
     missing_vignetting = []
     missing_mask = []
+    missing_sequence = []
     for f, quartic_model, vignetting_function, mask_file in zip(
             ready, quartic_models, vignetting_functions, mask_files):
+        despike_neighbors = get_polarization_sequence(f)
+
         if quartic_model is None:
             missing_quartic.append(f)
             continue
@@ -59,10 +62,13 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
         if mask_file is None:
             missing_mask.append(f)
             continue
+        if despike_neighbors is None or len(despike_neighbors) <= 2:
+            missing_sequence.append(f)
         # Smuggle the identified models out of this function
         f.quartic_model = quartic_model
         f.vignetting_functions = vignetting_function
         f.mask_file = mask_file
+        f.despike_neighbors = despike_neighbors
         actually_ready.append([f])
         if len(actually_ready) >= max_n:
             break
@@ -72,8 +78,20 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
         logger.info("Missing vignetting for " + summarize_files_missing_cal_files(missing_vignetting))
     if missing_mask:
         logger.info("Missing mask for " + summarize_files_missing_cal_files(missing_mask))
+    if missing_sequence:
+        logger.info("Missing despiking polarization sequence neighbors for "
+                    + summarize_files_missing_cal_files(missing_sequence))
     return actually_ready
 
+def get_polarization_sequence(f: File, session=None, crota_tolerance_degree=0.01, time_tolerance_minutes=15):
+    neighbors = (session.query(File)
+                 .filter(File.level == "0")
+                 .filter(File.observatory == f.observatory)
+                 .filter(abs(File.crota - f.crota) < crota_tolerance_degree)
+                 .filter(File.date_obs != f.date_obs)  # do not include the image itself in the pol. sequence neighbors
+                 .filter(File.date_obs > f.date_obs - timedelta(minutes=time_tolerance_minutes))
+                 .filter(File.date_obs < f.date_obs + timedelta(minutes=time_tolerance_minutes)).all())
+    return neighbors
 
 def get_distortion_paths(level0_files, pipeline_config: dict, session=None):
     # Get all models, in reverse-chronological order
@@ -388,6 +406,7 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: lis
     if after_vignetting_function is not None:
         after_vignetting_function = after_vignetting_function.filename()
     best_quartic_model = level0_files[0].quartic_model
+    despike_neighbors = level0_files[0].despike_neighbors
     ccd_parameters = get_ccd_parameters(level0_files[0], pipeline_config, session=session)
     mask_function = level0_files[0].mask_file
 
@@ -399,6 +418,7 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: lis
             "quartic_coefficient_path": best_quartic_model.filename(),
             "gain_bottom": ccd_parameters['gain_bottom'],
             "gain_top": ccd_parameters['gain_top'],
+            "despike_neighbors": despike_neighbors,
             "mask_path": mask_function.filename().replace('.fits', '.bin'),
         }
     )
@@ -453,6 +473,10 @@ def level1_early_call_data_processor(call_data: dict, pipeline_config, session=N
     if call_data['second_vignetting_function_path'] is not None:
         call_data['second_vignetting_function_path'] = cache_layer.vignetting_function.wrap_if_appropriate(
             call_data['second_vignetting_function_path'])
+
+    call_data['despike_neighbors'] = [file_name_to_full_path(p, pipeline_config['root'])
+                                      for p in call_data['despike_neighbors']]
+
     # Anything more than 16 doesn't offer any real benefit, and the default of n_cpu on punch190 is actually slower than
     # 16! Here we choose less to have less spiky CPU usage to play better with other flows.
     call_data['max_workers'] = 2
