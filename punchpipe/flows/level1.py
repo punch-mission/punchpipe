@@ -276,6 +276,15 @@ def get_two_best_stray_light(level0_file, session=None):
     return None, None
 
 
+def get_first_last_stray_light(session):
+    dates = (session.query(func.min(File.date_obs), func.max(File.date_obs))
+             .where(File.file_type.like('S%')).
+             where(File.state == 'created')).all()
+    if len(dates) == 0:
+        return datetime(1900, 1, 1), datetime(2900, 1, 1)
+    return dates[0]
+
+
 def get_quartic_model_paths(level0_files, pipeline_config: dict, session=None):
     # Get all models, in reverse-chronological order
     models = (session.query(File)
@@ -437,6 +446,7 @@ def level1_early_process_flow(flow_id: int | list[int], pipeline_config_path=Non
 @task(cache_policy=NO_CACHE)
 def level1_late_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
+    start_date, end_date = get_first_last_stray_light(session)
     parent = aliased(File)
     child = aliased(File)
     child_exists_subquery = (session.query(parent)
@@ -450,6 +460,8 @@ def level1_late_query_ready_files(session, pipeline_config: dict, reference_time
              .filter(File.level == "1")
              .filter(File.state.in_(["created", "progressed"]))
              .filter(~child_exists_subquery)
+             .filter(File.date_obs >= start_date)
+             .filter(File.date_obs <= end_date)
              .order_by(File.date_obs.desc()).all())
 
     distortion_paths = get_distortion_paths(ready, pipeline_config, session)
