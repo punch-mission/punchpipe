@@ -223,15 +223,10 @@ def get_two_closest_stray_light(level0_file, session=None, max_distance: timedel
                         text("second"), File.date_obs, level0_file.date_obs)))
                   .filter(File.file_type == model_type)
                   .filter(File.observatory == level0_file.observatory)
-                  .filter(File.state == "created")
-                  .filter(File.file_version.not_like("v%"))) #filters out "v0a".
+                  .filter(File.state == "created"))
     if max_distance:
         best_models = best_models.filter(dt < max_distance.total_seconds())
-    highest_version = best_models.order_by(File.file_version).first()
-    if highest_version is None:
-        return None, None
-    highest_version = highest_version[0].file_version
-    best_models = best_models.filter(File.file_version == highest_version).order_by(dt.asc()).limit(2).all()
+    best_models = best_models.order_by(dt.asc()).limit(2).all()
     if len(best_models) < 2:
         return None, None
     # Drop the dt values
@@ -246,17 +241,13 @@ def get_two_best_stray_light(level0_file, session=None):
     before_model = (session.query(File)
                     .filter(File.file_type == model_type)
                     .filter(File.observatory == level0_file.observatory)
-                    .filter(File.level == '1')
                     .filter(File.date_obs < level0_file.date_obs)
-                    .filter(File.file_version.not_like("v%")) #filters out "v0a".
-                    .order_by(File.file_version.desc(), File.date_obs.desc()).first())
+                    .order_by(File.date_obs.desc()).first())
     after_model = (session.query(File)
                    .filter(File.file_type == model_type)
                    .filter(File.observatory == level0_file.observatory)
-                   .filter(File.level == '1')
                    .filter(File.date_obs > level0_file.date_obs)
-                   .filter(File.file_version.not_like("v%")) #filters out "v0a".
-                   .order_by(File.file_version.desc(), File.date_obs.asc()).first())
+                   .order_by(File.date_obs.asc()).first())
     if before_model is None or after_model is None:
         # We're waiting for the scheduler to fill in here and tell us what's what
         return None, None
@@ -283,6 +274,15 @@ def get_two_best_stray_light(level0_file, session=None):
             return None, None
     # If we're here, we're waiting for at least one model to generate, but we do expect it to do so
     return None, None
+
+
+def get_first_last_stray_light(session):
+    dates = (session.query(func.min(File.date_obs), func.max(File.date_obs))
+             .where(File.file_type.like('S%')).
+             where(File.state == 'created')).all()
+    if len(dates) == 0:
+        return datetime(1900, 1, 1), datetime(2900, 1, 1)
+    return dates[0]
 
 
 def get_quartic_model_paths(level0_files, pipeline_config: dict, session=None):
@@ -446,6 +446,7 @@ def level1_early_process_flow(flow_id: int | list[int], pipeline_config_path=Non
 @task(cache_policy=NO_CACHE)
 def level1_late_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
+    start_date, end_date = get_first_last_stray_light(session)
     parent = aliased(File)
     child = aliased(File)
     child_exists_subquery = (session.query(parent)
@@ -459,6 +460,8 @@ def level1_late_query_ready_files(session, pipeline_config: dict, reference_time
              .filter(File.level == "1")
              .filter(File.state.in_(["created", "progressed"]))
              .filter(~child_exists_subquery)
+             .filter(File.date_obs >= start_date)
+             .filter(File.date_obs <= end_date)
              .order_by(File.date_obs.desc()).all())
 
     distortion_paths = get_distortion_paths(ready, pipeline_config, session)
