@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
-from punchbowl.level1.flow import level1_early_core_flow, level1_late_core_flow
+from punchbowl.level1.flow import level1_early_core_flow, level1_late_core_flow, level1_middle_core_flow
 from sqlalchemy import func, text
 from sqlalchemy.orm import aliased
 
@@ -16,7 +16,9 @@ from punchpipe.control.scheduler import generic_scheduler_flow_logic
 from punchpipe.flows.util import file_name_to_full_path, summarize_files_missing_cal_files
 
 SCIENCE_LEVEL0_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
-SCIENCE_LEVEL1_LATE_INPUT_TYPE_CODES = ["XM", "XZ", "XP", "XR"]
+SCIENCE_LEVEL1_MIDDLE_INPUT_TYPE_CODES = ["XM", "XZ", "XP"]
+SCIENCE_LEVEL1_MIDDLE_OUTPUT_TYPE_CODES = ["YM", "YZ", "YP"]
+SCIENCE_LEVEL1_LATE_INPUT_TYPE_CODES = ["YM", "YZ", "YP", "XR"]
 SCIENCE_LEVEL1_LATE_OUTPUT_TYPE_CODES = ["PM", "PZ", "PP", "CR"]
 SCIENCE_LEVEL1_QUICK_INPUT_TYPE_CODES = ["XR"]
 SCIENCE_LEVEL1_QUICK_OUTPUT_TYPE_CODES = ["QR"]
@@ -214,11 +216,32 @@ STRAY_LIGHT_CORRESPONDING_TYPES = {"PM": "SM",
                                    "XM": "SM",
                                    "XZ": "SZ",
                                    "XP": "SP",
-                                   "XR": "SR"}
+                                   "XR": "SR",
+                                   "YM": "SM",
+                                   "YZ": "SZ",
+                                   "YP": "SP",
+                                   "YR": "SR",
+                                   }
+
+DYNAMIC_STRAY_LIGHT_CORRESPONDING_TYPES = {"PM": "TM",
+                                           "PZ": "TZ",
+                                           "PP": "TP",
+                                           "CR": "TR",
+                                           "XM": "TM",
+                                           "XZ": "TZ",
+                                           "XP": "TP",
+                                           "XR": "TR",
+                                           "YM": "TM",
+                                           "YZ": "TZ",
+                                           "YP": "TP",
+                                           "YR": "TR"}
 
 
-def get_two_closest_stray_light(level0_file, session=None, max_distance: timedelta = None):
-    model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
+def get_two_closest_stray_light(level0_file, session=None, max_distance: timedelta = None, dynamic=False):
+    if dynamic:
+        model_type = DYNAMIC_STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
+    else:
+        model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
     best_models = (session.query(File, dt := func.abs(func.timestampdiff(
                         text("second"), File.date_obs, level0_file.date_obs)))
                   .filter(File.file_type == model_type)
@@ -236,8 +259,11 @@ def get_two_closest_stray_light(level0_file, session=None, max_distance: timedel
     return best_models
 
 
-def get_two_best_stray_light(level0_file, session=None):
-    model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
+def get_two_best_stray_light(level0_file, session=None, dynamic=False):
+    if dynamic:
+        model_type = DYNAMIC_STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
+    else:
+        model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
     before_model = (session.query(File)
                     .filter(File.file_type == model_type)
                     .filter(File.observatory == level0_file.observatory)
@@ -276,9 +302,10 @@ def get_two_best_stray_light(level0_file, session=None):
     return None, None
 
 
-def get_first_last_stray_light(session):
+def get_first_last_stray_light(session, dynamic=False):
+    target_type = 'T%' if dynamic else 'S%'
     dates = (session.query(func.min(File.date_obs), func.max(File.date_obs))
-             .where(File.file_type.like('S%')).
+             .where(File.file_type.like(target_type)).
              where(File.state == 'created')).all()
     if len(dates) == 0:
         return datetime(1900, 1, 1), datetime(2900, 1, 1)
@@ -441,6 +468,114 @@ def level1_early_call_data_processor(call_data: dict, pipeline_config, session=N
 def level1_early_process_flow(flow_id: int | list[int], pipeline_config_path=None, session=None):
     generic_process_flow_logic(flow_id, level1_early_core_flow, pipeline_config_path, session=session,
                                call_data_processor=level1_early_call_data_processor)
+
+
+@task(cache_policy=NO_CACHE)
+def level1_middle_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
+    logger = get_run_logger()
+    start_date, end_date = get_first_last_stray_light(session, dynamic=True)
+    parent = aliased(File)
+    child = aliased(File)
+    child_exists_subquery = (session.query(parent)
+                             .join(FileRelationship, FileRelationship.parent == parent.file_id)
+                             .join(child, FileRelationship.child == child.file_id)
+                             .filter(parent.file_id == File.file_id)
+                             .filter(child.file_type.in_(SCIENCE_LEVEL1_MIDDLE_OUTPUT_TYPE_CODES))
+                             .exists())
+    ready = (session.query(File)
+             .filter(File.file_type.in_(SCIENCE_LEVEL1_MIDDLE_INPUT_TYPE_CODES))
+             .filter(File.level == "1")
+             .filter(File.state.in_(["created", "progressed"]))
+             .filter(~child_exists_subquery)
+             .filter(File.date_obs >= start_date)
+             .filter(File.date_obs <= end_date)
+             .order_by(File.date_obs.desc()).all())
+
+    actually_ready = []
+    missing_stray_light = []
+
+    for f in ready:
+        best_stray_light = list(get_two_best_stray_light(f, session=session, dynamic=True))
+        if best_stray_light == [None, None]:
+            missing_stray_light.append(f)
+            continue
+        f.dynamic_stray_light = best_stray_light
+        actually_ready.append([f])
+        if len(actually_ready) >= max_n:
+            break
+    if missing_stray_light:
+        logger.info("Waiting for dynamic stray light models for " + summarize_files_missing_cal_files(missing_stray_light))
+    return actually_ready
+
+
+def level1_middle_construct_flow_info(input_files: list[File], output_files: list[File],
+                                    pipeline_config: dict, session=None, reference_time=None):
+    flow_type = "level1_middle"
+    state = "planned"
+    creation_time = datetime.now()
+    priority = pipeline_config["flows"][flow_type]["priority"]["initial"]
+
+    dynamic_stray_light_before, dynamic_stray_light_after = input_files[0].dynamic_stray_light
+
+    call_data = json.dumps(
+        {
+            "input_data": [input_file.filename() for input_file in input_files],
+            "dynamic_stray_light_before_path":
+                dynamic_stray_light_before.filename() if dynamic_stray_light_before else None,
+            "dynamic_stray_light_after_path":
+                dynamic_stray_light_after.filename() if dynamic_stray_light_after else None,
+        }
+    )
+    return Flow(
+        flow_type=flow_type,
+        flow_level="1",
+        state=state,
+        creation_time=creation_time,
+        priority=priority,
+        call_data=call_data,
+    )
+
+
+def level1_middle_construct_file_info(input_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
+    return [
+        File(
+            level="1",
+            file_type='Y' + input_files[0].file_type[1:],
+            observatory=input_files[0].observatory,
+            file_version=pipeline_config["file_version"],
+            software_version=__version__,
+            date_obs=input_files[0].date_obs,
+            polarization=input_files[0].polarization,
+            outlier=input_files[0].outlier,
+            bad_packets=input_files[0].bad_packets,
+            state="planned",
+        )
+    ]
+
+
+@flow
+def level1_middle_scheduler_flow(pipeline_config_path=None, session=None, reference_time=None):
+    generic_scheduler_flow_logic(
+        level1_middle_query_ready_files,
+        level1_middle_construct_file_info,
+        level1_middle_construct_flow_info,
+        pipeline_config_path,
+        reference_time=reference_time,
+        session=session,
+    )
+
+
+def level1_middle_call_data_processor(call_data: dict, pipeline_config, session=None) -> dict:
+    for key in ['input_data', 'dynamic_stray_light_before_path', 'dynamic_stray_light_after_path']:
+        call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
+
+    return call_data
+
+
+@flow
+def level1_middle_process_flow(flow_id: int | list[int], pipeline_config_path=None, session=None):
+    generic_process_flow_logic(flow_id, level1_middle_core_flow, pipeline_config_path, session=session,
+                               call_data_processor=level1_middle_call_data_processor)
 
 
 @task(cache_policy=NO_CACHE)

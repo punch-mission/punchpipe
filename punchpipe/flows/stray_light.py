@@ -29,7 +29,7 @@ def construct_clear_stray_light_check_for_inputs(session,
     L0_impossible_after_days = pipeline_config['flows']['construct_stray_light']['new_L0_impossible_after_days']
     more_L0_impossible = datetime.now() - t_end > timedelta(days=L0_impossible_after_days)
 
-    file_type_mapping = {"SR": "XR", "SM": "XM", "SZ": "XZ", "SP": "XP"}
+    file_type_mapping = {"SR": "XR", "SM": "YM", "SZ": "YZ", "SP": "YP"}
     target_file_type = file_type_mapping[reference_file.file_type]
     L0_type_mapping = {"SR": "CR", "SM": "PM", "SZ": "PZ", "SP": "PP"}
     L0_target_file_type = L0_type_mapping[reference_file.file_type]
@@ -117,7 +117,7 @@ def construct_polarized_stray_light_check_for_inputs(session,
     L0_impossible_after_days = pipeline_config['flows']['construct_stray_light']['new_L0_impossible_after_days']
     more_L0_impossible = datetime.now() - t_end > timedelta(days=L0_impossible_after_days)
 
-    target_file_types = ('XP', 'XM', 'XZ')
+    target_file_types = ('YP', 'YM', 'YZ')
     L0_target_file_types = ('PP', 'PM', 'PZ')
 
     base_query = (session.query(File)
