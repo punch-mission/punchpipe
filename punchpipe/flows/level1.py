@@ -569,6 +569,10 @@ def level1_middle_call_data_processor(call_data: dict, pipeline_config, session=
     for key in ['input_data', 'dynamic_stray_light_before_path', 'dynamic_stray_light_after_path']:
         call_data[key] = file_name_to_full_path(call_data[key], pipeline_config['root'])
 
+    call_data['dynamic_stray_light_before_path'] = cache_layer.stray_light.wrap_if_appropriate(
+            call_data['dynamic_stray_light_before_path'])
+    call_data['dynamic_stray_light_after_path'] = cache_layer.stray_light.wrap_if_appropriate(
+            call_data['dynamic_stray_light_after_path'])
     return call_data
 
 
@@ -713,6 +717,11 @@ def level1_late_call_data_processor(call_data: dict, pipeline_config, session=No
     # Anything more than 16 doesn't offer any real benefit, and the default of n_cpu on punch190 is actually slower than
     # 16! Here we choose less to have less spiky CPU usage to play better with other flows.
     call_data['max_workers'] = 2
+
+    call_data['stray_light_before_path'] = cache_layer.stray_light.wrap_if_appropriate(
+            call_data['stray_light_before_path'])
+    call_data['stray_light_after_path'] = cache_layer.stray_light.wrap_if_appropriate(
+            call_data['stray_light_after_path'])
     return call_data
 
 
