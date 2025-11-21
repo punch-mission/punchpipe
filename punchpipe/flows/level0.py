@@ -1015,7 +1015,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                 cube.meta.history.add_now("form_single_image", f"Outlier detection with {limit_filename}")
                 break
             if selected_limits is None:
-                if len(outlier_limits) and file_type != 'PX':
+                if len(outlier_limits) and file_type in ['CR', 'PM', 'PZ', 'PP']:
                     raise RuntimeError(f"Could not find outlier limits for {get_base_file_name(cube)}")
                 is_outlier = False
             else:
