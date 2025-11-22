@@ -307,7 +307,7 @@ def get_first_last_stray_light(session, dynamic=False):
     dates = (session.query(func.min(File.date_obs), func.max(File.date_obs))
              .where(File.file_type.like(target_type)).
              where(File.state == 'created')).all()
-    if len(dates) == 0:
+    if dates[0][0] is None:
         return datetime(1900, 1, 1), datetime(2900, 1, 1)
     return dates[0]
 
