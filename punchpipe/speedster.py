@@ -3,6 +3,7 @@ import argparse
 import os
 import traceback
 from collections import defaultdict
+from datetime import datetime
 import yaml
 from yaml.loader import FullLoader
 import warnings
@@ -10,7 +11,6 @@ import time
 
 from tqdm.auto import tqdm
 from prefect.logging import disable_run_logger
-from concurrent.futures import ProcessPoolExecutor
 from sqlalchemy import update
 
 from punchpipe.control.db import Flow
@@ -60,7 +60,8 @@ def worker_init(config_path):
     path_to_config = config_path
 
 
-def worker_run_flow(flow_id, flow_type):
+def worker_run_flow(inputs):
+    flow_id, flow_type = inputs
     global flow_type_to_runner, session, path_to_config
     if flow_type not in flow_type_to_runner:
         runner = find_flow(flow_type + "_process_flow").fn
@@ -68,7 +69,8 @@ def worker_run_flow(flow_id, flow_type):
     else:
         runner = flow_type_to_runner[flow_type]
 
-    session.execute(update(Flow).where(Flow.flow_id == flow_id).values(state='launched', flow_run_name='speedster'))
+    session.execute(update(Flow).where(Flow.flow_id == flow_id).values(
+            state='launched', flow_run_name='speedster', launch_time=datetime.now()))
 
     with disable_run_logger(), warnings.catch_warnings():
         # Otherwise warning spam will hide any progress messages
@@ -76,7 +78,10 @@ def worker_run_flow(flow_id, flow_type):
         try:
             runner(flow_id, path_to_config, session)
         except KeyboardInterrupt:
-            print(f"Keyboard interrupt in flow {flow_id}")
+            session.execute(
+                update(Flow).where(Flow.flow_id == flow_id).values(state='revivable'))
+            session.commit()
+            print(f"Keyboard interrupt in flow {flow_id}; marked as revivable")
         except:
             print(f"Exception in flow {flow_id}")
             traceback.print_exc()
@@ -105,7 +110,7 @@ if __name__ == "__main__":
         n_cores = min(args.n_workers, args.flows_per_batch)
 
     n_batches_run = 0
-    with ProcessPoolExecutor(n_cores, initializer=worker_init, initargs=(config_path,)) as p:
+    with multiprocessing.Pool(n_cores, initializer=worker_init, initargs=(config_path,)) as p:
         print("Beginning fetch-run loop; press Ctrl-C to exit and allow time for cleanup")
         if args.flows_per_batch:
             print(f"Will cap at {args.flows_per_batch} flows per batch")
@@ -125,8 +130,12 @@ if __name__ == "__main__":
                     print(f"{count_per_type[type]} of {type}, ", end='')
                 print()
                 with tqdm(total=len(batch_of_flows)) as pbar:
-                    for _ in p.map(worker_run_flow, batch_of_flows, batch_types):
-                        pbar.update()
+                    try:
+                        for _ in p.imap_unordered(worker_run_flow, zip(batch_of_flows, batch_types)):
+                            pbar.update()
+                    except KeyboardInterrupt:
+                        print("Halting")
+                        break
             n_batches_run += 1
             if args.n_batches and n_batches_run >= args.n_batches:
                 break
