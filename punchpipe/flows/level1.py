@@ -157,14 +157,10 @@ def get_vignetting_function_path(level0_file, pipeline_config: dict, session=Non
     return best_function
 
 
-PSF_MODEL_CORRESPONDING_TYPES = {"PM": "RM",
-                                 "PZ": "RZ",
-                                 "PP": "RP",
-                                 "CR": "RC",
-                                 "XM": "RM",
-                                 "XZ": "RZ",
-                                 "XP": "RP",
-                                 "XR": "RC"}
+PSF_MODEL_CORRESPONDING_TYPES = {"M": "RM",
+                                 "Z": "RZ",
+                                 "P": "RP",
+                                 "R": "RC",}
 
 
 def get_psf_model_paths(level0_files, pipeline_config: dict, session=None):
@@ -179,7 +175,7 @@ def get_psf_model_paths(level0_files, pipeline_config: dict, session=None):
         if l0_file.observatory == "4":
             results.append("")
             continue
-        target_type = PSF_MODEL_CORRESPONDING_TYPES[l0_file.file_type]
+        target_type = PSF_MODEL_CORRESPONDING_TYPES[l0_file.file_type[1]]
         # We want to pick the latest model that's before the observation, so we go backwards in time, past any
         # later-in-time models, until we hit the first model that's before the observation.
         for model in models:
@@ -197,7 +193,7 @@ def get_psf_model_paths(level0_files, pipeline_config: dict, session=None):
 
 
 def get_psf_model_path(level0_file, pipeline_config: dict, session=None, reference_time=None) -> str:
-    psf_model_type = PSF_MODEL_CORRESPONDING_TYPES[level0_file.file_type]
+    psf_model_type = PSF_MODEL_CORRESPONDING_TYPES[level0_file.file_type[1]]
     # TODO - Turn this back on once fine tuned for NFI
     if level0_file.observatory == "4":
         return ""
@@ -209,39 +205,22 @@ def get_psf_model_path(level0_file, pipeline_config: dict, session=None, referen
                   .order_by(File.file_version.desc(), File.date_obs.desc()).first())
     return best_model.filename()
 
-STRAY_LIGHT_CORRESPONDING_TYPES = {"PM": "SM",
-                                   "PZ": "SZ",
-                                   "PP": "SP",
-                                   "CR": "SR",
-                                   "XM": "SM",
-                                   "XZ": "SZ",
-                                   "XP": "SP",
-                                   "XR": "SR",
-                                   "YM": "SM",
-                                   "YZ": "SZ",
-                                   "YP": "SP",
-                                   "YR": "SR",
-                                   }
+STRAY_LIGHT_CORRESPONDING_TYPES = {"M": "SM",
+                                   "Z": "SZ",
+                                   "P": "SP",
+                                   "R": "SR",}
 
-DYNAMIC_STRAY_LIGHT_CORRESPONDING_TYPES = {"PM": "TM",
-                                           "PZ": "TZ",
-                                           "PP": "TP",
-                                           "CR": "TR",
-                                           "XM": "TM",
-                                           "XZ": "TZ",
-                                           "XP": "TP",
-                                           "XR": "TR",
-                                           "YM": "TM",
-                                           "YZ": "TZ",
-                                           "YP": "TP",
-                                           "YR": "TR"}
+DYNAMIC_STRAY_LIGHT_CORRESPONDING_TYPES = {"M": "TM",
+                                           "Z": "TZ",
+                                           "P": "TP",
+                                           "R": "TR",}
 
 
 def get_two_closest_stray_light(level0_file, session=None, max_distance: timedelta = None, dynamic=False):
     if dynamic:
-        model_type = DYNAMIC_STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
+        model_type = DYNAMIC_STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type[1]]
     else:
-        model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
+        model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type[1]]
     best_models = (session.query(File, dt := func.abs(func.timestampdiff(
                         text("second"), File.date_obs, level0_file.date_obs)))
                   .filter(File.file_type == model_type)
@@ -261,9 +240,9 @@ def get_two_closest_stray_light(level0_file, session=None, max_distance: timedel
 
 def get_two_best_stray_light(level0_file, session=None, dynamic=False):
     if dynamic:
-        model_type = DYNAMIC_STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
+        model_type = DYNAMIC_STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type[1]]
     else:
-        model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type]
+        model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type[1]]
     before_model = (session.query(File)
                     .filter(File.file_type == model_type)
                     .filter(File.observatory == level0_file.observatory)
