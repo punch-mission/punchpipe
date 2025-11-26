@@ -5,6 +5,7 @@ from collections import defaultdict
 
 from prefect import flow, get_run_logger
 from punchbowl.level1.stray_light import estimate_polarized_stray_light, estimate_stray_light
+from sqlalchemy import func
 
 from punchpipe import __version__
 from punchpipe.control.db import File, Flow
@@ -348,8 +349,23 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
 
     logger.info(f"There are {len(waiting_models_by_time_and_type)} waiting models")
 
+    dates = (session.query(func.min(File.date_obs), func.max(File.date_obs))
+             .where(File.file_type.in_(['XR', 'YZ', 'YP', 'YM']))
+             .where(File.state.in_(['progressed', 'created'])).all())
+
+    if dates[0][0] is None:
+        logger.info("There are no X files in the database")
+        session.commit()
+        return
+
+    earliest_input, latest_input = dates[0]
+
+    n_skipped = 0
     to_schedule = []
     for (date_obs, observatory, is_polarized), models in waiting_models_by_time_and_type.items():
+        if not (earliest_input <= date_obs <= latest_input):
+            n_skipped += 1
+            continue
         if is_polarized:
             if len(models) != 3:
                 logger.warning(f"Wrong number of waiting polarized models for {date_obs}, got {len(models)}---skipping")
@@ -374,6 +390,8 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
                 logger.info(f"Will schedule {model.file_type}{model.observatory} at {model.date_obs}")
                 if len(to_schedule) == flows_to_schedule:
                     break
+
+    logger.info(f"{n_skipped} models fall outside the range of existing X files and were not queried")
 
     if len(to_schedule):
         for models, input_files in to_schedule:

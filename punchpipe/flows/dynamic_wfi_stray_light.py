@@ -5,6 +5,7 @@ from collections import defaultdict
 
 from prefect import flow, get_run_logger
 from punchbowl.level1.dynamic_stray_light import construct_dynamic_stray_light_model
+from sqlalchemy import func
 
 from punchpipe import __version__
 from punchpipe.control.db import File, Flow
@@ -96,8 +97,11 @@ def construct_dynamic_stray_light_check_for_inputs(session,
                           .filter(File.level == "1")
                           .order_by(File.date_obs.asc()).all())
 
+    dmin = min(f.date_obs for f in first_half_inputs) if len(first_half_inputs) else t_start
+    dmax = max(f.date_obs for f in second_half_inputs) if len(second_half_inputs) else t_end
+
     first_half_L0s = (base_query
-                      .filter(File.date_obs >= t_start)
+                      .filter(File.date_obs >= dmin)
                       .filter(File.date_obs <= reference_time)
                       .filter(File.file_type == L0_target_file_type)
                       .filter(File.level == "0")
@@ -105,7 +109,7 @@ def construct_dynamic_stray_light_check_for_inputs(session,
 
     second_half_L0s = (base_query
                        .filter(File.date_obs >= reference_time)
-                       .filter(File.date_obs <= t_end)
+                       .filter(File.date_obs <= dmax)
                        .filter(File.file_type == L0_target_file_type)
                        .filter(File.level == "0")
                        .order_by(File.date_obs.asc()).all())
@@ -271,8 +275,24 @@ def construct_dynamic_stray_light_scheduler_flow(pipeline_config_path=None, sess
 
     logger.info(f"There are {len(waiting_models_by_time_and_type)} waiting models")
 
+    dates = (session.query(func.min(File.date_obs), func.max(File.date_obs))
+             .where(File.file_type.like('X%'))
+             .where(File.state.in_(['progressed', 'created'])).all())
+
+    if dates[0][0] is None:
+        logger.info("There are no X files in the database")
+        session.commit()
+        return
+
+    earliest_input, latest_input = dates[0]
+
+    n_skipped = 0
     to_schedule = []
     for key in sorted(waiting_models_by_time_and_type.keys(), reverse=True):
+        date = key[0]
+        if not (earliest_input <= date <= latest_input):
+            n_skipped += 1
+            continue
         models = waiting_models_by_time_and_type[key]
         if len(models) != 1:
             logger.warning(f"Wrong number of waiting models for {models[0].date_obs}, got {len(models)}---skipping")
@@ -285,6 +305,8 @@ def construct_dynamic_stray_light_scheduler_flow(pipeline_config_path=None, sess
             logger.info(f"Will schedule {model.file_type}{model.observatory} at {model.date_obs}")
             if len(to_schedule) == flows_to_schedule:
                 break
+
+    logger.info(f"{n_skipped} models fall outside the range of existing X files and were not queried")
 
     if len(to_schedule):
         for model, input_files in to_schedule:
