@@ -29,7 +29,16 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
     ready = (session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL0_TYPE_CODES))
                                 .filter(File.state == "created")
                                 .filter(File.level == "0")
-                                .order_by(File.date_obs.desc()).all())
+                                .filter(File.date_obs > datetime(2025, 6, 1)))
+
+    target_date = pipeline_config.get('target_date', None)
+    target_date = datetime.strptime(target_date, "%Y-%m-%d") if target_date else None
+    dt = func.abs(func.timestampdiff(text("second"), File.date_obs, target_date)) if target_date else None
+    if target_date:
+        ready = ready.order_by(dt.asc())
+    else:
+        ready = ready.order_by(File.date_obs.desc())
+    ready = ready.all()
 
     quartic_models = get_quartic_model_paths(ready, pipeline_config, session)
     vignetting_functions = get_vignetting_function_paths(ready, pipeline_config, session)
@@ -467,8 +476,16 @@ def level1_middle_query_ready_files(session, pipeline_config: dict, reference_ti
              .filter(File.state.in_(["created", "progressed"]))
              .filter(~child_exists_subquery)
              .filter(File.date_obs >= start_date)
-             .filter(File.date_obs <= end_date)
-             .order_by(File.date_obs.desc()).all())
+             .filter(File.date_obs <= end_date))
+
+    target_date = pipeline_config.get('target_date', None)
+    target_date = datetime.strptime(target_date, "%Y-%m-%d") if target_date else None
+    dt = func.abs(func.timestampdiff(text("second"), File.date_obs, target_date)) if target_date else None
+    if target_date:
+        ready = ready.order_by(dt.asc())
+    else:
+        ready = ready.order_by(File.date_obs.desc())
+    ready = ready.all()
 
     actually_ready = []
     missing_stray_light = []
@@ -579,8 +596,17 @@ def level1_late_query_ready_files(session, pipeline_config: dict, reference_time
              .filter(File.state.in_(["created", "progressed"]))
              .filter(~child_exists_subquery)
              .filter(File.date_obs >= start_date)
-             .filter(File.date_obs <= end_date)
-             .order_by(File.date_obs.desc()).all())
+             .filter(File.date_obs <= end_date))
+
+    target_date = pipeline_config.get('target_date', None)
+    target_date = datetime.strptime(target_date, "%Y-%m-%d") if target_date else None
+    dt = func.abs(func.timestampdiff(text("second"), File.date_obs, target_date)) if target_date else None
+    if target_date:
+        ready = ready.order_by(dt.asc())
+    else:
+        ready = ready.order_by(File.date_obs.desc())
+    ready = ready.all()
+
 
     distortion_paths = get_distortion_paths(ready, pipeline_config, session)
     psf_paths = get_psf_model_paths(ready, pipeline_config, session)

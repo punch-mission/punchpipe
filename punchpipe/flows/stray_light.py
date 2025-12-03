@@ -360,9 +360,18 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
 
     earliest_input, latest_input = dates[0]
 
+    target_date = pipeline_config.get('target_date', None)
+    target_date = datetime.strptime(target_date, "%Y-%m-%d") if target_date else None
+    if target_date:
+        sorted_models = sorted(waiting_models_by_time_and_type.items(),
+                                key=lambda x: abs((target_date - x[0][0]).total_seconds()))
+    else:
+        sorted_models = sorted(waiting_models_by_time_and_type.items(),
+                                key=lambda x: x[0][0],
+                                reverse=True)
     n_skipped = 0
     to_schedule = []
-    for (date_obs, observatory, is_polarized), models in waiting_models_by_time_and_type.items():
+    for (date_obs, observatory, is_polarized), models in sorted_models:
         if not (earliest_input <= date_obs <= latest_input):
             n_skipped += 1
             continue

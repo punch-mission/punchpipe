@@ -286,14 +286,22 @@ def construct_dynamic_stray_light_scheduler_flow(pipeline_config_path=None, sess
 
     earliest_input, latest_input = dates[0]
 
+    target_date = pipeline_config.get('target_date', None)
+    target_date = datetime.strptime(target_date, "%Y-%m-%d") if target_date else None
+    if target_date:
+        sorted_models = sorted(waiting_models_by_time_and_type.items(),
+                                key=lambda x: abs((target_date - x[0][0]).total_seconds()))
+    else:
+        sorted_models = sorted(waiting_models_by_time_and_type.items(),
+                                key=lambda x: x[0][0],
+                                reverse=True)
+
     n_skipped = 0
     to_schedule = []
-    for key in sorted(waiting_models_by_time_and_type.keys(), reverse=True):
-        date = key[0]
-        if not (earliest_input <= date <= latest_input):
+    for (date_obs, observatory, is_polarized), models in sorted_models:
+        if not (earliest_input <= date_obs <= latest_input):
             n_skipped += 1
             continue
-        models = waiting_models_by_time_and_type[key]
         if len(models) != 1:
             logger.warning(f"Wrong number of waiting models for {models[0].date_obs}, got {len(models)}---skipping")
             continue
