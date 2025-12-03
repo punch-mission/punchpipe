@@ -61,7 +61,7 @@ def worker_init(config_path):
 
 
 def worker_run_flow(inputs):
-    flow_id, flow_type = inputs
+    flow_id, flow_type, delay = inputs
     global flow_type_to_runner, session, path_to_config
     if flow_type not in flow_type_to_runner:
         runner = find_flow(flow_type + "_process_flow").fn
@@ -76,6 +76,7 @@ def worker_run_flow(inputs):
         # Otherwise warning spam will hide any progress messages
         warnings.simplefilter('ignore')
         try:
+            time.sleep(delay)
             runner(flow_id, path_to_config, session)
         except KeyboardInterrupt:
             session.execute(
@@ -130,8 +131,10 @@ if __name__ == "__main__":
                     print(f"{count_per_type[type]} of {type}, ", end='')
                 print()
                 with tqdm(total=len(batch_of_flows)) as pbar:
+                    # Stagger the launches which may give less DB and IO contention
+                    delays = [i / 6 if i < n_cores else 0 for i in range(len(batch_of_flows))]
                     try:
-                        for _ in p.imap_unordered(worker_run_flow, zip(batch_of_flows, batch_types)):
+                        for _ in p.imap_unordered(worker_run_flow, zip(batch_of_flows, batch_types, delays)):
                             pbar.update()
                     except KeyboardInterrupt:
                         print("Halting")
