@@ -122,8 +122,11 @@ if __name__ == "__main__":
                     session, enabled_flows, args.flows_per_batch)
 
             if len(batch_of_flows) == 0:
-                print("No pending flows found---will wait a bit and try again")
-                time.sleep(60*2)
+                print("No pending flows found---will wait two minutes and try again")
+                try:
+                    time.sleep(60*2)
+                except KeyboardInterrupt:
+                    break
             else:
                 print("Batch contents: ", end='')
                 count_report = []
