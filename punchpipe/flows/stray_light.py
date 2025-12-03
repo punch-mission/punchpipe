@@ -190,7 +190,7 @@ def construct_polarized_stray_light_check_for_inputs(session,
         for group in second_half_inputs[:max_files_per_half]:
             all_ready_files.extend(group)
 
-        logger.info(f"{len(all_ready_files)} Level 1 P*{reference_files[0].observatory} files will be used "
+        logger.info(f"{len(all_ready_files)} Level 1 Y*{reference_files[0].observatory} files will be used "
                      "for stray light estimation.")
         return [f.file_id for f in all_ready_files]
     return []
