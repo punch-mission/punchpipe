@@ -1,20 +1,20 @@
-import multiprocessing
-import argparse
 import os
-import traceback
-from collections import defaultdict
-from datetime import datetime
-import yaml
-from yaml.loader import FullLoader
-import warnings
 import time
+import argparse
+import warnings
+import traceback
+import multiprocessing
+from datetime import datetime
+from collections import defaultdict
 
-from tqdm.auto import tqdm
+import yaml
 from prefect.logging import disable_run_logger
 from sqlalchemy import update
+from tqdm.auto import tqdm
+from yaml.loader import FullLoader
 
-from punchpipe.control.db import Flow
 from punchpipe.cli import find_flow
+from punchpipe.control.db import Flow
 from punchpipe.control.util import get_database_session
 
 
