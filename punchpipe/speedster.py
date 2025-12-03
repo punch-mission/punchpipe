@@ -83,7 +83,7 @@ def worker_run_flow(inputs):
                 update(Flow).where(Flow.flow_id == flow_id).values(state='revivable'))
             session.commit()
             print(f"Keyboard interrupt in flow {flow_id}; marked as revivable")
-        except:
+        except: # noqa: E722
             print(f"Exception in flow {flow_id}")
             traceback.print_exc()
 
