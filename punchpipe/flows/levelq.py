@@ -186,33 +186,9 @@ def levelq_CTM_query_ready_files(session, pipeline_config: dict, reference_time=
             grouped_ready_files.append(group)
             continue
 
-        # group[-1] is the newest file by date_obs
-        if (cutoff_time and group[-1].date_obs.replace(tzinfo=UTC) > cutoff_time):
-            # We're still potentially waiting for downlinks
-            continue
-
-
-        # We now have to consider making an incomplete trefoil. We want to look at the L0 files to see if we're still
-        # waiting on any L1s. This is especially important when reprocessing. To do that, we need to determine a time
-        # range within which to grab L0s
-        center = group[0].date_obs
-        search_width = timedelta(minutes=1)
-        search_types = ['QR']
-
-        # Grab all the L0s that produce inputs for this trefoil
-        expected_inputs = (session.query(File)
-                                  .filter(File.level == "0")
-                                  # TODO: This line temporarily excludes NFI
-                                  .filter(File.observatory.in_(['1', '2', '3']))
-                                  .filter(File.file_type.in_(search_types))
-                                  .filter(File.date_obs > center - search_width)
-                                  .filter(File.date_obs < center + search_width)
-                                  .all())
-        if len(expected_inputs) == len(group):
-            # We have the L1s for all the L0s, and we don't expect new L0s, so let's make an incomplete mosaic
+        if cutoff_time and group[-1].date_obs.replace(tzinfo=UTC) < cutoff_time:
             grouped_ready_files.append(group)
-        # Otherwise, we'll pass for now on processing this trefoil
-        continue
+            continue
 
     logger.info(f"{len(grouped_ready_files)} groups heading out")
     return grouped_ready_files
