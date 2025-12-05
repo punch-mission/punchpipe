@@ -1,0 +1,1 @@
+Makes Level Q run at less latency by immediately making images if they exceed the wait threshold.
