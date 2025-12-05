@@ -97,11 +97,8 @@ def construct_dynamic_stray_light_check_for_inputs(session,
                           .filter(File.level == "1")
                           .order_by(File.date_obs.asc()).all())
 
-    dmin = min(f.date_obs for f in first_half_inputs) if len(first_half_inputs) else t_start
-    dmax = max(f.date_obs for f in second_half_inputs) if len(second_half_inputs) else t_end
-
     first_half_L0s = (base_query
-                      .filter(File.date_obs >= dmin)
+                      .filter(File.date_obs >= t_start)
                       .filter(File.date_obs <= reference_time)
                       .filter(File.file_type == L0_target_file_type)
                       .filter(File.level == "0")
@@ -109,7 +106,7 @@ def construct_dynamic_stray_light_check_for_inputs(session,
 
     second_half_L0s = (base_query
                        .filter(File.date_obs >= reference_time)
-                       .filter(File.date_obs <= dmax)
+                       .filter(File.date_obs <= t_end)
                        .filter(File.file_type == L0_target_file_type)
                        .filter(File.level == "0")
                        .order_by(File.date_obs.asc()).all())
