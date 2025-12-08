@@ -111,6 +111,11 @@ def generic_scheduler_flow_logic(
             database_flow_info = construct_child_flow_info(parent_files, children_files,
                                                            pipeline_config, session=session,
                                                            reference_time=reference_time, **args_dictionary)
+            # We've had some failures where a flow reports "no associated files", despite the output files having
+            # their processing_flow set properly. Best guess is the DB is running slow, and so the new flow has been
+            # committed but the files' processing_flow hasn't been updated yet. So let's not let the state be
+            # 'planned' until everything is in place.
+            database_flow_info.state = 'being_planned'
             if backprocess_cutoff := pipeline_config.get('prioritize_most_recent_n_days', None):
                 cutoff = datetime.now(UTC) - timedelta(days=backprocess_cutoff)
                 if all(cf.date_obs.replace(tzinfo=UTC) < cutoff for cf in children_files):
@@ -137,6 +142,8 @@ def generic_scheduler_flow_logic(
             iterable = itertools.product(parent_files, children_files)
         for parent_file, child_file in iterable:
             session.add(FileRelationship(parent=parent_file.file_id, child=child_file.file_id))
+
+        database_flow_info.state = 'planned'
 
     session.commit()
     return len(ready_files)
