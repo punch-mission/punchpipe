@@ -1,6 +1,6 @@
 import json
 import typing as t
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
 from collections import defaultdict
 
 from prefect import flow, get_run_logger
@@ -13,7 +13,6 @@ from punchpipe.control.processor import generic_process_flow_logic
 from punchpipe.control.scheduler import generic_scheduler_flow_logic
 from punchpipe.control.util import get_database_session, load_pipeline_configuration
 from punchpipe.flows.util import file_name_to_full_path
-
 
 fiducial_utime = datetime(2025, 1, 1,  tzinfo=UTC).timestamp() - 4 * 60
 
