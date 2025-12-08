@@ -293,7 +293,7 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
         logger.info("Flow 'construct_stray_light' is not enabled---halting scheduler")
         return
 
-    max_flows = 2 * pipeline_config['flows']['construct_stray_light'].get('concurrency_limit', 1000)
+    max_flows = pipeline_config['flows']['construct_stray_light'].get('concurrency_limit', 1000)
     existing_flows = (session.query(Flow)
                       .where(Flow.flow_type == 'construct_stray_light')
                       .where(Flow.state.in_(["planned", "launched", "running"])).count())
