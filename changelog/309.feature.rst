@@ -1,0 +1,1 @@
+Allows the root directory for quicklook products to be different than primary data.
