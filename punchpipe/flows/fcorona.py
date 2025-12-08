@@ -118,7 +118,7 @@ def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, sess
         logger.info("Flow 'construct_f_corona_background' is not enabled---halting scheduler")
         return 0
 
-    max_flows = 2 * pipeline_config['flows']['construct_f_corona_background'].get('concurrency_limit', 1000)
+    max_flows = pipeline_config['flows']['construct_f_corona_background'].get('concurrency_limit', 1000)
     existing_flows = (session.query(Flow)
                       .where(Flow.flow_type == 'construct_f_corona_background')
                       .where(Flow.state.in_(["planned", "launched", "running"])).count())

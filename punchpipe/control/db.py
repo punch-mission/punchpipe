@@ -66,6 +66,7 @@ Index("get_ready_files_alt", File.level, File.date_obs.desc(), File.file_type, F
 Index("construct_background", File.level, File.observatory, File.outlier, File.date_obs, File.state, File.file_type)
 Index("get_cal_file", File.file_type, File.observatory, File.date_obs, File.state)
 Index("CNN", File.file_type, File.observatory, File.level, File.state, File.outlier)
+Index("processing_flow_index", File.processing_flow)
 
 
 class Flow(Base):

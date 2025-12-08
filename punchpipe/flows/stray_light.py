@@ -190,7 +190,7 @@ def construct_polarized_stray_light_check_for_inputs(session,
         for group in second_half_inputs[:max_files_per_half]:
             all_ready_files.extend(group)
 
-        logger.info(f"{len(all_ready_files)} Level 1 P*{reference_files[0].observatory} files will be used "
+        logger.info(f"{len(all_ready_files)} Level 1 Y*{reference_files[0].observatory} files will be used "
                      "for stray light estimation.")
         return [f.file_id for f in all_ready_files]
     return []
@@ -293,7 +293,7 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
         logger.info("Flow 'construct_stray_light' is not enabled---halting scheduler")
         return
 
-    max_flows = 2 * pipeline_config['flows']['construct_stray_light'].get('concurrency_limit', 1000)
+    max_flows = pipeline_config['flows']['construct_stray_light'].get('concurrency_limit', 1000)
     existing_flows = (session.query(Flow)
                       .where(Flow.flow_type == 'construct_stray_light')
                       .where(Flow.state.in_(["planned", "launched", "running"])).count())

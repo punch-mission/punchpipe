@@ -37,7 +37,7 @@ def gather_planned_flows(session, enabled_flows, max_n=None):
     flows = (session.query(Flow)
              .where(Flow.state == "planned")
              .where(Flow.flow_type.in_(enabled_flows))
-             .order_by(Flow.is_backprocessing.asc(), Flow.priority.desc(), Flow.creation_time.desc())
+             .order_by(Flow.is_backprocessing.asc(), Flow.priority.desc(), Flow.creation_time.asc())
              .limit(max_n).all())
     count_per_type = defaultdict(lambda: 0)
     flow_ids = []
