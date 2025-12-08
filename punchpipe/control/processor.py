@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 from dateutil.parser import parse as parse_datetime_str
 from prefect import get_run_logger, tags
-from prefect.context import get_run_context
+from prefect.context import MissingContextError, get_run_context
 
 from punchpipe.control.db import File, Flow
 from punchpipe.control.util import (
@@ -16,7 +16,7 @@ from punchpipe.control.util import (
 
 
 def generic_process_flow_logic(flow_id: int | list[int], core_flow_to_launch, pipeline_config_path: str, session=None,
-                               call_data_processor=None):
+                               call_data_processor=None, ):
     if session is None:
         session = get_database_session()
     if isinstance(flow_id, int):
@@ -44,9 +44,13 @@ def generic_process_flow_logic(flow_id: int | list[int], core_flow_to_launch, pi
                         f"{flow_db_entry.creation_time} and launched at {flow_db_entry.launch_time}.")
 
             # update the processing flow name with the flow run name from Prefect
-            flow_run_context = get_run_context()
-            flow_db_entry.flow_run_name = flow_run_context.flow_run.name
-            flow_db_entry.flow_run_id = flow_run_context.flow_run.id
+            try:
+                flow_run_context = get_run_context()
+                flow_db_entry.flow_run_name = flow_run_context.flow_run.name
+                flow_db_entry.flow_run_id = flow_run_context.flow_run.id
+            except MissingContextError:
+                # We're not in a flow context---probably we're running under speedster
+                pass
             flow_db_entry.state = "running"
             flow_db_entry.start_time = datetime.now()
 

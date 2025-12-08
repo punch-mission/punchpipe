@@ -237,7 +237,7 @@ def load_flow_data(pipeline_config):
     flow_enabled = dict()
     flow_batch_size = dict()
     for flow_type in pipeline_config["flows"]:
-        flow_enabled[flow_type] = pipeline_config["flows"][flow_type].get("enabled", True)
+        flow_enabled[flow_type] = pipeline_config["flows"][flow_type].get("enabled", True) is True
         flow_weights[flow_type] = pipeline_config["flows"][flow_type].get("launch_weight", 1)
         flow_batch_size[flow_type] = pipeline_config["flows"][flow_type].get("batch_size", 1)
     return flow_weights, flow_enabled, flow_batch_size
