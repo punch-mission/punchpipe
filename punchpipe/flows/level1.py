@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from punchbowl.level1.flow import level1_early_core_flow, level1_late_core_flow
-from sqlalchemy import func, text
+from sqlalchemy import func, text, or_
 from sqlalchemy.orm import aliased
 
 from punchpipe import __version__
