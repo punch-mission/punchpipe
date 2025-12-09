@@ -22,7 +22,10 @@ def gather_planned_flows(session, weight_to_launch, max_flows_to_launch, flow_we
     # maximum-weight limit. But we can use the smallest weight to set an upper bound on how many launchable flows to
     # retrieve.
     enabled_flows = [flow for flow, enabled in flow_enabled.items() if enabled]
-    max_to_select = weight_to_launch / min([flow_weights[k] for k in enabled_flows])
+    if enabled_flows:
+        max_to_select = weight_to_launch / min([flow_weights[k] for k in enabled_flows])
+    else:
+        max_to_select = 0
     flows = (session.query(Flow)
                    .where(Flow.state == "planned")
                    .where(Flow.flow_type.in_(enabled_flows))
