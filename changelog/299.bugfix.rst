@@ -1,1 +1,0 @@
-Darks are no longer checked for outlier images.

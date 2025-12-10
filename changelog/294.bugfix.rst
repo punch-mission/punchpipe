@@ -1,1 +1,0 @@
-The LQ CNN scheduler properly stops if a CNN flow is already pending
