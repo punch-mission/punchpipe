@@ -98,8 +98,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     config_path = args.config
 
-    pipeline_config = load_pipeline_configuration(config_path)
-    enabled_flows = load_enabled_flows(pipeline_config)
     session = get_database_session(engine_kwargs=dict(isolation_level="READ COMMITTED"))
 
     if args.n_workers is None:
@@ -118,6 +116,9 @@ if __name__ == "__main__":
         if args.n_batches:
             print(f"Will stop after {args.n_batches} batches")
         while True:
+            pipeline_config = load_pipeline_configuration(config_path)
+            enabled_flows = load_enabled_flows(pipeline_config)
+
             batch_of_flows, batch_types, count_per_type = gather_planned_flows(
                     session, enabled_flows, args.flows_per_batch)
 
