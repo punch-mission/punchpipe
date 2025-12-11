@@ -1,0 +1,1 @@
+Adds support for producing and using dynamic stray light models for WFI.
