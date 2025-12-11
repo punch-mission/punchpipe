@@ -7,6 +7,7 @@ import multiprocessing
 from datetime import datetime
 from collections import defaultdict
 
+import prefect.exceptions
 import yaml
 from prefect.logging import disable_run_logger
 from sqlalchemy import update
@@ -78,7 +79,7 @@ def worker_run_flow(inputs):
         try:
             time.sleep(delay)
             runner(flow_id, path_to_config, session)
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, prefect.exceptions.TerminationSignal):
             session.execute(
                 update(Flow).where(Flow.flow_id == flow_id).values(state='revivable'))
             session.commit()
