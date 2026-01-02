@@ -850,7 +850,7 @@ def form_preliminary_wcs(soc_spacecraft_id, metadata, plate_scale):
         celestial_wcs.wcs.set_pv([(2, 1, 0.0)])  # TODO: makes sure this is reasonably set
     celestial_wcs.wcs.ctype = f"RA--{projection}", f"DEC-{projection}"
     celestial_wcs.wcs.cunit = "deg", "deg"
-    return calculate_helio_wcs_from_celestial(celestial_wcs, Time(metadata['datetime']), (2048, 2048))[0]
+    return calculate_helio_wcs_from_celestial(celestial_wcs, Time(metadata['datetime']), (2048, 2048))
 
 
 def form_single_image_caller(args):
@@ -1015,7 +1015,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                 cube.meta.history.add_now("form_single_image", f"Outlier detection with {limit_filename}")
                 break
             if selected_limits is None:
-                if len(outlier_limits) and file_type != 'PX':
+                if len(outlier_limits) and file_type in ['CR', 'PM', 'PZ', 'PP']:
                     raise RuntimeError(f"Could not find outlier limits for {get_base_file_name(cube)}")
                 is_outlier = False
             else:

@@ -128,7 +128,7 @@ def session_fn(session):
                        file_type="SM",
                        observatory='2',
                        state='created',
-                       file_version='0b',
+                       file_version='1',
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(hours=12))
 
@@ -136,31 +136,15 @@ def session_fn(session):
                        file_type="SM",
                        observatory='2',
                        state='created',
-                       file_version='1',
+                       file_version='2',
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(hours=16))
-
-    stray_light_before0 = File(level="1",
-                       file_type="SM",
-                       observatory='2',
-                       state='created',
-                       file_version='0b',
-                       software_version='none',
-                       date_obs=datetime.now(UTC)-timedelta(hours=12))
-
-    stray_light_after2 = File(level="1",
-                       file_type="SM",
-                       observatory='2',
-                       state='created',
-                       file_version='0b',
-                       software_version='none',
-                       date_obs=datetime.now(UTC)+timedelta(hours=12))
 
     stray_light_after1 = File(level="1",
                        file_type="SM",
                        observatory='2',
                        state='created',
-                       file_version='1',
+                       file_version='2',
                        software_version='none',
                        date_obs=datetime.now(UTC)+timedelta(hours=16))
 
@@ -168,7 +152,7 @@ def session_fn(session):
                        file_type="SM",
                        observatory='2',
                        state='created',
-                       file_version='0b',
+                       file_version='1',
                        software_version='none',
                        date_obs=datetime.now(UTC)+timedelta(hours=12))
 
@@ -236,12 +220,10 @@ def session_fn(session):
     session.add(distortion0)
     session.add(distortion1)
     session.add(distortion2)
-    session.add(stray_light_before0)
     session.add(stray_light_before1)
     session.add(stray_light_before2)
     session.add(stray_light_after0)
     session.add(stray_light_after1)
-    session.add(stray_light_after2)
     session.add(mask_file0)
     session.add(mask_file1)
     session.add(mask_file2)

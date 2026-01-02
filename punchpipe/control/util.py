@@ -76,7 +76,11 @@ def write_file(data: NDCube, corresponding_file_db_entry, pipeline_config) -> No
 
     # TODO - Configure to write each layer separately?
     layer = 0 if len(data.data.shape) > 2 else None
-    write_ndcube_to_quicklook(data, output_filename.replace(".fits", ".jp2"), layer=layer)
+    ql_directory = pipeline_config.get("ql_root", pipeline_config["root"])
+    ql_filename = os.path.join(corresponding_file_db_entry.directory(ql_directory),
+                                                                     corresponding_file_db_entry.filename())
+    ql_filename = ql_filename.replace(".fits", ".jp2")
+    write_ndcube_to_quicklook(data, ql_filename, layer=layer)
     return output_filename
 
 

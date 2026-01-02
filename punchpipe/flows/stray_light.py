@@ -5,6 +5,7 @@ from collections import defaultdict
 
 from prefect import flow, get_run_logger
 from punchbowl.level1.stray_light import estimate_polarized_stray_light, estimate_stray_light
+from sqlalchemy import func
 
 from punchpipe import __version__
 from punchpipe.control.db import File, Flow
@@ -29,7 +30,7 @@ def construct_clear_stray_light_check_for_inputs(session,
     L0_impossible_after_days = pipeline_config['flows']['construct_stray_light']['new_L0_impossible_after_days']
     more_L0_impossible = datetime.now() - t_end > timedelta(days=L0_impossible_after_days)
 
-    file_type_mapping = {"SR": "XR", "SM": "XM", "SZ": "XZ", "SP": "XP"}
+    file_type_mapping = {"SR": "XR", "SM": "YM", "SZ": "YZ", "SP": "YP"}
     target_file_type = file_type_mapping[reference_file.file_type]
     L0_type_mapping = {"SR": "CR", "SM": "PM", "SZ": "PZ", "SP": "PP"}
     L0_target_file_type = L0_type_mapping[reference_file.file_type]
@@ -117,7 +118,7 @@ def construct_polarized_stray_light_check_for_inputs(session,
     L0_impossible_after_days = pipeline_config['flows']['construct_stray_light']['new_L0_impossible_after_days']
     more_L0_impossible = datetime.now() - t_end > timedelta(days=L0_impossible_after_days)
 
-    target_file_types = ('XP', 'XM', 'XZ')
+    target_file_types = ('YP', 'YM', 'YZ')
     L0_target_file_types = ('PP', 'PM', 'PZ')
 
     base_query = (session.query(File)
@@ -190,7 +191,7 @@ def construct_polarized_stray_light_check_for_inputs(session,
         for group in second_half_inputs[:max_files_per_half]:
             all_ready_files.extend(group)
 
-        logger.info(f"{len(all_ready_files)} Level 1 P*{reference_files[0].observatory} files will be used "
+        logger.info(f"{len(all_ready_files)} Level 1 Y*{reference_files[0].observatory} files will be used "
                      "for stray light estimation.")
         return [f.file_id for f in all_ready_files]
     return []
@@ -293,7 +294,7 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
         logger.info("Flow 'construct_stray_light' is not enabled---halting scheduler")
         return
 
-    max_flows = 2 * pipeline_config['flows']['construct_stray_light'].get('concurrency_limit', 1000)
+    max_flows = pipeline_config['flows']['construct_stray_light'].get('concurrency_limit', 1000)
     existing_flows = (session.query(Flow)
                       .where(Flow.flow_type == 'construct_stray_light')
                       .where(Flow.state.in_(["planned", "launched", "running"])).count())
@@ -348,8 +349,32 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
 
     logger.info(f"There are {len(waiting_models_by_time_and_type)} waiting models")
 
+    dates = (session.query(func.min(File.date_obs), func.max(File.date_obs))
+             .where(File.file_type.in_(['XR', 'YZ', 'YP', 'YM']))
+             .where(File.state.in_(['progressed', 'created'])).all())
+
+    if dates[0][0] is None:
+        logger.info("There are no X files in the database")
+        session.commit()
+        return
+
+    earliest_input, latest_input = dates[0]
+
+    target_date = pipeline_config.get('target_date', None)
+    target_date = datetime.strptime(target_date, "%Y-%m-%d") if target_date else None
+    if target_date:
+        sorted_models = sorted(waiting_models_by_time_and_type.items(),
+                                key=lambda x: abs((target_date - x[0][0]).total_seconds()))
+    else:
+        sorted_models = sorted(waiting_models_by_time_and_type.items(),
+                                key=lambda x: x[0][0],
+                                reverse=True)
+    n_skipped = 0
     to_schedule = []
-    for (date_obs, observatory, is_polarized), models in waiting_models_by_time_and_type.items():
+    for (date_obs, observatory, is_polarized), models in sorted_models:
+        if not (earliest_input <= date_obs <= latest_input):
+            n_skipped += 1
+            continue
         if is_polarized:
             if len(models) != 3:
                 logger.warning(f"Wrong number of waiting polarized models for {date_obs}, got {len(models)}---skipping")
@@ -374,6 +399,8 @@ def construct_stray_light_scheduler_flow(pipeline_config_path=None, session=None
                 logger.info(f"Will schedule {model.file_type}{model.observatory} at {model.date_obs}")
                 if len(to_schedule) == flows_to_schedule:
                     break
+
+    logger.info(f"{n_skipped} models fall outside the range of existing X files and were not queried")
 
     if len(to_schedule):
         for models, input_files in to_schedule:
