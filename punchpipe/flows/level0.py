@@ -932,7 +932,8 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                     'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
                     'start_block': ordered_image_packet_entries[0].flash_block - 1,
                     'replay_length': ordered_image_packet_entries[-1].flash_block
-                                     - ordered_image_packet_entries[0].flash_block + 1 + 2})
+                                     - ordered_image_packet_entries[0].flash_block + 1 + 2,
+                    'note': skip_reason})
         except Exception as e:
             skip_image = True
             skip_reason = f"Image could not find all packets, {e}"
@@ -951,7 +952,8 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                     'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
                     'start_block': ordered_image_packet_entries[0].flash_block - 1,
                     'replay_length': ordered_image_packet_entries[-1].flash_block
-                                     - ordered_image_packet_entries[0].flash_block + 1 + 2})
+                                     - ordered_image_packet_entries[0].flash_block + 1 + 2,
+                    'note': skip_reason})
         except Exception as e:
             skip_image = True
             skip_reason = f"Image decoding failed {e}"
@@ -960,7 +962,8 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                 'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
                 'start_block': ordered_image_packet_entries[0].flash_block - 1,
                 'replay_length': ordered_image_packet_entries[-1].flash_block
-                                 - ordered_image_packet_entries[0].flash_block + 1 + 2})
+                                 - ordered_image_packet_entries[0].flash_block + 1 + 2,
+                'note': skip_reason})
             traceback.print_exc()
 
     # now that we have the image we're ready to collect the metadat and write it to file
