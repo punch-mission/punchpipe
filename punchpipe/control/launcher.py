@@ -22,11 +22,14 @@ def gather_planned_flows(session, weight_to_launch, max_flows_to_launch, flow_we
     # maximum-weight limit. But we can use the smallest weight to set an upper bound on how many launchable flows to
     # retrieve.
     enabled_flows = [flow for flow, enabled in flow_enabled.items() if enabled]
-    max_to_select = weight_to_launch / min([flow_weights[k] for k in enabled_flows])
+    if enabled_flows:
+        max_to_select = weight_to_launch / min([flow_weights[k] for k in enabled_flows])
+    else:
+        max_to_select = 0
     flows = (session.query(Flow)
                    .where(Flow.state == "planned")
                    .where(Flow.flow_type.in_(enabled_flows))
-                   .order_by(Flow.is_backprocessing.asc(), Flow.priority.desc(), Flow.creation_time.desc())
+                   .order_by(Flow.is_backprocessing.asc(), Flow.priority.desc(), Flow.creation_time.asc())
                    .limit(max_to_select).all())
     selected_flows = []
     selected_weight = 0
@@ -237,7 +240,7 @@ def load_flow_data(pipeline_config):
     flow_enabled = dict()
     flow_batch_size = dict()
     for flow_type in pipeline_config["flows"]:
-        flow_enabled[flow_type] = pipeline_config["flows"][flow_type].get("enabled", True)
+        flow_enabled[flow_type] = pipeline_config["flows"][flow_type].get("enabled", True) is True
         flow_weights[flow_type] = pipeline_config["flows"][flow_type].get("launch_weight", 1)
         flow_batch_size[flow_type] = pipeline_config["flows"][flow_type].get("batch_size", 1)
     return flow_weights, flow_enabled, flow_batch_size

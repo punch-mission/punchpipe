@@ -1,1 +1,0 @@
-Avoid a scheduling crash when there are no stray light models in the DB

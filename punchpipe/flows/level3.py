@@ -53,7 +53,6 @@ def level3_PTM_query_ready_files(session, pipeline_config: dict, reference_time=
     return [[f.file_id] for f in actually_ready_files]
 
 
-@task(cache_policy=NO_CACHE)
 def level3_PTM_construct_flow_info(level2_files: list[File], level3_file: File,
                                    pipeline_config: dict, session=None, reference_time=None):
     session = get_database_session()  # TODO: replace so this works in the tests by passing in a test
@@ -83,7 +82,6 @@ def level3_PTM_construct_flow_info(level2_files: list[File], level3_file: File,
     )
 
 
-@task(cache_policy=NO_CACHE)
 def level3_PTM_construct_file_info(input_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
     date_obses = [f.date_obs for f in input_files]
 
@@ -151,7 +149,6 @@ def level3_PIM_query_ready_files(session, pipeline_config: dict, reference_time=
     return [[f.file_id] for f in actually_ready_files]
 
 
-@task(cache_policy=NO_CACHE)
 def level3_PIM_construct_flow_info(level2_files: list[File], level3_file: File, pipeline_config: dict,
                                    session=None, reference_time=None):
     session = get_database_session()  # TODO: replace so this works in the tests by passing in a test
@@ -188,7 +185,6 @@ def level3_PIM_construct_flow_info(level2_files: list[File], level3_file: File, 
     )
 
 
-@task(cache_policy=NO_CACHE)
 def level3_PIM_construct_file_info(level2_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
     date_obses = [f.date_obs for f in level2_files]
 
@@ -260,7 +256,6 @@ def level3_CIM_query_ready_files(session, pipeline_config: dict, reference_time=
     return [[f.file_id] for f in actually_ready_files]
 
 
-@task(cache_policy=NO_CACHE)
 def level3_CIM_construct_flow_info(level2_files: list[File], level3_file: File, pipeline_config: dict,
                                    session=None, reference_time=None):
     session = get_database_session()  # TODO: replace so this works in the tests by passing in a test
@@ -298,7 +293,6 @@ def level3_CIM_construct_flow_info(level2_files: list[File], level3_file: File, 
     )
 
 
-@task(cache_policy=NO_CACHE)
 def level3_CIM_construct_file_info(level2_files: t.List[File], pipeline_config: dict, reference_time=None) -> t.List[File]:
     date_obses = [f.date_obs for f in level2_files]
 
@@ -366,7 +360,6 @@ def level3_CTM_query_ready_files(session, pipeline_config: dict, reference_time=
     return [[f.file_id] for f in actually_ready_files]
 
 
-@task(cache_policy=NO_CACHE)
 def level3_CTM_construct_flow_info(level2_files: list[File], level3_file: File,
                                    pipeline_config: dict, session=None, reference_time=None):
     session = get_database_session()  # TODO: replace so this works in the tests by passing in a test
@@ -397,7 +390,6 @@ def level3_CTM_construct_flow_info(level2_files: list[File], level3_file: File,
     )
 
 
-@task(cache_policy=NO_CACHE)
 def level3_CTM_construct_file_info(input_files: t.List[File], pipeline_config: dict, reference_time=None, ) -> t.List[File]:
     date_obses = [f.date_obs for f in input_files]
 

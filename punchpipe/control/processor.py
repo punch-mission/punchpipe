@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 from dateutil.parser import parse as parse_datetime_str
 from prefect import get_run_logger, tags
-from prefect.context import get_run_context
+from prefect.context import MissingContextError, get_run_context
 
 from punchpipe.control.db import File, Flow
 from punchpipe.control.util import (
@@ -16,7 +16,7 @@ from punchpipe.control.util import (
 
 
 def generic_process_flow_logic(flow_id: int | list[int], core_flow_to_launch, pipeline_config_path: str, session=None,
-                               call_data_processor=None):
+                               call_data_processor=None, ):
     if session is None:
         session = get_database_session()
     if isinstance(flow_id, int):
@@ -44,26 +44,36 @@ def generic_process_flow_logic(flow_id: int | list[int], core_flow_to_launch, pi
                         f"{flow_db_entry.creation_time} and launched at {flow_db_entry.launch_time}.")
 
             # update the processing flow name with the flow run name from Prefect
-            flow_run_context = get_run_context()
-            flow_db_entry.flow_run_name = flow_run_context.flow_run.name
-            flow_db_entry.flow_run_id = flow_run_context.flow_run.id
+            try:
+                flow_run_context = get_run_context()
+                flow_db_entry.flow_run_name = flow_run_context.flow_run.name
+                flow_db_entry.flow_run_id = flow_run_context.flow_run.id
+            except MissingContextError:
+                # We're not in a flow context---probably we're running under speedster
+                pass
             flow_db_entry.state = "running"
             flow_db_entry.start_time = datetime.now()
 
             file_db_entry_list = session.query(File).where(File.processing_flow == flow_db_entry.flow_id).all()
 
             # update the file database entries as being created
-            if file_db_entry_list:
-                for file_db_entry in file_db_entry_list:
-                    if file_db_entry.state != "planned":
-                        raise RuntimeError(f"File id {file_db_entry.file_id} has already been created.")
-                    if os.path.exists(os.path.join(
-                            file_db_entry.directory(pipeline_config['root']), file_db_entry.filename())):
-                        raise RuntimeError(f"Expected output file {file_db_entry.filename()} (id {file_db_entry.file_id}) "
-                                            "already exists on disk")
-                    file_db_entry.state = "creating"
-            else:
-                raise RuntimeError("There should be at least one file associated with this flow. Found 0.")
+            try:
+                if file_db_entry_list:
+                    for file_db_entry in file_db_entry_list:
+                        if file_db_entry.state != "planned":
+                            raise RuntimeError(f"File id {file_db_entry.file_id} has already been created.")
+                        if os.path.exists(os.path.join(
+                                file_db_entry.directory(pipeline_config['root']), file_db_entry.filename())):
+                            raise RuntimeError(f"Expected output file {file_db_entry.filename()} (id {file_db_entry.file_id}) "
+                                                "already exists on disk")
+                        file_db_entry.state = "creating"
+                else:
+                    raise RuntimeError("There should be at least one file associated with this flow. Found 0.")
+            except:
+                # The exception handler rolls back the transaction, but we do want our start_time to stay in place. So
+                # commit on error, but otherwise let the transaction keep growing into a big batch
+                session.commit()
+                raise
             file_db_entry_lists.append(file_db_entry_list)
         session.commit()
 

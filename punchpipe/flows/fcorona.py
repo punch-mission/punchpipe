@@ -118,7 +118,7 @@ def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, sess
         logger.info("Flow 'construct_f_corona_background' is not enabled---halting scheduler")
         return 0
 
-    max_flows = 2 * pipeline_config['flows']['construct_f_corona_background'].get('concurrency_limit', 1000)
+    max_flows = pipeline_config['flows']['construct_f_corona_background'].get('concurrency_limit', 1000)
     existing_flows = (session.query(Flow)
                       .where(Flow.flow_type == 'construct_f_corona_background')
                       .where(Flow.state.in_(["planned", "launched", "running"])).count())
@@ -169,8 +169,19 @@ def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, sess
     session.commit()
     logger.info(f"There are {len(models_to_try_creating)} waiting models")
 
+
+    target_date = pipeline_config.get('target_date', None)
+    target_date = datetime.strptime(target_date, "%Y-%m-%d") if target_date else None
+    if target_date:
+        sorted_models = sorted(models_to_try_creating,
+                                key=lambda x: abs((target_date - x.date_obs).total_seconds()))
+    else:
+        sorted_models = sorted(models_to_try_creating,
+                                key=lambda x: x.date_obs,
+                                reverse=True)
+
     to_schedule = []
-    for model in models_to_try_creating:
+    for model in sorted_models:
         ready_files = f_corona_background_query_ready_files(
             session, pipeline_config, model.date_obs, model)
         if ready_files:
