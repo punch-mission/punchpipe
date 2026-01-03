@@ -149,6 +149,17 @@ def layout():
                         persistence=True, persistence_type='memory',
                     ),
                 ]),
+                html.Div([
+                    "Auto-refresh: ",
+                    dcc.Checklist(
+                        ["Enabled"],
+                        ["Enabled"],
+                        inline=True,
+                        id='auto-refresh',
+                        inputStyle={"margin-left": "10px", "margin-right": "3px"},
+                        persistence=True, persistence_type='memory',
+                    ),
+                ]),
             ]),
         ]),
         dcc.Graph(id='file-graph', style={'height': '400'}),
@@ -157,6 +168,17 @@ def layout():
             interval=REFRESH_RATE * 1000,  # in milliseconds
             n_intervals=0)
     ], style={'margin': '10px'})
+
+
+@callback(
+    Output('interval-component', 'interval'),
+    Input('auto-refresh', 'value'),
+)
+def toggle_auto_refresh(auto_refresh_settings):
+    if 'Enabled' in auto_refresh_settings:
+        return REFRESH_RATE * 1000
+    return 99999999999999999
+
 
 operators = [(['ge ', '>='], '__ge__'),
              (['le ', '<='], '__le__'),

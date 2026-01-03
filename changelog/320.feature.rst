@@ -1,0 +1,1 @@
+Add checkbox to files dashboard to disable the minutely refreshes (which reset the plot), supporting zooming and exploration in the plot.
