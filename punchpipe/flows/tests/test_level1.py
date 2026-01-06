@@ -14,14 +14,14 @@ from punchpipe.flows.level1 import (
     level1_early_construct_flow_info,
     level1_early_query_ready_files,
     level1_early_scheduler_flow,
-    level1_middle_construct_file_info,
-    level1_middle_construct_flow_info,
-    level1_middle_query_ready_files,
-    level1_middle_scheduler_flow,
     level1_late_construct_file_info,
     level1_late_construct_flow_info,
     level1_late_query_ready_files,
     level1_late_scheduler_flow,
+    level1_middle_construct_file_info,
+    level1_middle_construct_flow_info,
+    level1_middle_query_ready_files,
+    level1_middle_scheduler_flow,
 )
 
 TEST_DIR = os.path.dirname(__file__)
