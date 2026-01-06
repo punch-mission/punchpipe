@@ -209,6 +209,7 @@ async def cancel_running_prefect_flows_before_cutoff(
 async def fail_stuck_flows(logger, session, pipeline_config, state, update_prefect=False):
     amount_of_patience = pipeline_config['control']['cleaner'].get(f'fail_{state}_flows_after_minutes', -1)
     if amount_of_patience < 0:
+        logger.warning(f"There is no fail_{state}_flows_after_minutes option in the config, so ending without checking.")
         return
 
     # First, we get the flows that are stuck. This should happen before the flows are killed, in case the flow's
