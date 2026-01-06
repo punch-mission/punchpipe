@@ -53,6 +53,16 @@ flows:
     tags: ["L1"]
     options:
 
+  level1_middle:
+    description: "Creates Level 1 files."
+    priority:
+      initial: 6
+      seconds: [ 30, 120, 600 ]
+      escalation: [ 11, 21, 31 ]
+    schedule: "* * * * *"
+    tags: ["L1"]
+    options:
+
   level1_late:
     description: "Creates Level 1 files."
     priority:
