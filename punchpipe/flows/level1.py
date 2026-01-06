@@ -1,8 +1,8 @@
 import json
 import typing as t
-from collections import defaultdict
 from datetime import datetime, timedelta
 from itertools import pairwise
+from collections import defaultdict
 
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
