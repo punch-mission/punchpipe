@@ -237,18 +237,22 @@ async def test_reset_LQ(db, tmpdir, populated_tmpdir_config):
     global loop
 
     lqs = db.query(File).filter(File.level == "Q").all()
-    reset_file = lqs[0]
+    for reset_file in lqs:
+        parent_files = (db.query(File)
+                        .join(FileRelationship, File.file_id == FileRelationship.parent)
+                        .filter(FileRelationship.child == reset_file.file_id)).all()
+        parent_file_ids = [f.file_id for f in parent_files]
+        if len(parent_file_ids) == 2:
+            break
+    else:
+        raise RuntimeError("Didn't find the right child file!")
+
     reset_file_path = os.path.join(reset_file.directory(tmpdir), reset_file.filename())
 
     reset_flow = db.query(Flow).filter(Flow.flow_id == reset_file.processing_flow).one()
     reset_flow.state = 'revivable'
     db.commit()
 
-    parent_files = (db.query(File)
-                      .join(FileRelationship, File.file_id == FileRelationship.parent)
-                      .filter(FileRelationship.child == reset_file.file_id)).all()
-    parent_file_ids = [f.file_id for f in parent_files]
-    assert len(parent_file_ids) == 2
     other_files = db.query(File).filter(File.file_id != reset_file.file_id).all()
     other_flows = db.query(Flow).filter(Flow.flow_id != reset_flow.flow_id).all()
 
