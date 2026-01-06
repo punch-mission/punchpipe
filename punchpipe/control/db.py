@@ -94,7 +94,7 @@ class Flow(Base):
 
 Index("flow_stats", Flow.end_time, Flow.flow_type, Flow.state)
 Index("flow_cards", Flow.start_time, Flow.flow_level, Flow.flow_type)
-
+Index("escalate_flows", Flow.state, Flow.priority, Flow.flow_type)
 
 class FileRelationship(Base):
     __tablename__ = "relationships"
