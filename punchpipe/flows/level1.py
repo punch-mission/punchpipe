@@ -28,8 +28,7 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
     logger = get_run_logger()
     ready = (session.query(File).filter(File.file_type.in_(SCIENCE_LEVEL0_TYPE_CODES))
                                 .filter(File.state == "created")
-                                .filter(File.level == "0")
-                                .filter(File.date_obs > datetime(2025, 6, 1)))
+                                .filter(File.level == "0"))
 
     target_date = pipeline_config.get('target_date', None)
     target_date = datetime.strptime(target_date, "%Y-%m-%d") if target_date else None
