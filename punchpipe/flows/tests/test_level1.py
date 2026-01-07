@@ -18,6 +18,10 @@ from punchpipe.flows.level1 import (
     level1_late_construct_flow_info,
     level1_late_query_ready_files,
     level1_late_scheduler_flow,
+    level1_middle_construct_file_info,
+    level1_middle_construct_flow_info,
+    level1_middle_query_ready_files,
+    level1_middle_scheduler_flow,
 )
 
 TEST_DIR = os.path.dirname(__file__)
@@ -46,6 +50,14 @@ def session_fn(session):
 
     level1_x_file = File(level="1",
                        file_type="XM",
+                       observatory='2',
+                       state='created',
+                       file_version='none',
+                       software_version='none',
+                       date_obs=datetime.now(UTC))
+
+    level1_y_file = File(level="1",
+                       file_type="YM",
                        observatory='2',
                        state='created',
                        file_version='none',
@@ -156,6 +168,38 @@ def session_fn(session):
                        software_version='none',
                        date_obs=datetime.now(UTC)+timedelta(hours=12))
 
+    dyn_stray_light_before2 = File(level="1",
+                       file_type="TM",
+                       observatory='2',
+                       state='created',
+                       file_version='1',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)-timedelta(hours=12))
+
+    dyn_stray_light_before1 = File(level="1",
+                       file_type="TM",
+                       observatory='2',
+                       state='created',
+                       file_version='2',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)-timedelta(hours=16))
+
+    dyn_stray_light_after1 = File(level="1",
+                       file_type="TM",
+                       observatory='2',
+                       state='created',
+                       file_version='2',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)+timedelta(hours=16))
+
+    dyn_stray_light_after0 = File(level="1",
+                       file_type="TM",
+                       observatory='2',
+                       state='created',
+                       file_version='1',
+                       software_version='none',
+                       date_obs=datetime.now(UTC)+timedelta(hours=12))
+
     distortion2 = File(level="1",
                        file_type="DS",
                        observatory='2',
@@ -207,6 +251,7 @@ def session_fn(session):
     session.add(level0_file)
     session.add(level1_file)
     session.add(level1_x_file)
+    session.add(level1_y_file)
 
     session.add(psf_model0)
     session.add(psf_model1)
@@ -224,6 +269,10 @@ def session_fn(session):
     session.add(stray_light_before2)
     session.add(stray_light_after0)
     session.add(stray_light_after1)
+    session.add(dyn_stray_light_before1)
+    session.add(dyn_stray_light_before2)
+    session.add(dyn_stray_light_after0)
+    session.add(dyn_stray_light_after1)
     session.add(mask_file0)
     session.add(mask_file1)
     session.add(mask_file2)
@@ -235,6 +284,13 @@ def test_level1_early_query_ready_files(db, prefect_test_fixture):
     pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
     ready_file_ids = level1_early_query_ready_files(db, pipeline_config)
+    assert len(ready_file_ids) == 1
+
+
+def test_level1_middle_query_ready_files(db, prefect_test_fixture):
+    pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
+    pipeline_config = load_pipeline_configuration(pipeline_config_path)
+    ready_file_ids = level1_middle_query_ready_files(db, pipeline_config)
     assert len(ready_file_ids) == 1
 
 
@@ -288,11 +344,32 @@ def test_level1_early_construct_file_info_clear():
     assert x_file.state == "planned"
 
 
-def test_level1_late_construct_file_info():
+def test_level1_middle_construct_file_info():
     pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
     input_file = [File(level="0",
                        file_type='XM',
+                       observatory='2',
+                       state='created',
+                       file_version='none',
+                       software_version='none',
+                       date_obs=datetime.now(UTC))]
+    constructed_file_info = level1_middle_construct_file_info(input_file, pipeline_config)[0]
+    assert constructed_file_info.level == "1"
+    assert constructed_file_info.file_type == 'Y' + input_file[0].file_type[1:]
+    assert constructed_file_info.observatory == input_file[0].observatory
+    assert constructed_file_info.file_version == "0.0.1"
+    assert constructed_file_info.software_version == __version__
+    assert constructed_file_info.date_obs == input_file[0].date_obs
+    assert constructed_file_info.polarization == input_file[0].polarization
+    assert constructed_file_info.state == "planned"
+
+
+def test_level1_late_construct_file_info():
+    pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
+    pipeline_config = load_pipeline_configuration(pipeline_config_path)
+    input_file = [File(level="0",
+                       file_type='YM',
                        observatory='2',
                        state='created',
                        file_version='none',
@@ -332,12 +409,35 @@ def test_level1_early_construct_flow_info(db, prefect_test_fixture):
     assert flow_info.priority == 6
 
 
-def test_level1_late_construct_flow_info(db, prefect_test_fixture):
+def test_level1_middle_construct_flow_info(db, prefect_test_fixture):
     pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
     print(pipeline_config_path)
     pipeline_config = load_pipeline_configuration(pipeline_config_path)
     level0_file = [File(level="0",
                        file_type='XM',
+                       observatory='2',
+                       state='created',
+                       file_version='none',
+                       software_version='none',
+                       date_obs=datetime.now(UTC))]
+
+    level0_file[0].dynamic_stray_light = level0_file[0], level0_file[0]
+
+    level1_file = level1_middle_construct_file_info(level0_file, pipeline_config)
+    flow_info = level1_middle_construct_flow_info(level0_file, level1_file, pipeline_config, session=db)
+
+    assert flow_info.flow_type == 'level1_middle'
+    assert flow_info.state == "planned"
+    assert flow_info.flow_level == "1"
+    assert flow_info.priority == 6
+
+
+def test_level1_late_construct_flow_info(db, prefect_test_fixture):
+    pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
+    print(pipeline_config_path)
+    pipeline_config = load_pipeline_configuration(pipeline_config_path)
+    level0_file = [File(level="0",
+                       file_type='YM',
                        observatory='2',
                        state='created',
                        file_version='none',
@@ -371,6 +471,18 @@ def test_level1_early_scheduler_flow(db):
     assert call_data["vignetting_function_path"][-7:] == 'v1.fits'
     assert call_data["mask_path"][-6:] == 'v1.bin'
 
+
+
+def test_level1_middle_scheduler_flow(db):
+    pipeline_config_path = os.path.join(TEST_DIR, "punchpipe_config.yaml")
+    with prefect_test_harness():
+        level1_middle_scheduler_flow(pipeline_config_path, db)
+    results = db.query(Flow).where(Flow.state == 'planned').all()
+    assert len(results) == 1
+
+    call_data = json.loads(results[0].call_data)
+    assert call_data["dynamic_stray_light_before_path"][-7:] == 'v1.fits'
+    assert call_data["dynamic_stray_light_after_path"][-7:] == 'v1.fits'
 
 
 def test_level1_late_scheduler_flow(db):

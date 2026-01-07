@@ -53,6 +53,16 @@ flows:
     tags: ["L1"]
     options:
 
+  level1_middle:
+    description: "Creates Level 1 files."
+    priority:
+      initial: 6
+      seconds: [ 30, 120, 600 ]
+      escalation: [ 11, 21, 31 ]
+    schedule: "* * * * *"
+    tags: ["L1"]
+    options:
+
   level1_late:
     description: "Creates Level 1 files."
     priority:
@@ -71,6 +81,16 @@ flows:
       escalation: [ 1000, 1000, 1000 ]
     schedule: "* * * * *"
     tags: ["L2"]
+    options:
+
+  levelq_CQM:
+    description: "Creates Level Q CQM files."
+    priority:
+      initial: 1000
+      seconds: [ 3000, 12000, 60000 ]
+      escalation: [ 1000, 1000, 1000 ]
+    schedule: "* * * * *"
+    tags: ["LQ"]
     options:
 
   levelq_CTM:
