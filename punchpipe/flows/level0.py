@@ -988,7 +988,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
             fits_info['NUM_PCKT'] = len(image_packets_entries)
             fits_info['PCKTBYTE'] = len(np.concatenate(ordered_image_content).tobytes())
             file_type = fits_info["TYPECODE"]
-            print(file_type)
+
             preliminary_wcs = form_preliminary_wcs(
                 str(soc_spacecraft_id),
                 position_info,
@@ -1046,35 +1046,43 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
             meta['BADPKTS'] = int(bad_packets)
 
             # we also need to add it to the database
-            l0_db_entry = File(level="0",
-                               polarization='C' if file_type[0] == 'C' else file_type[1],
-                               file_type=file_type,
-                               observatory=str(soc_spacecraft_id),
-                               file_version=pipeline_config['file_version'],
-                               software_version=__version__,
-                               outlier=is_outlier,
-                               bad_packets=bad_packets,
-                               date_created=parse_datetime_str(fits_info['DATE']).replace(tzinfo=UTC).astimezone(),
-                               date_obs=date_obs,
-                               date_beg=parse_datetime_str(fits_info['DATE-BEG']),
-                               date_end=parse_datetime_str(fits_info['DATE-END']),
-                               state="created",
-                               processing_flow=processing_flow_id)
+            replay_delay = pipeline_config['flows']['level0']['options'].get('days_to_wait_for_replay', 7)
 
-            # finally, time to write to file
-            out_path = os.path.join(l0_db_entry.directory(pipeline_config['root']),
-                                    get_base_file_name(cube)) + ".fits"
-            os.makedirs(os.path.dirname(out_path), exist_ok=True)
-            write_ndcube_to_fits(cube, out_path, overwrite=True, skip_stats=True)
-            session.add(l0_db_entry)
-            session.commit()
+            # if we don't have bad packets we can make the image
+            # if we have bad packets but the replay delay has been met, then we go ahead and make the image
+            # otherwise (when we have bad packets and could get a replay), we just skip and will make the image later
+            if not bad_packets or (bad_packets and datetime.now() - date_obs > replay_delay):
+                l0_db_entry = File(level="0",
+                                   polarization='C' if file_type[0] == 'C' else file_type[1],
+                                   file_type=file_type,
+                                   observatory=str(soc_spacecraft_id),
+                                   file_version=pipeline_config['file_version'],
+                                   software_version=__version__,
+                                   outlier=is_outlier,
+                                   bad_packets=bad_packets,
+                                   date_created=parse_datetime_str(fits_info['DATE']).replace(tzinfo=UTC).astimezone(),
+                                   date_obs=date_obs,
+                                   date_beg=parse_datetime_str(fits_info['DATE-BEG']),
+                                   date_end=parse_datetime_str(fits_info['DATE-END']),
+                                   state="created",
+                                   processing_flow=processing_flow_id)
+
+                # finally, time to write to file
+                out_path = os.path.join(l0_db_entry.directory(pipeline_config['root']),
+                                        get_base_file_name(cube)) + ".fits"
+                os.makedirs(os.path.dirname(out_path), exist_ok=True)
+                write_ndcube_to_fits(cube, out_path, overwrite=False, skip_stats=True)
+                session.add(l0_db_entry)
+                session.commit()
+            else:  # we skipped because there are bad packets and it's possible we'll get a replay
+                skip_image = True
+                skip_reason = "Waiting for replay"
         except Exception as e:
             session.rollback()
             skip_image = True
             skip_reason = f"Could not make metadata and write image, {e}"
             trace = traceback.format_exc()
             skip_reason += '\n' + trace
-            print(trace)
 
     # go back and do some cleanup if we skipped the image
     if skip_image:
