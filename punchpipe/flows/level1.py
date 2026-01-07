@@ -498,7 +498,7 @@ def level1_middle_query_ready_files(session, pipeline_config: dict, reference_ti
     best_stray_lights = get_two_best_stray_light(ready, session=session, dynamic=True)
 
     for f, best_stray_light in zip(ready, best_stray_lights):
-        if best_stray_light == [None, None]:
+        if best_stray_light == (None, None):
             missing_stray_light.append(f)
             continue
         f.dynamic_stray_light = best_stray_light
@@ -621,7 +621,7 @@ def level1_late_query_ready_files(session, pipeline_config: dict, reference_time
     missing_psf = []
 
     for f, distortion_path, psf_path, best_stray_light in zip(ready, distortion_paths, psf_paths, best_stray_lights):
-        if best_stray_light == [None, None]:
+        if best_stray_light == (None, None):
             missing_stray_light.append(f)
             continue
         if distortion_path is None:
