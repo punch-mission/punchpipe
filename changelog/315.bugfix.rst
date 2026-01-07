@@ -1,0 +1,1 @@
+Fix level 0 processing to match WCS changes.

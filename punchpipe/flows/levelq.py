@@ -11,7 +11,7 @@ from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from prefect.context import get_run_context
 from punchbowl.levelq.f_corona_model import construct_qp_f_corona_model
-from punchbowl.levelq.flow import levelq_CNN_core_flow, levelq_CTM_core_flow, levelq_CQM_core_flow
+from punchbowl.levelq.flow import levelq_CNN_core_flow, levelq_CQM_core_flow, levelq_CTM_core_flow
 from punchbowl.util import average_datetime
 from sqlalchemy import and_, func, or_, select, text
 
@@ -207,7 +207,7 @@ def levelq_CQM_query_ready_files(session, pipeline_config: dict, reference_time=
         # range within which to grab L0s.
         center = group[0].date_obs
         search_width = timedelta(minutes=1)
-        search_types = ['QR']
+        search_types = ['CR']
 
         # Grab all the L0s that produce inputs for this trefoil
         expected_inputs = (session.query(File)
