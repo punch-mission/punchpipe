@@ -1045,12 +1045,10 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
             meta['OUTLIER'] = int(is_outlier)
             meta['BADPKTS'] = int(bad_packets)
 
-            # we also need to add it to the database
-            replay_delay = pipeline_config['flows']['level0']['options'].get('days_to_wait_for_replay', 7)
-
             # if we don't have bad packets we can make the image
             # if we have bad packets but the replay delay has been met, then we go ahead and make the image
             # otherwise (when we have bad packets and could get a replay), we just skip and will make the image later
+            replay_delay = pipeline_config['flows']['level0']['options'].get('days_to_wait_for_replay', 7)
             if not bad_packets or (bad_packets and datetime.now() - date_obs > replay_delay):
                 l0_db_entry = File(level="0",
                                    polarization='C' if file_type[0] == 'C' else file_type[1],
