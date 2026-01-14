@@ -67,7 +67,10 @@ Index("construct_background", File.level, File.observatory, File.outlier, File.d
 Index("get_cal_file", File.file_type, File.observatory, File.date_obs, File.state)
 Index("CNN", File.file_type, File.observatory, File.level, File.state, File.outlier)
 Index("processing_flow_index", File.processing_flow)
-
+Index("level0_uniqueness",
+      File.level, File.polarization, File.file_type,
+      File.observatory, File.file_version, File.date_obs,
+      unique=True)
 
 class Flow(Base):
     __tablename__ = "flows"
