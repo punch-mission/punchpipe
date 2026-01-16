@@ -111,7 +111,7 @@ def session_fn(session):
                              file_version='none',
                              software_version='none',
                              polarization='C',
-                             date_obs=datetime(2023, 1, 1, 0, 0, 0),
+                             date_obs=datetime(2023, 1, 1, 0, 0, 1),
                              date_created=datetime(2022, 12, 25, 0, 0, 0))
 
     session.add(level0_fileM)

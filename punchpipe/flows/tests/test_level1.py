@@ -36,6 +36,7 @@ def session_fn(session):
                        file_type='PM',
                        observatory='2',
                        state='created',
+                       polarization='M',
                        file_version='none',
                        software_version='none',
                        date_obs=datetime.now(UTC))
@@ -44,6 +45,7 @@ def session_fn(session):
                        file_type="PM",
                        observatory='2',
                        state='created',
+                       polarization='M',
                        file_version='none',
                        software_version='none',
                        date_obs=datetime.now(UTC))
@@ -52,6 +54,7 @@ def session_fn(session):
                        file_type="XM",
                        observatory='2',
                        state='created',
+                       polarization='M',
                        file_version='none',
                        software_version='none',
                        date_obs=datetime.now(UTC))
@@ -60,6 +63,7 @@ def session_fn(session):
                        file_type="YM",
                        observatory='2',
                        state='created',
+                       polarization='M',
                        file_version='none',
                        software_version='none',
                        date_obs=datetime.now(UTC))
@@ -68,6 +72,7 @@ def session_fn(session):
                        file_type="RM",
                        observatory='2',
                        state='created',
+                       polarization='M',
                        file_version='0b',
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(hours=3))
@@ -76,6 +81,7 @@ def session_fn(session):
                        file_type="RM",
                        observatory='2',
                        state='created',
+                       polarization='M',
                        file_version='1',
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(days=1))
@@ -84,6 +90,7 @@ def session_fn(session):
                        file_type="RM",
                        observatory='2',
                        state='created',
+                       polarization='M',
                        file_version='0b',
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(days=1))
@@ -140,6 +147,7 @@ def session_fn(session):
                        file_type="SM",
                        observatory='2',
                        state='created',
+                       polarization='M',
                        file_version='1',
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(hours=12))
@@ -148,6 +156,7 @@ def session_fn(session):
                        file_type="SM",
                        observatory='2',
                        state='created',
+                       polarization='M',
                        file_version='2',
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(hours=16))
@@ -156,6 +165,7 @@ def session_fn(session):
                        file_type="SM",
                        observatory='2',
                        state='created',
+                       polarization='M',
                        file_version='2',
                        software_version='none',
                        date_obs=datetime.now(UTC)+timedelta(hours=16))
@@ -164,6 +174,7 @@ def session_fn(session):
                        file_type="SM",
                        observatory='2',
                        state='created',
+                       polarization='M',
                        file_version='1',
                        software_version='none',
                        date_obs=datetime.now(UTC)+timedelta(hours=12))
@@ -172,6 +183,7 @@ def session_fn(session):
                        file_type="TM",
                        observatory='2',
                        state='created',
+                       polarization='M',
                        file_version='1',
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(hours=12))
@@ -180,6 +192,7 @@ def session_fn(session):
                        file_type="TM",
                        observatory='2',
                        state='created',
+                       polarization='M',
                        file_version='2',
                        software_version='none',
                        date_obs=datetime.now(UTC)-timedelta(hours=16))
@@ -188,6 +201,7 @@ def session_fn(session):
                        file_type="TM",
                        observatory='2',
                        state='created',
+                       polarization='M',
                        file_version='2',
                        software_version='none',
                        date_obs=datetime.now(UTC)+timedelta(hours=16))
@@ -196,6 +210,7 @@ def session_fn(session):
                        file_type="TM",
                        observatory='2',
                        state='created',
+                       polarization='M',
                        file_version='1',
                        software_version='none',
                        date_obs=datetime.now(UTC)+timedelta(hours=12))
