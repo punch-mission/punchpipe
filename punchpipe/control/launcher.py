@@ -107,7 +107,12 @@ def escalate_long_waiting_flows(session, pipeline_config):
                      Flow.creation_time < since,
                      Flow.flow_type == flow_type)
             ).update({"priority": escalated_priority})
-    session.commit()
+            # Commit after every update to try to avoid deadlocks. I think the problem scenario is (1) we've updated
+            # a flow's priority, so we have that row locked until we commit, (2) the flow gets launched, so another
+            # process wants to update that flow record and so has a pending transaction on that row, and (3) we
+            # continue going through our loops, where each update call has to lock the whole table so it can scan
+            # every record, and so it has to wait for the other process, which has its pending lock/update
+            session.commit()
 
 
 def determine_launchable_flow_count(weight_planned, weight_running, max_weight_running, max_weight_to_launch,
