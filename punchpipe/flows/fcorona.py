@@ -2,6 +2,7 @@ import json
 import typing as t
 from datetime import datetime, timedelta
 
+from dateutil.parser import parse as parse_datetime_str
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from punchbowl.level3.f_corona_model import construct_f_corona_model
@@ -171,7 +172,7 @@ def construct_f_corona_background_scheduler_flow(pipeline_config_path=None, sess
 
 
     target_date = pipeline_config.get('target_date', None)
-    target_date = datetime.strptime(target_date, "%Y-%m-%d") if target_date else None
+    target_date = parse_datetime_str(target_date) if target_date else None
     if target_date:
         sorted_models = sorted(models_to_try_creating,
                                 key=lambda x: abs((target_date - x.date_obs).total_seconds()))

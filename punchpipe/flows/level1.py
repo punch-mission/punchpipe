@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from itertools import pairwise
 from collections import defaultdict
 
+from dateutil.parser import parse as parse_datetime_str
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from punchbowl.level1.flow import level1_early_core_flow, level1_late_core_flow, level1_middle_core_flow
@@ -33,7 +34,7 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
                                 .filter(File.level == "0"))
 
     target_date = pipeline_config.get('target_date', None)
-    target_date = datetime.strptime(target_date, "%Y-%m-%d") if target_date else None
+    target_date = parse_datetime_str(target_date) if target_date else None
     dt = func.abs(func.timestampdiff(text("second"), File.date_obs, target_date)) if target_date else None
     if target_date:
         ready = ready.order_by(dt.asc())
@@ -484,7 +485,7 @@ def level1_middle_query_ready_files(session, pipeline_config: dict, reference_ti
              .filter(File.date_obs <= end_date))
 
     target_date = pipeline_config.get('target_date', None)
-    target_date = datetime.strptime(target_date, "%Y-%m-%d") if target_date else None
+    target_date = parse_datetime_str(target_date) if target_date else None
     dt = func.abs(func.timestampdiff(text("second"), File.date_obs, target_date)) if target_date else None
     if target_date:
         ready = ready.order_by(dt.asc())
@@ -603,7 +604,7 @@ def level1_late_query_ready_files(session, pipeline_config: dict, reference_time
              .filter(File.date_obs <= end_date))
 
     target_date = pipeline_config.get('target_date', None)
-    target_date = datetime.strptime(target_date, "%Y-%m-%d") if target_date else None
+    target_date = parse_datetime_str(target_date) if target_date else None
     dt = func.abs(func.timestampdiff(text("second"), File.date_obs, target_date)) if target_date else None
     if target_date:
         ready = ready.order_by(dt.asc())
