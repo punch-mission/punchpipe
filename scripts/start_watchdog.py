@@ -79,4 +79,4 @@ def check_product_counts_watchdog(start_time=datetime.now()-timedelta(days=1), e
                            f"See logs for more exhaustive information.")
 
 if __name__ == "__main__":
-    check_product_counts_watchdog.serve("watchdog", cron="0 0 * * *")
+    check_product_counts_watchdog.serve("watchdog", cron="0 7 * * *", timezone="America/Denver")
