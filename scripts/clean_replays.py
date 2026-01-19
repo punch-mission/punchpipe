@@ -6,7 +6,8 @@ import pandas as pd
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('file')
+    parser.add_argument('file', type=str, help='Input replay request file for cleaning')
+    parser.add_argument('--tolerance', type=int, default=5, help='Block gap tolerance for merging')
     args = parser.parse_args()
 
     input_path = Path(args.file)
@@ -20,7 +21,7 @@ if __name__ == "__main__":
     df_week = df[pd.to_datetime(df['start_time']) >= (datetime.now() - timedelta(days=5))]
     df_week = df_week[pd.to_datetime(df_week['start_time']) <= datetime.now()]
 
-    blocks_science = [8192, 24575]
+    blocks_science = [2048, 24575]
 
     df_buffer = df_week[df_week['start_block'] >= blocks_science[0]]
     df_buffer = df_buffer[df_buffer['start_block'] <= blocks_science[1]]
@@ -39,10 +40,10 @@ if __name__ == "__main__":
         else:
             wrapped_replay = False
 
-        if merged_blocks and (start <= merged_blocks[-1]['end']):
+        if merged_blocks and (start <= merged_blocks[-1]['end'] + args.tolerance):
             last_block = merged_blocks[-1]
 
-            print(f"Overlap found: Block {start}-{end} overlaps with {last_block['start_block']}-{last_block['end']}")
+            print(f"Overlap/proximity found: Block {start}-{end} within tolerance of {last_block['start_block']}-{last_block['end']}")
 
             new_end = max(last_block['end'], end)
             new_length = new_end - last_block['start_block'] + 1
@@ -52,10 +53,10 @@ if __name__ == "__main__":
 
             print(f"Merged into: Block {last_block['start_block']}-{new_end} (length: {new_length})")
 
-        elif merged_blocks and wrapped_replay and (end >= merged_blocks[0]['start_block']):
+        elif merged_blocks and wrapped_replay and (end + args.tolerance >= merged_blocks[0]['start_block']):
             first_block = merged_blocks[0]
 
-            print(f"Overlap found: Block {start}-{end} overlaps with {first_block['start_block']}-{first_block['end']}")
+            print(f"Overlap/proximity found: Block {start}-{end} within tolerance of {first_block['start_block']}-{first_block['end']}")
 
             new_end = max(first_block['end'], end)
             new_length = new_end - start + blocks_science[1] - blocks_science[0] + 1

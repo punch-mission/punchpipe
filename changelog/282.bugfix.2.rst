@@ -1,1 +1,0 @@
-The `cleaner` flow can successfully stop flows that are still running and holding DB locks, and will avoid deleting flows it can successfully cancel.

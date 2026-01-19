@@ -1,3 +1,49 @@
+0.0.14 (2025-12-09)
+===================
+
+New Features
+------------
+
+- Adds the functionality to kill flows stuck in a running state. (`#250 <https://github.com/punch-mission/punchpipe/pull/250>`__)
+- Add `import_export.py` and `upgrade_L0_to_v0e.py` scripts. (`#252 <https://github.com/punch-mission/punchpipe/pull/252>`__)
+- Makes flow scheduling faster by cutting the number of DB round-trips, particularly with calibration file selection in level 1. (`#259 <https://github.com/punch-mission/punchpipe/pull/259>`__)
+- Add a 'no-earlier-than' option for QuickPUNCH scheduling (`#264 <https://github.com/punch-mission/punchpipe/pull/264>`__)
+- Updates Level 3 processing for preliminary products. (`#266 <https://github.com/punch-mission/punchpipe/pull/266>`__)
+- Supports batching of mulitple core flow runs in one Prefect flow (`#267 <https://github.com/punch-mission/punchpipe/pull/267>`__)
+- sync_db_to_files now retrieves a smaller mother lode of data from the DB (`#268 <https://github.com/punch-mission/punchpipe/pull/268>`__)
+- Production of "recent" files can now be directly prioritized over back-processing. (`#279 <https://github.com/punch-mission/punchpipe/pull/279>`__)
+- BADPKTS is set in the L0 flow and tracked in the database (`#280 <https://github.com/punch-mission/punchpipe/pull/280>`__)
+- Support scheduling the new polarized stray light model generation. (`#281 <https://github.com/punch-mission/punchpipe/pull/281>`__)
+- When an L1 scheduler defers more than 1000 files for the same reason, only a summary of those files is logged. (`#282 <https://github.com/punch-mission/punchpipe/pull/282>`__)
+- Adds v0h upgrade script for L0 files (`#283 <https://github.com/punch-mission/punchpipe/pull/283>`__)
+- Supports interpolating between NFI vignetting maps (`#284 <https://github.com/punch-mission/punchpipe/pull/284>`__)
+- Support configuring the L2 mosaic rolloff (`#288 <https://github.com/punch-mission/punchpipe/pull/288>`__)
+- Enabled QuickPUNCH F-corona modeling. (`#296 <https://github.com/punch-mission/punchpipe/pull/296>`__)
+- Adds `speedster`, a `launcher` alternative that can achieve ~5x throughput for short-running flows (`#304 <https://github.com/punch-mission/punchpipe/pull/304>`__)
+
+
+Bug Fixes
+---------
+
+- Set processing_flow for L0 files. (`#252 <https://github.com/punch-mission/punchpipe/pull/252>`__)
+- Fixes a few crashes (`#252 <https://github.com/punch-mission/punchpipe/pull/252>`__)
+- Fix a crash in stray light selection (`#264 <https://github.com/punch-mission/punchpipe/pull/264>`__)
+- Adds DB index, which seems to avoid some locking timeouts (`#268 <https://github.com/punch-mission/punchpipe/pull/268>`__)
+- Misc bugfixes for L3 flows (`#269 <https://github.com/punch-mission/punchpipe/pull/269>`__)
+- The database `date_obs` and `date_created` are updated to match what's written in the file at the end of each flow. (`#270 <https://github.com/punch-mission/punchpipe/pull/270>`__)
+- Handling of outlier limits files in L0 is fixed when there are multiple applicable limits files (with different dates or versions). (`#280 <https://github.com/punch-mission/punchpipe/pull/280>`__)
+- The `cleaner` flow can successfully stop flows that are still running and holding DB locks, and will avoid deleting flows it can successfully cancel. (`#282 <https://github.com/punch-mission/punchpipe/pull/282>`__)
+- Avoid a scheduling crash when there are no stray light models in the DB (`#282 <https://github.com/punch-mission/punchpipe/pull/282>`__)
+- The LQ CNN scheduler properly stops if a CNN flow is already pending (`#294 <https://github.com/punch-mission/punchpipe/pull/294>`__)
+- Darks are no longer checked for outlier images. (`#299 <https://github.com/punch-mission/punchpipe/pull/299>`__)
+
+
+Internal Changes
+----------------
+
+- Update pre-commit. (`#274 <https://github.com/punch-mission/punchpipe/pull/274>`__)
+
+
 Version 0.0.13: August 28, 2025
 ===============================
 

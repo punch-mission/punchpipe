@@ -1,0 +1,1 @@
+Prevents duplicate entries in the database for level 0 images.

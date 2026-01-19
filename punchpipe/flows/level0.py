@@ -850,7 +850,7 @@ def form_preliminary_wcs(soc_spacecraft_id, metadata, plate_scale):
         celestial_wcs.wcs.set_pv([(2, 1, 0.0)])  # TODO: makes sure this is reasonably set
     celestial_wcs.wcs.ctype = f"RA--{projection}", f"DEC-{projection}"
     celestial_wcs.wcs.cunit = "deg", "deg"
-    return calculate_helio_wcs_from_celestial(celestial_wcs, Time(metadata['datetime']), (2048, 2048))[0]
+    return calculate_helio_wcs_from_celestial(celestial_wcs, Time(metadata['datetime']), (2048, 2048))
 
 
 def form_single_image_caller(args):
@@ -932,7 +932,8 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                     'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
                     'start_block': ordered_image_packet_entries[0].flash_block - 1,
                     'replay_length': ordered_image_packet_entries[-1].flash_block
-                                     - ordered_image_packet_entries[0].flash_block + 1 + 2})
+                                     - ordered_image_packet_entries[0].flash_block + 1 + 2,
+                    'note': skip_reason})
         except Exception as e:
             skip_image = True
             skip_reason = f"Image could not find all packets, {e}"
@@ -951,7 +952,8 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                     'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
                     'start_block': ordered_image_packet_entries[0].flash_block - 1,
                     'replay_length': ordered_image_packet_entries[-1].flash_block
-                                     - ordered_image_packet_entries[0].flash_block + 1 + 2})
+                                     - ordered_image_packet_entries[0].flash_block + 1 + 2,
+                    'note': skip_reason})
         except Exception as e:
             skip_image = True
             skip_reason = f"Image decoding failed {e}"
@@ -960,7 +962,8 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                 'start_time': ordered_image_packet_entries[0].timestamp.isoformat(),
                 'start_block': ordered_image_packet_entries[0].flash_block - 1,
                 'replay_length': ordered_image_packet_entries[-1].flash_block
-                                 - ordered_image_packet_entries[0].flash_block + 1 + 2})
+                                 - ordered_image_packet_entries[0].flash_block + 1 + 2,
+                'note': skip_reason})
             traceback.print_exc()
 
     # now that we have the image we're ready to collect the metadat and write it to file
@@ -985,7 +988,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
             fits_info['NUM_PCKT'] = len(image_packets_entries)
             fits_info['PCKTBYTE'] = len(np.concatenate(ordered_image_content).tobytes())
             file_type = fits_info["TYPECODE"]
-            print(file_type)
+
             preliminary_wcs = form_preliminary_wcs(
                 str(soc_spacecraft_id),
                 position_info,
@@ -1015,7 +1018,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                 cube.meta.history.add_now("form_single_image", f"Outlier detection with {limit_filename}")
                 break
             if selected_limits is None:
-                if len(outlier_limits) and file_type != 'PX':
+                if len(outlier_limits) and file_type in ['CR', 'PM', 'PZ', 'PP']:
                     raise RuntimeError(f"Could not find outlier limits for {get_base_file_name(cube)}")
                 is_outlier = False
             else:
@@ -1041,38 +1044,45 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
 
             meta['OUTLIER'] = int(is_outlier)
             meta['BADPKTS'] = int(bad_packets)
+            
+            # if we don't have bad packets we can make the image
+            # if we have bad packets but the replay delay has been met, then we go ahead and make the image
+            # otherwise (when we have bad packets and could get a replay), we just skip and will make the image later
+            replay_delay = timedelta(days=pipeline_config['flows']['level0']['options'].get('days_to_wait_for_replay',
+                                                                                            7))
+            if not bad_packets or (bad_packets and datetime.now(UTC) - date_obs > replay_delay):
+                l0_db_entry = File(level="0",
+                                   polarization='C' if file_type[0] == 'C' else file_type[1],
+                                   file_type=file_type,
+                                   observatory=str(soc_spacecraft_id),
+                                   file_version=pipeline_config['file_version'],
+                                   software_version=__version__,
+                                   outlier=is_outlier,
+                                   bad_packets=bad_packets,
+                                   date_created=parse_datetime_str(fits_info['DATE']).replace(tzinfo=UTC).astimezone(),
+                                   date_obs=date_obs,
+                                   date_beg=parse_datetime_str(fits_info['DATE-BEG']),
+                                   date_end=parse_datetime_str(fits_info['DATE-END']),
+                                   state="created",
+                                   processing_flow=processing_flow_id,
+                                   crota=cube.meta['CROTA'].value)
 
-            # we also need to add it to the database
-            l0_db_entry = File(level="0",
-                               polarization='C' if file_type[0] == 'C' else file_type[1],
-                               file_type=file_type,
-                               observatory=str(soc_spacecraft_id),
-                               file_version=pipeline_config['file_version'],
-                               software_version=__version__,
-                               outlier=is_outlier,
-                               bad_packets=bad_packets,
-                               date_created=parse_datetime_str(fits_info['DATE']).replace(tzinfo=UTC).astimezone(),
-                               date_obs=date_obs,
-                               date_beg=parse_datetime_str(fits_info['DATE-BEG']),
-                               date_end=parse_datetime_str(fits_info['DATE-END']),
-                               state="created",
-                               processing_flow=processing_flow_id,
-                               crota=cube.meta['CROTA'].value)
-
-            # finally, time to write to file
-            out_path = os.path.join(l0_db_entry.directory(pipeline_config['root']),
-                                    get_base_file_name(cube)) + ".fits"
-            os.makedirs(os.path.dirname(out_path), exist_ok=True)
-            write_ndcube_to_fits(cube, out_path, overwrite=True, skip_stats=True)
-            session.add(l0_db_entry)
-            session.commit()
+                # finally, time to write to file
+                out_path = os.path.join(l0_db_entry.directory(pipeline_config['root']),
+                                        get_base_file_name(cube)) + ".fits"
+                os.makedirs(os.path.dirname(out_path), exist_ok=True)
+                write_ndcube_to_fits(cube, out_path, overwrite=False, skip_stats=True)
+                session.add(l0_db_entry)
+                session.commit()
+            else:  # we skipped because there are bad packets and it's possible we'll get a replay
+                skip_image = True
+                skip_reason = "Waiting for replay"
         except Exception as e:
             session.rollback()
             skip_image = True
             skip_reason = f"Could not make metadata and write image, {e}"
             trace = traceback.format_exc()
             skip_reason += '\n' + trace
-            print(trace)
 
     # go back and do some cleanup if we skipped the image
     if skip_image:

@@ -56,10 +56,12 @@ def reset_revivable_flows(logger, session, pipeline_config):
         # Handle the case that both L2 and LQ have been set to 'revivable'. If the LQ shows up first in this loop and
         # we set the L1's state to 'created', we don't want to later set it to 'quickpunched' when the L2 shows up.
         if processing_flow.flow_type not in ('construct_stray_light',
+                                             'construct_dynamic_stray_light'
                                              'construct_f_corona_background',
-                                             'construct_starfield_background'):
+                                             'construct_starfield_background',
+                                             'levelq_CFM',):
             parent.state = "created"
-        unique_parents.add(parent.file_id)
+            unique_parents.add(parent.file_id)
     logger.info(f"Reset {len(unique_parents)} parent files")
 
     unique_children = {child for rel, parent, child, flow in results}
@@ -207,6 +209,7 @@ async def cancel_running_prefect_flows_before_cutoff(
 async def fail_stuck_flows(logger, session, pipeline_config, state, update_prefect=False):
     amount_of_patience = pipeline_config['control']['cleaner'].get(f'fail_{state}_flows_after_minutes', -1)
     if amount_of_patience < 0:
+        logger.warning(f"There is no fail_{state}_flows_after_minutes option in the config, so ending without checking.")
         return
 
     # First, we get the flows that are stuck. This should happen before the flows are killed, in case the flow's
