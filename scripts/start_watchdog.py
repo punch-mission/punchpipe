@@ -2,6 +2,7 @@ import itertools
 from datetime import datetime, timedelta
 
 from prefect import flow, get_run_logger
+from prefect.schedules import Cron
 
 from punchpipe.control.db import File
 from punchpipe.control.util import get_database_session, load_pipeline_configuration
@@ -79,4 +80,4 @@ def check_product_counts_watchdog(start_time=datetime.now()-timedelta(days=1), e
                            f"See logs for more exhaustive information.")
 
 if __name__ == "__main__":
-    check_product_counts_watchdog.serve("watchdog", cron="0 7 * * *", timezone="America/Denver")
+    check_product_counts_watchdog.serve("watchdog", schedule=Cron("0 7 * * *", timezone="America/Denver"))
