@@ -1044,7 +1044,7 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
 
             meta['OUTLIER'] = int(is_outlier)
             meta['BADPKTS'] = int(bad_packets)
-            
+
             # if we don't have bad packets we can make the image
             # if we have bad packets but the replay delay has been met, then we go ahead and make the image
             # otherwise (when we have bad packets and could get a replay), we just skip and will make the image later
