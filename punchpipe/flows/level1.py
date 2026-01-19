@@ -1,6 +1,8 @@
 import json
 import typing as t
 from datetime import datetime, timedelta
+from itertools import pairwise
+from collections import defaultdict
 
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
@@ -224,69 +226,75 @@ DYNAMIC_STRAY_LIGHT_CORRESPONDING_TYPES = {"M": "TM",
                                            "R": "TR",}
 
 
-def get_two_closest_stray_light(level0_file, session=None, max_distance: timedelta = None, dynamic=False):
-    if dynamic:
-        model_type = DYNAMIC_STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type[1]]
-    else:
-        model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type[1]]
-    best_models = (session.query(File, dt := func.abs(func.timestampdiff(
-                        text("second"), File.date_obs, level0_file.date_obs)))
-                  .filter(File.file_type == model_type)
-                  .filter(File.observatory == level0_file.observatory)
-                  .filter(File.state == "created"))
-    if max_distance:
-        best_models = best_models.filter(dt < max_distance.total_seconds())
-    best_models = best_models.order_by(dt.asc()).limit(2).all()
-    if len(best_models) < 2:
-        return None, None
-    # Drop the dt values
-    best_models = [x[0] for x in best_models]
-    if best_models[1].date_obs < best_models[0].date_obs:
-        best_models = best_models[::-1]
-    return best_models
+def get_two_closest_stray_light(X_files, session=None, max_distance: timedelta = None, dynamic=False):
+    # Get all models
+    models = (session.query(File)
+              .filter(File.file_type.startswith('T' if dynamic else 'S'))
+              .filter(File.state == 'created')
+              .order_by(File.date_obs.asc()).all())
+    models_by_pol_obs = defaultdict(list)
+    for model in models:
+        models_by_pol_obs[model.polarization + model.observatory].append(model)
+    results = []
+    for X_file in X_files:
+        models = models_by_pol_obs[X_file.polarization + X_file.observatory]
+        if max_distance:
+            models = [m for m in models if abs(m.date_obs - X_file.date_obs) < max_distance]
+        models = sorted(models, key=lambda m: abs(m.date_obs - X_file.date_obs))
+        best_models = models[:2]
+        if len(best_models) < 2:
+            results.append((None, None))
+        else:
+            if best_models[1].date_obs < best_models[0].date_obs:
+                best_models = best_models[::-1]
+            results.append(best_models)
+    return results
 
 
-def get_two_best_stray_light(level0_file, session=None, dynamic=False):
-    if dynamic:
-        model_type = DYNAMIC_STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type[1]]
-    else:
-        model_type = STRAY_LIGHT_CORRESPONDING_TYPES[level0_file.file_type[1]]
-    before_model = (session.query(File)
-                    .filter(File.file_type == model_type)
-                    .filter(File.observatory == level0_file.observatory)
-                    .filter(File.date_obs < level0_file.date_obs)
-                    .order_by(File.date_obs.desc()).first())
-    after_model = (session.query(File)
-                   .filter(File.file_type == model_type)
-                   .filter(File.observatory == level0_file.observatory)
-                   .filter(File.date_obs > level0_file.date_obs)
-                   .order_by(File.date_obs.asc()).first())
-    if before_model is None or after_model is None:
-        # We're waiting for the scheduler to fill in here and tell us what's what
-        return None, None
-    elif before_model.state == "created" and after_model.state == "created":
-        # Good to go!
-        return before_model, after_model
-    elif before_model.state == "impossible" or after_model.state == "impossible":
-        # Flexible mode
-        dt = func.abs(func.timestampdiff(text("second"), File.date_obs, level0_file.date_obs))
-        models = (session.query(File, dt)
-                  .filter(File.file_type == model_type)
-                  .filter(File.observatory == level0_file.observatory)
-                  .filter(File.level == '1')
-                  .filter(File.state != "impossible")
-                  .order_by(dt.asc())
-                  .limit(2).all())
-        # Drop the dt values
-        before_model, after_model = [x[0] for x in models]
+def get_two_best_stray_light(X_files, session=None, dynamic=False):
+    # Get all models
+    models = (session.query(File)
+              .filter(File.file_type.startswith('T' if dynamic else 'S'))
+              .order_by(File.date_obs.asc()).all())
+    models_by_pol_obs = defaultdict(list)
+    for model in models:
+        models_by_pol_obs[model.polarization + model.observatory].append(model)
+    results = []
+    for X_file in X_files:
+        models = models_by_pol_obs[X_file.polarization + X_file.observatory]
+        for before_model, after_model in pairwise(models):
+            # All the models are sorted by date_obs, so there will be exactly one pair where the first is before our
+            # file to be calibrated and the second is after
+            if before_model.date_obs < X_file.date_obs < after_model.date_obs:
+                break
+        else:
+            # We didn't find an appropriate pair, so we must still be waiting for the scheduler to fill in here and
+            # tell us what's what
+            results.append((None, None))
+            continue
+
         if before_model.state == "created" and after_model.state == "created":
             # Good to go!
-            return before_model, after_model
+            results.append((before_model, after_model))
+        elif before_model.state == "impossible" or after_model.state == "impossible":
+            # Flexible mode---since we'll never be able to generate the "intended" models for this file, let's go for
+            # the two closest possible models
+            models = [m for m in models if m.state != "impossible"]
+            models = sorted(models, key=lambda m: abs(m.date_obs - X_file.date_obs))
+            before_model, after_model = models[:2]
+            if after_model.date_obs < before_model.date_obs:
+                before_model, after_model = after_model, before_model
+
+            if before_model.state == "created" and after_model.state == "created":
+                # Good to go!
+                results.append((before_model, after_model))
+            else:
+                # Wait for files to generate
+                results.append((None, None))
         else:
-            # Wait for files to generate
-            return None, None
-    # If we're here, we're waiting for at least one model to generate, but we do expect it to do so
-    return None, None
+            # If we're here, we're waiting for at least one model to generate, but we do expect it to do so eventually
+            results.append((None, None))
+    return results
 
 
 def get_first_last_stray_light(session, dynamic=False):
@@ -461,12 +469,10 @@ def level1_early_process_flow(flow_id: int | list[int], pipeline_config_path=Non
 def level1_middle_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
     start_date, end_date = get_first_last_stray_light(session, dynamic=True)
-    parent = aliased(File)
     child = aliased(File)
-    child_exists_subquery = (session.query(parent)
-                             .join(FileRelationship, FileRelationship.parent == parent.file_id)
+    child_exists_subquery = (session.query(FileRelationship)
                              .join(child, FileRelationship.child == child.file_id)
-                             .filter(parent.file_id == File.file_id)
+                             .filter(FileRelationship.parent == File.file_id)
                              .filter(child.file_type.in_(SCIENCE_LEVEL1_MIDDLE_OUTPUT_TYPE_CODES))
                              .exists())
     ready = (session.query(File)
@@ -489,9 +495,10 @@ def level1_middle_query_ready_files(session, pipeline_config: dict, reference_ti
     actually_ready = []
     missing_stray_light = []
 
-    for f in ready:
-        best_stray_light = list(get_two_best_stray_light(f, session=session, dynamic=True))
-        if best_stray_light == [None, None]:
+    best_stray_lights = get_two_best_stray_light(ready, session=session, dynamic=True)
+
+    for f, best_stray_light in zip(ready, best_stray_lights):
+        if best_stray_light == (None, None):
             missing_stray_light.append(f)
             continue
         f.dynamic_stray_light = best_stray_light
@@ -581,12 +588,10 @@ def level1_middle_process_flow(flow_id: int | list[int], pipeline_config_path=No
 def level1_late_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
     start_date, end_date = get_first_last_stray_light(session)
-    parent = aliased(File)
     child = aliased(File)
-    child_exists_subquery = (session.query(parent)
-                             .join(FileRelationship, FileRelationship.parent == parent.file_id)
+    child_exists_subquery = (session.query(FileRelationship)
                              .join(child, FileRelationship.child == child.file_id)
-                             .filter(parent.file_id == File.file_id)
+                             .filter(FileRelationship.parent == File.file_id)
                              .filter(child.file_type.in_(SCIENCE_LEVEL1_LATE_OUTPUT_TYPE_CODES))
                              .exists())
     ready = (session.query(File)
@@ -609,14 +614,14 @@ def level1_late_query_ready_files(session, pipeline_config: dict, reference_time
 
     distortion_paths = get_distortion_paths(ready, pipeline_config, session)
     psf_paths = get_psf_model_paths(ready, pipeline_config, session)
+    best_stray_lights = get_two_best_stray_light(ready, session=session, dynamic=False)
     actually_ready = []
     missing_stray_light = []
     missing_distortion = []
     missing_psf = []
 
-    for f, distortion_path, psf_path in zip(ready, distortion_paths, psf_paths):
-        best_stray_light = list(get_two_best_stray_light(f, session=session))
-        if best_stray_light == [None, None]:
+    for f, distortion_path, psf_path, best_stray_light in zip(ready, distortion_paths, psf_paths, best_stray_lights):
+        if best_stray_light == (None, None):
             missing_stray_light.append(f)
             continue
         if distortion_path is None:
@@ -738,13 +743,11 @@ def level1_late_process_flow(flow_id: int | list[int], pipeline_config_path=None
 @task(cache_policy=NO_CACHE)
 def level1_quick_query_ready_files(session, pipeline_config: dict, reference_time=None, max_n=9e99):
     logger = get_run_logger()
-    parent = aliased(File)
     child = aliased(File)
     no_earlier_than = pipeline_config["flows"]["level1_quick"].get("no-earlier-than", "1970-01-01")
-    child_exists_subquery = (session.query(parent)
-                             .join(FileRelationship, FileRelationship.parent == parent.file_id)
+    child_exists_subquery = (session.query(FileRelationship)
                              .join(child, FileRelationship.child == child.file_id)
-                             .filter(parent.file_id == File.file_id)
+                             .filter(FileRelationship.parent == File.file_id)
                              .filter(child.file_type.in_(SCIENCE_LEVEL1_QUICK_OUTPUT_TYPE_CODES))
                              .exists())
     ready = (session.query(File)
@@ -761,8 +764,8 @@ def level1_quick_query_ready_files(session, pipeline_config: dict, reference_tim
     missing_psf = []
     distortion_paths = get_distortion_paths(ready, pipeline_config, session)
     psf_paths = get_psf_model_paths(ready, pipeline_config, session)
-    for f, distortion_path, psf_path in zip(ready, distortion_paths, psf_paths):
-        closest_stray_light = list(get_two_closest_stray_light(f, session=session))
+    stray_lights = get_two_closest_stray_light(ready, session=session, dynamic=False)
+    for f, distortion_path, psf_path, closest_stray_light in zip(ready, distortion_paths, psf_paths, stray_lights):
         if closest_stray_light == [None, None]:
             missing_stray_light.append(f)
             continue

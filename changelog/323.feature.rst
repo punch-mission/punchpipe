@@ -1,0 +1,1 @@
+L1_{middle,late,quick} scheduling is now much quicker because stray light model selection is done in Python, rather than many DB calls.
