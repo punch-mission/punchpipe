@@ -62,8 +62,7 @@ def check_product_counts_watchdog(start_time=datetime.now()-timedelta(days=1), e
 
     session = get_database_session()
 
-    has_error = False
-
+    error_product_codes = []
     configuration = load_pipeline_configuration()
     for level_codes in [LEVEL_0_CODES, LEVEL_1_CODES, LEVEL_2_CODES, LEVEL_3_CODES, LEVEL_Q_CODES]:
         counts = get_product_counts(level_codes, start_time, end_time, session=session)
@@ -71,12 +70,13 @@ def check_product_counts_watchdog(start_time=datetime.now()-timedelta(days=1), e
             minimum_expected_count = get_minimum_count(configuration, product_code)
             if count < minimum_expected_count:
                 logger.error(f"{product_code} has {count} files instead >= {minimum_expected_count}!")
-                has_error = True
+                error_product_codes.append(product_code)
             else:
                 logger.info(f"{product_code} has {count} files.")
 
-    if has_error:
-        raise RuntimeError("Not all files were found. See logs.")
+    if error_product_codes:
+        raise RuntimeError(f"Files were missing for the following codes: {error_product_codes}. "
+                           f"See logs for more exhaustive information.")
 
 if __name__ == "__main__":
     check_product_counts_watchdog.serve("watchdog", cron="0 0 * * *")
