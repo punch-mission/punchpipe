@@ -421,7 +421,7 @@ def level1_early_construct_flow_info(level0_files: list[File], level1_files: lis
             "quartic_coefficient_path": best_quartic_model.filename(),
             "gain_bottom": ccd_parameters['gain_bottom'],
             "gain_top": ccd_parameters['gain_top'],
-            "despike_neighbors": despike_neighbors,
+            "despike_neighbors": [n.filename() for n in despike_neighbors],
             "mask_path": mask_function.filename().replace('.fits', '.bin'),
         }
     )

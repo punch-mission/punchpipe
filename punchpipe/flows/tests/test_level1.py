@@ -39,6 +39,7 @@ def session_fn(session):
                        polarization='M',
                        file_version='none',
                        software_version='none',
+                       crota=90,
                        date_obs=datetime.now(UTC))
 
     level1_file = File(level="1",
@@ -325,6 +326,7 @@ def test_level1_early_construct_file_info():
                        state='created',
                        file_version='none',
                        software_version='none',
+                       crota=90,
                        date_obs=datetime.now(UTC))]
     constructed_file_info = level1_early_construct_file_info(level0_file, pipeline_config)[0]
     assert constructed_file_info.level == "1"
@@ -347,6 +349,7 @@ def test_level1_early_construct_file_info_clear():
                        file_version='none',
                        software_version='none',
                        polarization='C',
+                       crota=90,
                        date_obs=datetime.now(UTC))]
     x_file = level1_early_construct_file_info(level0_file, pipeline_config)[0]
     assert x_file.file_type == 'X' + level0_file[0].file_type[1:]
@@ -368,6 +371,7 @@ def test_level1_middle_construct_file_info():
                        state='created',
                        file_version='none',
                        software_version='none',
+                       crota=90,
                        date_obs=datetime.now(UTC))]
     constructed_file_info = level1_middle_construct_file_info(input_file, pipeline_config)[0]
     assert constructed_file_info.level == "1"
@@ -389,6 +393,7 @@ def test_level1_late_construct_file_info():
                        state='created',
                        file_version='none',
                        software_version='none',
+                       crota=90,
                        date_obs=datetime.now(UTC))]
     constructed_file_info = level1_late_construct_file_info(input_file, pipeline_config)[0]
     assert constructed_file_info.level == "1"
@@ -410,10 +415,22 @@ def test_level1_early_construct_flow_info(db, prefect_test_fixture):
                        state='created',
                        file_version='none',
                        software_version='none',
+                       crota=90,
                        date_obs=datetime.now(UTC))]
     level0_file[0].quartic_model = level0_file[0]
     level0_file[0].vignetting_functions = level0_file[0], None
     level0_file[0].mask_file = level0_file[0]
+
+    despike_neighbors = [File(level="0",
+                       file_type=file_type,
+                       observatory='2',
+                       state='created',
+                       file_version='none',
+                       software_version='none',
+                       crota=90,
+                       date_obs=datetime.now(UTC)) for file_type in ["PM", "PZ", "PZ", "PP", "PP", "CR"]]
+
+    level0_file[0].despike_neighbors = despike_neighbors
 
     level1_file = level1_early_construct_file_info(level0_file, pipeline_config)
     flow_info = level1_early_construct_flow_info(level0_file, level1_file, pipeline_config, session=db)
@@ -434,6 +451,7 @@ def test_level1_middle_construct_flow_info(db, prefect_test_fixture):
                        state='created',
                        file_version='none',
                        software_version='none',
+                       crota=90,
                        date_obs=datetime.now(UTC))]
 
     level0_file[0].dynamic_stray_light = level0_file[0], level0_file[0]
@@ -457,6 +475,7 @@ def test_level1_late_construct_flow_info(db, prefect_test_fixture):
                        state='created',
                        file_version='none',
                        software_version='none',
+                       crota=90,
                        date_obs=datetime.now(UTC))]
 
     level0_file[0].psf_path = ""
