@@ -87,10 +87,8 @@ def get_polarization_sequence(f: File, session=None, crota_tolerance_degree=0.01
     neighbors = (session.query(File)
                  .filter(File.level == "0")
                  .filter(File.observatory == f.observatory)
-                 .filter(or_(and_(File.crota > f.crota - crota_tolerance_degree,
-                                  File.crota < f.crota + crota_tolerance_degree),
-                            and_(File.crota > f.crota - (360 - crota_tolerance_degree),
-                                 File.crota < f.crota + 360 - crota_tolerance_degree)))
+                 .filter(and_(File.crota > f.crota - crota_tolerance_degree,
+                              File.crota < f.crota + crota_tolerance_degree))
                  .filter(File.date_obs != f.date_obs)  # do not include the image itself in the pol. sequence neighbors
                  .filter(File.date_obs > f.date_obs - timedelta(minutes=time_tolerance_minutes))
                  .filter(File.date_obs < f.date_obs + timedelta(minutes=time_tolerance_minutes)).all())
