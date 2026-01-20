@@ -26,8 +26,7 @@ if __name__ == "__main__":
 
     existing_files = session.query(File).filter(File.level=="0").filter(File.crota.is_(None)).all()
 
-    for file in existing_files[:5]:
-        print(file.file_id)
+    for file in existing_files:
         path = os.path.join(file.directory("/d0/punchsoc/real_data/"), file.filename()) # TODO this is only for 190
         header = fits.getheader(path, 1)
         file.crota = header["CROTA"]
