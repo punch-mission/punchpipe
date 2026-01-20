@@ -24,6 +24,7 @@ class File(Base):
     outlier = Column(Boolean, nullable=False, default=False)
     bad_packets = Column(Boolean, nullable=False, default=False)
     processing_flow = Column(Integer, nullable=True)
+    crota = Column(Float, nullable=True)
 
     def summary(self):
         return (

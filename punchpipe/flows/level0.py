@@ -1064,7 +1064,8 @@ def form_single_image(spacecraft, t, defs, apid_name2num, pipeline_config, space
                                    date_beg=parse_datetime_str(fits_info['DATE-BEG']),
                                    date_end=parse_datetime_str(fits_info['DATE-END']),
                                    state="created",
-                                   processing_flow=processing_flow_id)
+                                   processing_flow=processing_flow_id,
+                                   crota=cube.meta['CROTA'].value)
 
                 # finally, time to write to file
                 out_path = os.path.join(l0_db_entry.directory(pipeline_config['root']),
