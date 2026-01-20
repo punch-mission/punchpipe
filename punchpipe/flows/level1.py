@@ -51,7 +51,7 @@ def level1_early_query_ready_files(session, pipeline_config: dict, reference_tim
     missing_sequence = []
     for f, quartic_model, vignetting_function, mask_file in zip(
             ready, quartic_models, vignetting_functions, mask_files):
-        despike_neighbors = get_polarization_sequence(f)
+        despike_neighbors = get_polarization_sequence(f, session=session)
 
         if quartic_model is None:
             missing_quartic.append(f)
