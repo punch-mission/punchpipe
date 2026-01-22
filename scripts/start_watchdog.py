@@ -56,7 +56,13 @@ def get_product_counts(product_codes, start_time, end_time, session=None):
      for product_code in product_codes}
 
 @flow
-def check_product_counts_watchdog(start_time=datetime.now()-timedelta(days=1), end_time=datetime.now()):
+def check_product_counts_watchdog(start_time=None, end_time=None):
+    if start_time is None:
+        start_time = datetime.now()-timedelta(days=1)
+
+    if end_time is None:
+        end_time = datetime.now()
+
     logger = get_run_logger()
 
     logger.info(f"Checking product counts for {start_time} -> {end_time}")
