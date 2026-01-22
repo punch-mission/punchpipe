@@ -7,7 +7,7 @@ from collections import defaultdict
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from punchbowl.level1.flow import level1_early_core_flow, level1_late_core_flow, level1_middle_core_flow
-from sqlalchemy import and_, func, or_, text
+from sqlalchemy import and_, func, text
 from sqlalchemy.orm import aliased
 
 from punchpipe import __version__
