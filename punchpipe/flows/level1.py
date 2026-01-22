@@ -7,7 +7,7 @@ from collections import defaultdict
 from prefect import flow, get_run_logger, task
 from prefect.cache_policies import NO_CACHE
 from punchbowl.level1.flow import level1_early_core_flow, level1_late_core_flow, level1_middle_core_flow
-from sqlalchemy import and_, func, or_, text
+from sqlalchemy import and_, func, text
 from sqlalchemy.orm import aliased
 
 from punchpipe import __version__
@@ -89,6 +89,7 @@ def get_polarization_sequence(f: File, session=None, crota_tolerance_degree=0.01
                  .filter(File.observatory == f.observatory)
                  .filter(and_(File.crota > f.crota - crota_tolerance_degree,
                               File.crota < f.crota + crota_tolerance_degree))
+                 .filter(File.bad_packets == False)   # noqa: E712
                  .filter(File.date_obs != f.date_obs)  # do not include the image itself in the pol. sequence neighbors
                  .filter(File.date_obs > f.date_obs - timedelta(minutes=time_tolerance_minutes))
                  .filter(File.date_obs < f.date_obs + timedelta(minutes=time_tolerance_minutes)).all())
