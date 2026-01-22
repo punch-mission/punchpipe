@@ -1,0 +1,1 @@
+Fixes so the watchdog updates its date window based on the current day.
